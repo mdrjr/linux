@@ -268,7 +268,6 @@ config BACKPORT_USB_NET_CDC_NCM
 	    * Ericsson F5521gw Mobile Broadband Module
 
 config BACKPORT_USB_NET_HUAWEI_CDC_NCM
-	depends on n
 	tristate "Huawei NCM embedded AT channel support"
 	depends on !USB_NET_HUAWEI_CDC_NCM
 	depends on BACKPORT_USB_USBNET
