@@ -356,7 +356,10 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
 		src->ge2d_color_index = cfg->src_format;
 		src->bpp = bpp(cfg->src_format);
 		
-	    if(cfg->src_planes[0].addr){
+	    if(cfg->src_planes[0].addr &&
+			!cfg->src_planes[1].addr &&
+			!cfg->src_planes[2].addr &&
+			!cfg->src_planes[3].addr){
 	        src->canvas_index = index;
     		canvas_config(index++,
     			  cfg->src_planes[0].addr,
@@ -365,12 +368,23 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
                   CANVAS_ADDR_NOWRAP,
 		          CANVAS_BLKMODE_LINEAR);
 	    }
+		else
+		{
+			src->canvas_index = index;
+			canvas_config(index++,
+				cfg->src_planes[0].addr,
+				cfg->src_planes[0].w,
+				cfg->src_planes[0].h,
+				CANVAS_ADDR_NOWRAP,
+				CANVAS_BLKMODE_LINEAR);
+		}
+
 		/* multi-src_planes */
 		if(cfg->src_planes[1].addr){
             src->canvas_index |= index<<8;
             canvas_config(index++,
             		  cfg->src_planes[1].addr,
-            		  cfg->src_planes[1].w * src->bpp / 8,
+            		  cfg->src_planes[1].w,
             		  cfg->src_planes[1].h,
                 	  CANVAS_ADDR_NOWRAP,
                   	  CANVAS_BLKMODE_LINEAR);
@@ -379,7 +393,7 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
 		    src->canvas_index |= index<<16;
     		canvas_config(index++,
     				  cfg->src_planes[2].addr,
-					  cfg->src_planes[2].w * src->bpp / 8,
+					  cfg->src_planes[2].w,
 					  cfg->src_planes[2].h,
 	                  CANVAS_ADDR_NOWRAP,
 			          CANVAS_BLKMODE_LINEAR);
@@ -388,7 +402,7 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
             src->canvas_index |= index<<24;
 		    canvas_config(index++,
     				  cfg->src_planes[3].addr,
-					  cfg->src_planes[3].w * src->bpp / 8,
+					  cfg->src_planes[3].w,
 					  cfg->src_planes[3].h,
                 	  CANVAS_ADDR_NOWRAP,
 		          	  CANVAS_BLKMODE_LINEAR);
@@ -402,7 +416,10 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
 //		dst->canvas_index = (index+3)<<24|(index+2)<<16|(index+1)<<8|index;
 		dst->ge2d_color_index = cfg->dst_format;
 		dst->bpp = bpp(cfg->dst_format);
-		if(cfg->dst_planes[0].addr){
+		if(cfg->dst_planes[0].addr &&
+			!cfg->dst_planes[1].addr &&
+			!cfg->dst_planes[2].addr &&
+			!cfg->dst_planes[3].addr){
 		    dst->canvas_index = index;
 		    canvas_config(index++ & 0xff,
 			  cfg->dst_planes[0].addr,
@@ -411,14 +428,23 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
               CANVAS_ADDR_NOWRAP,
 	          CANVAS_BLKMODE_LINEAR);
 	    }
-
+		else
+		{
+			dst->canvas_index = index;
+			canvas_config(index++ & 0xff,
+				cfg->dst_planes[0].addr,
+				cfg->dst_planes[0].w,
+				cfg->dst_planes[0].h,
+				CANVAS_ADDR_NOWRAP,
+				CANVAS_BLKMODE_LINEAR);
+		}
 
 		/* multi-src_planes */
         if(cfg->dst_planes[1].addr){
             dst->canvas_index |= index<<8;
             canvas_config(index++,
                   cfg->dst_planes[1].addr,
-                  cfg->dst_planes[1].w * dst->bpp / 8,
+                  cfg->dst_planes[1].w,
                   cfg->dst_planes[1].h,
                   CANVAS_ADDR_NOWRAP,
                   CANVAS_BLKMODE_LINEAR);
@@ -427,7 +453,7 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
             dst->canvas_index |= index<<16;	          	
             canvas_config(index++,
                 cfg->dst_planes[2].addr,
-                cfg->dst_planes[2].w * dst->bpp / 8,
+                cfg->dst_planes[2].w,
                 cfg->dst_planes[2].h,
                 CANVAS_ADDR_NOWRAP,
                   CANVAS_BLKMODE_LINEAR);
@@ -436,7 +462,7 @@ static void build_ge2d_config(config_para_t *cfg, src_dst_para_t *src, src_dst_p
             dst->canvas_index |= index<<24;			        
             canvas_config(index++,
         		  cfg->dst_planes[3].addr,
-        		  cfg->dst_planes[3].w * dst->bpp / 8,
+        		  cfg->dst_planes[3].w,
         	  	  cfg->dst_planes[3].h,
             	  CANVAS_ADDR_NOWRAP,
               	  CANVAS_BLKMODE_LINEAR);
