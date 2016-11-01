@@ -21,6 +21,8 @@
 #include <ion_priv.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/uaccess.h>
+#include "meson_ion.h"
 
 MODULE_DESCRIPTION("AMLOGIC ION driver");
 MODULE_LICENSE("GPL");
@@ -43,6 +45,56 @@ static struct ion_heap **heaps;
 static struct ion_platform_heap my_ion_heap[MAX_HEAP];
 
 static struct resource memobj;
+
+static int meson_ion_get_phys(struct ion_client *client, unsigned long arg)
+{
+	struct meson_phys_data data;
+	struct ion_handle *handle;
+	size_t len;
+	ion_phys_addr_t addr;
+	int ret;
+
+	if (copy_from_user(&data, (void __user *)arg,
+		sizeof(struct meson_phys_data))) {
+		return -EFAULT;
+	}
+	handle = ion_import_dma_buf(client, data.handle);
+	if (IS_ERR_OR_NULL(handle)) {
+		dprintk(0, "EINVAL, client=%p, share_fd=%d\n",
+			client, data.handle);
+		return PTR_ERR(handle);
+	}
+
+	ret = ion_phys(client, handle, &addr, (size_t *)&len);
+	dprintk(1, "ret=%d, phys=0x%lX\n", ret, addr);
+	if (ret < 0) {
+		dprintk(0, "meson_ion_get_phys error, ret=%d\n", ret);
+		return ret;
+	}
+	data.phys_addr = (unsigned int)addr;
+	data.size = (unsigned int)len;
+	if (copy_to_user((void __user *)arg, &data,
+		sizeof(struct meson_phys_data))) {
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static long meson_custom_ioctl(
+	struct ion_client *client,
+	unsigned int cmd,
+	unsigned long arg)
+{
+	switch (cmd) {
+		case ION_IOC_MESON_PHYS_ADDR:
+			return meson_ion_get_phys(client, arg);
+		default:
+			return -ENOTTY;
+	}
+	return 0;
+}
+
+
 int dev_ion_probe(struct platform_device *pdev) {
     int err;
     int i;
@@ -114,7 +166,7 @@ int dev_ion_probe(struct platform_device *pdev) {
         my_ion_heap[1].size = res->end - res->start + 1;
     }
     heaps = kzalloc(sizeof(struct ion_heap *) * num_heaps, GFP_KERNEL);
-    idev = ion_device_create(NULL);
+    idev = ion_device_create(meson_custom_ioctl);
     if (IS_ERR_OR_NULL(idev)) {
         kfree(heaps);
         panic(0);
