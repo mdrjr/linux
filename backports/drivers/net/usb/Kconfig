@@ -545,6 +545,7 @@ config BACKPORT_USB_NET_QMI_WWAN
 	  module will be called qmi_wwan.
 
 config BACKPORT_USB_HSO
+	depends on n
 	tristate "Option USB High Speed Mobile Devices"
 	depends on !USB_HSO
 	depends on USB && RFKILL && TTY
@@ -566,6 +567,7 @@ config BACKPORT_USB_NET_INT51X1
 	  INT51x1/INT5200 chip, like the "devolo dLan duo".
 
 config BACKPORT_USB_CDC_PHONET
+	depends on n
 	tristate "CDC Phonet support"
 	depends on !USB_CDC_PHONET
 	depends on PHONET
