@@ -22,7 +22,8 @@ static struct cpufreq_frequency_table meson_freq_table[]=
     {15 , 1536000  },
     {16 , 1632000  },
     {17 , 1728000  },
-    {18	, CPUFREQ_TABLE_END},
+    {18 , 1824000  },
+    {19	, CPUFREQ_TABLE_END},
 };
 
 static struct cpufreq_frequency_table meson_freq_table_fix_syspll[] = {
@@ -46,5 +47,6 @@ static struct cpufreq_frequency_table meson_freq_table_fix_syspll[] = {
     {15 , 1536000  },
     {16 , 1632000  },
     {17 , 1728000  },
-    {18	, CPUFREQ_TABLE_END},
+    {18 , 1824000  },
+    {19	, CPUFREQ_TABLE_END},
 };
