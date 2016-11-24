@@ -46,6 +46,8 @@ static struct meson_cpufreq cpufreq;
 static int fix_syspll = 0;
 #endif
 
+unsigned long max_freq_dvfs = 1536000;
+
 static DEFINE_MUTEX(meson_cpufreq_mutex);
 
 static void adjust_jiffies(unsigned int freqOld, unsigned int freqNew);
@@ -271,7 +273,7 @@ static int meson_cpufreq_init(struct cpufreq_policy *policy)
 	index -= 1;
 
 	policy->min = freq_table[0].frequency;
-	policy->max = 1536000;
+	policy->max = max_freq_dvfs;
 	policy->cpuinfo.min_freq = clk_round_rate(cpufreq.armclk, 0) / 1000;
     policy->cpuinfo.max_freq = clk_round_rate(cpufreq.armclk, 0xffffffff) / 1000;
 
@@ -505,3 +507,18 @@ int meson_cpufreq_boost(unsigned int freq)
     return ret;
 }
 #endif
+
+
+static int __init get_max_freq(char *f)
+{
+	int r;
+	
+	if (f == NULL)
+		return 0;
+	
+	r = kstrtoul(f, 0, &max_freq_dvfs);
+	max_freq_dvfs *= 1000;
+	
+	return 0;
+}
+__setup("max_freq=", get_max_freq);
