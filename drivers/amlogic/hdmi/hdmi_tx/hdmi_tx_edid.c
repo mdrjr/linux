@@ -1307,6 +1307,7 @@ static dispmode_vic_t dispmode_VIC_tab[]=
 #endif
     {"800p",	  HDMI_800p},
     {"800x480p60hz", HDMI_800x480p60hz},
+    {"480x800p60hz", HDMI_480x800p60hz},
     {"1366x768p60hz", HDMI_1366x768p60hz},
     {"1600x900p60hz", HDMI_1600x900p60hz},
     {"800x600p60hz", HDMI_800x600p60hz},

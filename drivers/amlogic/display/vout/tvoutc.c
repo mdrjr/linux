@@ -229,8 +229,9 @@ int tvoutc_setclk(tvmode_t mode)
 			  break;
 		case TVMODE_720P:
 		case TVMODE_800P:
-        case TVMODE_800X480P_60HZ:
-        case TVMODE_720P_50HZ:
+	        case TVMODE_800X480P_60HZ:
+	        case TVMODE_480X800P_60HZ:
+	        case TVMODE_720P_50HZ:
 		case TVMODE_1080I:
 		case TVMODE_1080I_50HZ:
 		case TVMODE_1080P:

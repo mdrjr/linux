@@ -157,6 +157,16 @@ static void set_hpll_clk_out(unsigned clk)
             WAIT_FOR_PLL_LOCKED(P_HHI_VID_PLL_CNTL);
 			aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8c74f);
             break;
+        case 2560:
+            aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x59c80000);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL3, 0x0a563823);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL4, 0x0123b100);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x12385);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x60010435);
+            aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x40010435);
+            WAIT_FOR_PLL_LOCKED(P_HHI_VID_PLL_CNTL);
+			aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8c294);
+            break;
         case 2600:
             aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x59c80000);
             aml_write_reg32(P_HHI_VID_PLL_CNTL3, 0x0a563823);
@@ -380,6 +390,16 @@ static void set_hpll_clk_out(unsigned clk)
 	    aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x4001042a);
 	    WAIT_FOR_PLL_LOCKED(P_HHI_VID_PLL_CNTL);
 	    aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8cdf4);
+	    break;
+    case 2560:	/* VMODE_480X800P_60HZ */
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x59c80000);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL3, 0x0a563823);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL4, 0x0123b100);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL5, 0x12385);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x60010435);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL,  0x40010435);
+	    WAIT_FOR_PLL_LOCKED(P_HHI_VID_PLL_CNTL);
+	    aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x69c8c294);
 	    break;
     case 2600:	/* VMODE_1024X768P_60HZ */
 	    aml_write_reg32(P_HHI_VID_PLL_CNTL2, 0x59c80000);
@@ -754,6 +774,7 @@ static enc_clk_val_t setting_enc_clk_val[] = {
 #endif
     {VMODE_800P,       1422, 2, 2, 1, VIU_ENCP, 10, 1, 1, 1, -1, -1, -1,  1,  -1}, // MDRJR Verify
     {VMODE_800X480P_60HZ, 2380, 8, 4, 1, VIU_ENCP,  10, 4, 1, 1, -1, -1, -1,  1,  -1},
+    {VMODE_480X800P_60HZ, 2560, 8, 4, 1, VIU_ENCP,  10, 4, 1, 1, -1, -1, -1,  1,  -1},
     {VMODE_1366X768P_60HZ, 1716, 2, 2, 1, VIU_ENCP,  10, 1, 1, 1, -1, -1, -1,  1,  -1},
     {VMODE_1600X900P_60HZ, 2160, 2, 2, 1, VIU_ENCP,  10, 1, 1, 1, -1, -1, -1,  1,  -1},
     {VMODE_800X600P_60HZ, 1600, 4, 4, 1, VIU_ENCP,  10, 1, 1, 1, -1, -1, -1,  1,  -1},

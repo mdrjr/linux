@@ -48,6 +48,7 @@ static  hdmi_only_info_t hdmi_only_info[PARA_HDMI_ONLY]={
 	{"sxga", VMODE_SXGA},
 	{"xga",VMODE_XGA},
 	{"800x480p60hz", VMODE_800X480P_60HZ},
+	{"480x800p60hz", VMODE_480X800P_60HZ},
 	{"1366x768p60hz", VMODE_1366X768P_60HZ},
 	{"1600x900p60hz", VMODE_1600X900P_60HZ},
 	{"800x600p60hz", VMODE_800X600P_60HZ},

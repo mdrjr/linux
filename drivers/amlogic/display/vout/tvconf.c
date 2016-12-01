@@ -92,7 +92,7 @@ static const tvmode_t vmode_tvmode_tab[] =
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	TVMODE_720P_59HZ , // for 720p 59.94hz
 #endif
-	TVMODE_800P, TVMODE_800X480P_60HZ, TVMODE_1366X768P_60HZ,
+	TVMODE_800P, TVMODE_800X480P_60HZ, TVMODE_480X800P_60HZ, TVMODE_1366X768P_60HZ,
 	TVMODE_1600X900P_60HZ, TVMODE_800X600P_60HZ, TVMODE_1024X600P_60HZ,
 	TVMODE_1024X768P_60HZ, TVMODE_1360X768P_60HZ, TVMODE_1440X900P_60HZ,
 	TVMODE_1680X1050P_60HZ,
@@ -307,6 +307,18 @@ static const vinfo_t tv_info[] =
 		.sync_duration_num	= 60,
 		.sync_duration_den	= 1,
 		.video_clk			= 29760000,
+	},
+	{ /* VMODE_480X800P_60HZ */
+		.name			= "480x800p60hz",
+		.mode 			= VMODE_480X800P_60HZ,
+		.width			= 480,
+		.height			= 800,
+		.field_height		= 800,
+		.aspect_ratio_num	= 3,
+		.aspect_ratio_den	= 5,
+		.sync_duration_num	= 60,
+		.sync_duration_den	= 1,
+		.video_clk		= 32000000,
 	},
     { /* VMODE_1366X768P_60HZ */
 		.name				= "1366x768p60hz",

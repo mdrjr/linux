@@ -193,6 +193,49 @@ static const  reg_t tvregs_800x480p60hz[] = {
     {MREG_END_MARKER, 0},
 };
 
+static const  reg_t tvregs_480x800p60hz[] = {
+    {P_ENCP_VIDEO_EN, 0},
+    {P_ENCI_VIDEO_EN, 0},
+
+    {P_VENC_VDAC_SETTING, 0xff},
+    {P_ENCP_VIDEO_MODE, 0x4040},
+    {P_ENCP_VIDEO_MODE_ADV, 0x18},
+    {P_ENCP_VIDEO_MAX_PXCNT, 0x25F},
+    {P_ENCP_VIDEO_MAX_LNCNT, 0x34C},
+    {P_ENCP_VIDEO_HAVON_BEGIN, 0x28},
+    {P_ENCP_VIDEO_HAVON_END, 0x207},
+    {P_ENCP_VIDEO_VAVON_BLINE, 0x1D},
+    {P_ENCP_VIDEO_VAVON_ELINE, 0x33C},
+    {P_ENCP_VIDEO_HSO_BEGIN, 0x0},
+    {P_ENCP_VIDEO_HSO_END, 0x30},
+    {P_ENCP_VIDEO_VSO_BEGIN, 0x1E},
+    {P_ENCP_VIDEO_VSO_END, 0x32},
+    {P_ENCP_VIDEO_VSO_BLINE, 0x0},
+    {P_ENCP_VIDEO_VSO_ELINE, 0x3},
+
+    /* DVI configs */
+    {P_ENCP_DVI_HSO_BEGIN, 0x2},
+    {P_ENCP_DVI_HSO_END, 0x4A},
+    {P_ENCP_DVI_VSO_BLINE_EVN, 0x0},
+    {P_ENCP_DVI_VSO_BLINE_ODD, 0x0},
+    {P_ENCP_DVI_VSO_ELINE_EVN, 0x7},
+    {P_ENCP_DVI_VSO_ELINE_ODD, 0x0},
+    {P_ENCP_DVI_VSO_BEGIN_EVN, 0x2},
+    {P_ENCP_DVI_VSO_BEGIN_ODD, 0x0},
+    {P_ENCP_DVI_VSO_END_EVN, 0x2},
+    {P_ENCP_DVI_VSO_END_ODD, 0x0},
+    {P_ENCP_DE_H_BEGIN, 0xAA},
+    {P_ENCP_DE_H_END, 0x3CA},
+    {P_ENCP_DE_V_BEGIN_EVEN, 0x11},
+    {P_ENCP_DE_V_END_EVEN, 0x1F1},
+    {P_ENCP_DE_V_BEGIN_ODD, 0x0},
+    {P_ENCP_DE_V_END_ODD, 0x0},
+
+    {P_ENCP_VIDEO_EN, 1},
+    {P_ENCI_VIDEO_EN, 0},
+    {MREG_END_MARKER, 0},
+};
+
 static const  reg_t tvregs_1366x768p60hz[] = {
     {P_VENC_VDAC_SETTING,          0xff,  },
 
@@ -1828,6 +1871,7 @@ static const reg_t *tvregsTab[] = {
 #endif
     tvregs_800p,
     tvregs_800x480p60hz,
+    tvregs_480x800p60hz,
     tvregs_1366x768p60hz,
     tvregs_1600x900p60hz,
     tvregs_800x600p60hz,
@@ -1888,6 +1932,7 @@ static const tvinfo_t tvinfoTab[] = {
 #endif
     {.xres = 1280, .yres =  800, .id = "800p"},
     {.xres = 800, .yres =  480, .id = "800x480p60hz"},
+    {.xres = 480, .yres =  800, .id = "480x800p60hz"},
     {.xres = 1366, .yres = 768, .id = "1366x768p60hz"},
     {.xres = 1600, .yres = 900, .id = "1600x900p60hz"},
     {.xres = 800, .yres = 600, .id = "800x600p60hz"},
