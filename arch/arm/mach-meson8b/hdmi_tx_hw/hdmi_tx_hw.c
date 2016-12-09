@@ -3649,6 +3649,7 @@ static void hdmi_phy_suspend(void)
 
 static void hdmi_phy_wakeup(hdmitx_dev_t* hdmitx_device)
 {
-    hdmitx_set_phy(hdmitx_device);
+    if (aml_read_reg32(P_HHI_HDMI_PHY_CNTL0) == 0x08418d00)
+        hdmitx_set_phy(hdmitx_device);
     //hdmi_print(INF, SYS "phy wakeup\n");
 }
