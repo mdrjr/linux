@@ -1093,5 +1093,10 @@
         suspend_timeout=<6>;
     };
 
+	gpiomem {
+		compatible = "amlogic,meson-gpiomem";
+		reg = <0xc1108000 0x1000>;
+		status = "okay";
+	};
 
 }; /* end of / */
