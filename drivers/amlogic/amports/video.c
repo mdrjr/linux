@@ -5002,7 +5002,7 @@ static struct class_attribute amvideo_class_attrs[] = {
     video_nonlinear_factor_show,
     video_nonlinear_factor_store),
     __ATTR(freerun_mode,
-    S_IRUGO | S_IWUSR,
+    0666,
     video_freerun_mode_show,
     video_freerun_mode_store),
     __ATTR(video_speed_check_h_w,
@@ -5719,7 +5719,8 @@ MODULE_PARM_DESC(new_frame_count, "\n new_frame_count\n");
 module_param(new_frame_count, uint, 0664);
 
 MODULE_PARM_DESC(omx_pts, "\n omx_pts\n");
-module_param(omx_pts, uint, 0664);
+module_param(omx_pts, uint, 0666);
+
 
 MODULE_DESCRIPTION("AMLOGIC video output driver");
 MODULE_LICENSE("GPL");

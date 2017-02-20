@@ -403,7 +403,7 @@ static ssize_t vfm_map_store(struct class *class,
 	return count;
 }
 
-static CLASS_ATTR(map, 0664, vfm_map_show, vfm_map_store);
+static CLASS_ATTR(map, 0666, vfm_map_show, vfm_map_store);
 
 static struct class vfm_class = {
 	.name = CLS_NAME,
