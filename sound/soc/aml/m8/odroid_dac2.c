@@ -56,6 +56,24 @@
 
 #define DRV_NAME "odroid_dac2"
 
+static bool digital_gain_0db_limit = true;
+
+static int odroid_dac2_init(struct snd_soc_pcm_runtime *rtd)
+{
+	if (digital_gain_0db_limit) {
+		int ret;
+		struct snd_soc_card *card = rtd->card;
+		struct snd_soc_codec *codec = rtd->codec;
+
+		ret = snd_soc_limit_volume(codec,
+				"Digital Playback Volume", 207);
+		if (ret < 0)
+			dev_warn(card->dev,
+				"Failed to set volume limit: %d\n", ret);
+	}
+	return 0;
+}
+
 static int dac2_hw_params(struct snd_pcm_substream *substream,
     struct snd_pcm_hw_params *params)
 {
@@ -209,6 +227,7 @@ static struct snd_soc_dai_link dac2_dai_link[] = {
         .codec_name = "pcm512x.1-004c",
         .codec_dai_name = "pcm512x-hifi",
         .ops = &odroid_ops,
+	.init = odroid_dac2_init,
     },
 };
 
