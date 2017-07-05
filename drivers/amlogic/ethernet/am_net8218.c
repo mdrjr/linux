@@ -1455,6 +1455,10 @@ static int set_mac_addr_n(struct net_device *dev, void *addr){
 	return 0;
 }
 
+static void fake_netpoll(struct net_device *netdev){
+
+}
+
 static const struct net_device_ops am_netdev_ops = {
 	.ndo_open               = netdev_open,
 	.ndo_stop               = netdev_close,
@@ -1466,6 +1470,7 @@ static const struct net_device_ops am_netdev_ops = {
 	.ndo_change_mtu         = eth_change_mtu,
 	.ndo_set_mac_address    = set_mac_addr_n,
 	.ndo_validate_addr      = eth_validate_addr,
+	.ndo_poll_controller	= fake_netpoll,
 };
 
 static int aml_ethtool_get_settings(struct net_device *dev,
