@@ -375,7 +375,7 @@ static const s16 ssd1351_init[] = {
 };
 
 /* for ODROID TFT35 LCD */
-static int ili9488_init[] = {
+static const s16 ili9488_init[] = {
 	-1, 0xB0,0x00,
 	-1, 0x11,
 	-2, 120,
