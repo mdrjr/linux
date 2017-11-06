@@ -79,6 +79,7 @@ static int w1_gpio_probe_dt(struct platform_device *pdev)
 	struct w1_gpio_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct device_node *np = pdev->dev.of_node;
 	int gpio;
+	struct pinctrl *pinctrl;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -104,6 +105,11 @@ static int w1_gpio_probe_dt(struct platform_device *pdev)
 	/* ignore other errors as the pullup gpio is optional */
 	pdata->ext_pullup_enable_pin = gpio;
 
+#if defined(CONFIG_ARCH_EXYNOS)
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		dev_err(&pdev->dev, "failed to set default pinctrl");
+#endif
 	pdev->dev.platform_data = pdata;
 
 	return 0;
