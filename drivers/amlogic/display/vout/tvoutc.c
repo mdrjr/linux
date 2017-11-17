@@ -227,6 +227,7 @@ int tvoutc_setclk(tvmode_t mode)
 		case TVMODE_576P:
 			  setreg(&sd[xtal]);
 			  break;
+		case TVMODE_480X320P_60HZ:
 		case TVMODE_720P:
 		case TVMODE_800P:
 	        case TVMODE_800X480P_60HZ:

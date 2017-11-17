@@ -756,8 +756,8 @@ static enc_clk_val_t setting_enc_clk_val_m8m2[] = {
 		{VMODE_XGA, 1085, 1, 1, 1, VIU_ENCP, 5, 1, 1, 1, -1, -1, -1,  1,  1},
 };
 static enc_clk_val_t setting_enc_clk_val[] = {
-
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8B
+    {VMODE_480X320P_60HZ, 2014, 8, 1, 1, VIU_ENCP, 10, 4, 1, 1, -1, -1, -1, 1, -1},
     {VMODE_480I,       2160, 8, 1, 1, VIU_ENCI,  5, 4, 2,-1,  2, -1, -1,  2,  -1},
     {VMODE_480CVBS,    1296, 4, 1, 1, VIU_ENCI,  6, 4, 2,-1,  2, -1, -1,  2,  -1},
     {VMODE_480P,       2160, 8, 1, 1, VIU_ENCP,  5, 4, 2, 1, -1, -1, -1,  1,  -1},

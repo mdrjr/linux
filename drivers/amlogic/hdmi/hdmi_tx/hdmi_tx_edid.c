@@ -1285,6 +1285,7 @@ typedef struct{
 
 static dispmode_vic_t dispmode_VIC_tab[]=
 {
+    {"480x320p60hz", HDMI_480x320p60hz},
     {"480i_4_3",  HDMI_480i60},
     {"480i_rpt",  HDMI_480i60_16x9_rpt},
     {"480i",      HDMI_480i60_16x9},

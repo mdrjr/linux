@@ -533,6 +533,49 @@ static const  reg_t tvregs_720p_50hz[] = {
     {MREG_END_MARKER,            0      }
 };
 
+static const  reg_t tvregs_480x320p60hz[] = {
+    {P_ENCP_VIDEO_EN, 0},
+    {P_ENCI_VIDEO_EN, 0},
+
+    {P_VENC_VDAC_SETTING, 0xff},
+    {P_ENCP_VIDEO_MODE, 0x4040},
+    {P_ENCP_VIDEO_MODE_ADV, 0x18},
+    {P_ENCP_VIDEO_MAX_PXCNT, 0x31F},
+    {P_ENCP_VIDEO_MAX_LNCNT, 0x20C},
+    {P_ENCP_VIDEO_HAVON_BEGIN, 0x64},
+    {P_ENCP_VIDEO_HAVON_END, 0x243},
+    {P_ENCP_VIDEO_VAVON_BLINE, 0xBD},
+    {P_ENCP_VIDEO_VAVON_ELINE, 0x1FC},
+    {P_ENCP_VIDEO_HSO_BEGIN, 0x0},
+    {P_ENCP_VIDEO_HSO_END, 0x64},
+    {P_ENCP_VIDEO_VSO_BEGIN, 0x1E},
+    {P_ENCP_VIDEO_VSO_END, 0x32},
+    {P_ENCP_VIDEO_VSO_BLINE, 0x0},
+    {P_ENCP_VIDEO_VSO_ELINE, 0x8},
+
+    /* DVI configs */
+    {P_ENCP_DVI_HSO_BEGIN, 0x2},
+    {P_ENCP_DVI_HSO_END, 0x4A},
+    {P_ENCP_DVI_VSO_BLINE_EVN, 0x0},
+    {P_ENCP_DVI_VSO_BLINE_ODD, 0x0},
+    {P_ENCP_DVI_VSO_ELINE_EVN, 0x7},
+    {P_ENCP_DVI_VSO_ELINE_ODD, 0x0},
+    {P_ENCP_DVI_VSO_BEGIN_EVN, 0x2},
+    {P_ENCP_DVI_VSO_BEGIN_ODD, 0x0},
+    {P_ENCP_DVI_VSO_END_EVN, 0x2},
+    {P_ENCP_DVI_VSO_END_ODD, 0x0},
+    {P_ENCP_DE_H_BEGIN, 0xAA},
+    {P_ENCP_DE_H_END, 0x3CA},
+    {P_ENCP_DE_V_BEGIN_EVEN, 0x11},
+    {P_ENCP_DE_V_END_EVEN, 0x1F1},
+    {P_ENCP_DE_V_BEGIN_ODD, 0x0},
+    {P_ENCP_DE_V_END_ODD, 0x0},
+
+    {P_ENCP_VIDEO_EN, 1},
+    {P_ENCI_VIDEO_EN, 0},
+    {MREG_END_MARKER, 0},
+};
+
 static const reg_t tvregs_480i[] = {
     {P_ENCP_VIDEO_EN,              0,     },
     {P_ENCI_VIDEO_EN,              0,     },
@@ -1852,6 +1895,7 @@ static const reg_t tvregs_1920x1200[] = {
 
 /* The sequence of register tables items must match the enum define in tvmode.h */
 static const reg_t *tvregsTab[] = {
+    tvregs_480x320p60hz,
     tvregs_480i,
     tvregs_480i,        // For REPEAT MODE use, ENC setting is same
     tvregs_480cvbs,
@@ -1913,6 +1957,7 @@ static const reg_t *tvregsTab[] = {
 };
 
 static const tvinfo_t tvinfoTab[] = {
+    {.xres =  480, .yres =  320, .id = "480x320p60hz"},
     {.xres =  720, .yres =  480, .id = "480i"},
     {.xres =  720, .yres =  480, .id = "480i_rpt"},
     {.xres =  720, .yres =  480, .id = "480cvbs"},

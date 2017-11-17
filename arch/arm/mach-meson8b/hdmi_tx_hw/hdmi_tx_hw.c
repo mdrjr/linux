@@ -788,6 +788,22 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
         SOF_LINES           = 10;
         TOTAL_FRAMES        = 4;
 	}
+    else if(param->VIC==HDMI_480x320p60hz){
+        INTERLACE_MODE      = 0;
+        PIXEL_REPEAT_VENC   = 0;
+        PIXEL_REPEAT_HDMI   = 0;
+        ACTIVE_PIXELS       = 480;
+        ACTIVE_LINES        = 320;
+        LINES_F0            = 263;
+        LINES_F1            = 263;
+        FRONT_PORCH         = 120;
+        HSYNC_PIXELS        = 100;
+        BACK_PORCH          = 100;
+        EOF_LINES           = 8;
+        VSYNC_LINES         = 4;
+        SOF_LINES           = 95;
+        TOTAL_FRAMES        = 4;
+	}
     else if(param->VIC==HDMI_480x800p60hz){
         INTERLACE_MODE      = 0;
         PIXEL_REPEAT_VENC   = 0;
@@ -1109,6 +1125,7 @@ static void hdmi_tvenc_set(Hdmi_tx_video_para_t *param)
         case HDMI_640x480p60:
         case HDMI_800x480p60hz:
         case HDMI_480x800p60hz:
+	case HDMI_480x320p60hz:
             aml_write_reg32(P_VPU_HDMI_SETTING, 2);
             break;
         case HDMI_1366x768p60hz:
@@ -2038,6 +2055,9 @@ static void hdmitx_set_pll(Hdmi_tx_video_para_t *param)
         case HDMI_800x480p60hz:
             set_vmode_clk(VMODE_800X480P_60HZ);
             break;
+	case HDMI_480x320p60hz:
+            set_vmode_clk(VMODE_480X320P_60HZ);
+            break;
         case HDMI_480x800p60hz:
             set_vmode_clk(VMODE_480X800P_60HZ);
             break;
@@ -2125,6 +2145,7 @@ static int hdmitx_set_dispmode(hdmitx_dev_t* hdmitx_device, Hdmi_tx_video_para_t
         &&(param->VIC!=HDMI_1080p24)
         &&(param->VIC!=HDMI_1080p60)&&(param->VIC!=HDMI_1080p50)
         &&(param->VIC!=HDMI_720p60)&&(param->VIC!=HDMI_720p50)
+       	&&(param->VIC!=HDMI_480x320p60hz)
 	&&(param->VIC!=HDMI_800x480p60hz)&&(param->VIC!=HDMI_480x800p60hz)
         &&(param->VIC!=HDMI_1366x768p60hz)&&(param->VIC!=HDMI_1600x900p60hz)
         &&(param->VIC!=HDMI_800x600p60hz)&&(param->VIC!=HDMI_1024x600p60hz)&&(param->VIC!=HDMI_1024x768p60hz)
@@ -2428,6 +2449,7 @@ static Vic_attr_map vic_attr_map_table[] = {
     {HDMI_720p60,           74250 },
     {HDMI_800p,				71000 },
     {HDMI_800x480p60hz,     29760 },
+    {HDMI_480x320p60hz,     25175 },
     {HDMI_480x800p60hz,     32000 },
     {HDMI_1366x768p60hz,    85500 },
     {HDMI_1600x900p60hz,    108000},

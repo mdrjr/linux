@@ -3,6 +3,10 @@ typedef struct reg_s {
     uint val;
 } reg_t;
 
+static reg_t hdmi_tvenc_regs_480x320p60[] = {
+	{ 0, 0 }
+};
+
 static  reg_t hdmi_tvenc_regs_480i[] = {
     /*1st col: recommmended, but eof/sof/vs_lines +/- 1 from spec; 2nd col: from simu */
     {ENCP_VIDEO_MODE,             0      /*0     */  },
@@ -259,6 +263,7 @@ typedef struct hdmi_tvenc_config_
 }hdmi_tvenc_config_t;
 
 static const hdmi_tvenc_config_t hdmi_tvenc_configs[] = {
+    {HDMI_480x320p60hz,          hdmi_tvenc_regs_480x320p60},
     {HDMI_640x480p60  ,          hdmi_tvenc_regs_640x480p60},
     {HDMI_480p60,                hdmi_tvenc_regs_480p},
     {HDMI_480p60_16x9,           hdmi_tvenc_regs_480p},

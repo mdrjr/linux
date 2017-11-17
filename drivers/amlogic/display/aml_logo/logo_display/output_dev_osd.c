@@ -38,6 +38,7 @@ static  logo_output_dev_t   output_osd1={
 
 #ifdef CONFIG_AM_HDMI_ONLY
 static  hdmi_only_info_t hdmi_only_info[PARA_HDMI_ONLY]={
+	{"480x320p60hz", VMODE_480X320P_60HZ},
 	{"480i",VMODE_480I},
 	{"480p",VMODE_480P},
 	{"576i",VMODE_576I},

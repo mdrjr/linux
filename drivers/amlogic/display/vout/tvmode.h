@@ -26,7 +26,8 @@
 #define TVMODE_H
 
 typedef enum {
-    TVMODE_480I  = 0,
+    TVMODE_480X320P_60HZ = 0,
+    TVMODE_480I,
     TVMODE_480I_RPT  ,
     TVMODE_480CVBS,
     TVMODE_480P  ,

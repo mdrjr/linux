@@ -754,6 +754,7 @@ static ssize_t store_debug(struct device * dev, struct device_attribute *attr, c
 
 // support format lists
 const char* disp_mode_t[]={
+    "480x320p60hz",
     "480i",
     "480i_rpt",
     "480p",
