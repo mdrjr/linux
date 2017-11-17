@@ -21,21 +21,19 @@ struct odroid_priv {
 };
 
 static int set_audio_clock_heirachy(struct device *card_dev);
-static inline int clk_set_div(struct clk *c, unsigned long parent_rate, int n)
-{
-	return clk_set_rate(c, (parent_rate / n));
-}
 
 /*
  * The initial rate that EPLL will be set to.  This is the smallest multiple (4)
  * of the desired master clock frequency 256 * FS for FS = 44.1khz that can
  * be generated on both the 5250 and 5420 SoCs.
  */
-static int set_audss_pll_rate(struct device *card_dev, unsigned long rate)
+static int set_audss_pll_rate(struct device *card_dev, unsigned long epll,
+		unsigned long sclk, unsigned long rclk)
 {
 	int ret;
 	struct clk *fout_epll;
 	struct clk *dout_srp, *dout_aud_bus;
+	unsigned long clk_margin=500;
 
 	ret = set_audio_clock_heirachy(card_dev);
 	if (ret) {
@@ -58,17 +56,17 @@ static int set_audss_pll_rate(struct device *card_dev, unsigned long rate)
 		goto out2;
 	}
 
-	ret = clk_set_rate(fout_epll, rate);
+	ret = clk_set_rate(fout_epll, epll);
 	if (ret < 0) {
 		dev_err(card_dev, "failed to clk_set_rate of fout_epll for audio\n");
 		goto out3;
 	}
-	ret = clk_set_div(dout_srp, rate, 3);
+	ret = clk_set_rate(dout_srp, sclk+clk_margin);
 	if (ret < 0) {
 		dev_err(card_dev, "failed to clk_set_rate of dout_srp for audio\n");
 		goto out3;
 	}
-	ret = clk_set_div(dout_aud_bus, (rate / 4),  3);
+	ret = clk_set_rate(dout_aud_bus, rclk+clk_margin);
 	if (ret < 0) {
 		dev_err(card_dev, "failed to clk_set_rate of dout_aud_bus for audio\n");
 		goto out3;
@@ -296,7 +294,7 @@ static int odroid_card_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(card_dev,"%s[%d]: rclk=%ld, sclk=%ld, pll=%ld\n",
 			__func__,__LINE__, rclk, sclk, pll);
 
-	ret = set_audss_pll_rate(card_dev, pll);
+	ret = set_audss_pll_rate(card_dev, pll, sclk, rclk);
 	if (ret < 0)
 		return ret;
 

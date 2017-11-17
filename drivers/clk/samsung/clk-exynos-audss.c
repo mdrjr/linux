@@ -206,11 +206,11 @@ static int exynos_audss_clk_probe(struct platform_device *pdev)
 				reg_base + ASS_CLK_SRC, 2, 2, 0, &lock);
 
 	clk_table[EXYNOS_DOUT_SRP] = clk_hw_register_divider(NULL, "dout_srp",
-				"mout_audss", CLK_SET_RATE_PARENT,
+				"mout_audss", CLK_SET_RATE_NO_REPARENT,
 				reg_base + ASS_CLK_DIV, 0, 4, 0, &lock);
 
 	clk_table[EXYNOS_DOUT_AUD_BUS] = clk_hw_register_divider(NULL,
-				"dout_aud_bus", "dout_srp", CLK_SET_RATE_PARENT,
+				"dout_aud_bus", "dout_srp", CLK_SET_RATE_NO_REPARENT,
 				reg_base + ASS_CLK_DIV, 4, 4, 0, &lock);
 
 	clk_table[EXYNOS_DOUT_I2S] = clk_hw_register_divider(NULL, "dout_i2s",
