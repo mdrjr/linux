@@ -25,6 +25,8 @@
 
 #include "thermal_core.h"
 
+static int max_correct_temp = 0;
+
 int get_tz_trend(struct thermal_zone_device *tz, int trip)
 {
 	enum thermal_trend trend;
@@ -109,6 +111,16 @@ int thermal_zone_get_temp(struct thermal_zone_device *tz, int *temp)
 		if (!ret && *temp < crit_temp)
 			*temp = tz->emul_temperature;
 	}
+
+	if (*temp <= 100000 && *temp > max_correct_temp && tz->id != 4)
+		max_correct_temp = *temp;
+	/*
+	 * This case is that the thermal sensor is broken.
+	 * That's not real temperature. Set the fake temperature value in order to
+	 * avoid reaching the ciritical temperature.
+	 */
+	if (*temp >= 200000 || (*temp - max_correct_temp) >= 10000)
+		*temp = max_correct_temp;
 
 	mutex_unlock(&tz->lock);
 exit:
