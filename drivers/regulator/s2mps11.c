@@ -1415,7 +1415,21 @@ static void s2mps11_pmic_shutdown(struct platform_device *pdev)
 
 	s2mps11_pmic_ethonoff(pdev, false);
 
+	/* USB3.0 Hub Power OFF(GL3512) : BUCK9 */
+	if (regmap_update_bits(iodev->regmap_pmic,
+		S2MPS11_REG_B9CTRL1, 0xC0, 0x00)) {
+		dev_crit(&pdev->dev,
+			"could not update S2MPS11_REG_B9CTRL1 Error!!\n");
+	}
+
 	mdelay(10);
+
+	/* USB3.0 Hub Power ON(GL3512) : BUCK9 */
+	if (regmap_update_bits(iodev->regmap_pmic,
+		S2MPS11_REG_B9CTRL1, 0xC0, 0xC0)) {
+		dev_crit(&pdev->dev,
+			"could not update S2MPS11_REG_B9CTRL1 Error!!\n");
+	}
 
 	if (regmap_update_bits(iodev->regmap_pmic,
 				S2MPS11_REG_L19CTRL, 0x3F, reg_val)) {
