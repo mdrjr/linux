@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 0
-EXTRAVERSION = -rc8
-NAME = Fearless Coyote
+SUBLEVEL = 3
+EXTRAVERSION =
+NAME = Petit Gorille
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
