@@ -188,7 +188,7 @@ int lirc_register_driver(struct lirc_driver *d)
 
 	ir->d = *d;
 
-	if (LIRC_CAN_REC(d->features)) {
+	if (LIRC_CAN_REC(d->features) || (LIRC_CAN_SEND(d->features))) {
 		err = lirc_allocate_buffer(irctls[minor]);
 		if (err) {
 			kfree(ir);
