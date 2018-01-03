@@ -1470,7 +1470,9 @@ static const struct net_device_ops am_netdev_ops = {
 	.ndo_change_mtu         = eth_change_mtu,
 	.ndo_set_mac_address    = set_mac_addr_n,
 	.ndo_validate_addr      = eth_validate_addr,
+#ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller	= fake_netpoll,
+#endif
 };
 
 static int aml_ethtool_get_settings(struct net_device *dev,
