@@ -1199,7 +1199,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
-pr_err("charles %s : force32b = %d\n", __func__, force32b);
+	if (force32b)
+		dev_warn(&pdev->dev, "*** force32b flage is true ***\n");
 
 	return 0;
 
