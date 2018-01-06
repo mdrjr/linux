@@ -1369,6 +1369,14 @@ static struct s3c64xx_spi_port_config exynos4_spi_port_config = {
 	.clk_from_cmu	= true,
 };
 
+static struct s3c64xx_spi_port_config exynos5410_spi_port_config = {
+	.fifo_lvl_mask  = { 0x1ff, 0x7F, 0x7F, 0x1ff, 0x1ff },
+	.rx_lvl_offset  = 15,
+	.tx_st_done     = 25,
+	.high_speed     = true,
+	.clk_from_cmu   = true,
+};
+
 static struct s3c64xx_spi_port_config exynos5440_spi_port_config = {
 	.fifo_lvl_mask	= { 0x1ff },
 	.rx_lvl_offset	= 15,
@@ -1420,6 +1428,9 @@ static const struct of_device_id s3c64xx_spi_dt_match[] = {
 	},
 	{ .compatible = "samsung,exynos4210-spi",
 			.data = (void *)&exynos4_spi_port_config,
+	},
+	{ .compatible = "samsung,exynos5410-spi",
+			.data = (void *)&exynos5410_spi_port_config,
 	},
 	{ .compatible = "samsung,exynos5440-spi",
 			.data = (void *)&exynos5440_spi_port_config,
