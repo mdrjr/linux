@@ -584,6 +584,15 @@
         num_chipselect = <2>;
         cs_gpios = "GPIOX_20", "GPIOX_21";
 
+	/*
+        can0: mcp2515@0 {
+            compatible = "microchip,mcp2515";
+            reg = <0>;
+            spi-max-frequency = <10000000>;
+            irq-falling = <1>;
+            irq-gpio = "GPIOY_3";
+        };
+	*/
         spidev@0 {
             spi-max-frequency = <2000000>;
             compatible = "spidev";
