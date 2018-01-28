@@ -638,6 +638,9 @@ static int s3c64xx_spi_prepare_message(struct spi_master *master,
 	struct spi_device *spi = msg->spi;
 	struct s3c64xx_spi_csinfo *cs = spi->controller_data;
 
+	/* spi controller reset */
+	flush_fifo(sdd);
+
 	/* Configure feedback delay */
 	writel(cs->fb_delay & 0x3, sdd->regs + S3C64XX_SPI_FB_CLK);
 
@@ -654,7 +657,6 @@ static int s3c64xx_spi_transfer_one(struct spi_master *master,
 	u8 bpw;
 	unsigned long flags;
 	int use_dma;
-	static u8 old_bpw = 0;
 
 	reinit_completion(&sdd->xfer_completion);
 
@@ -667,7 +669,8 @@ static int s3c64xx_spi_transfer_one(struct spi_master *master,
 			bpw = 32;
 	}
 
-	if (bpw != sdd->cur_bpw || speed != sdd->cur_speed) {
+	if (bpw != sdd->cur_bpw || speed != sdd->cur_speed ||
+		spi->mode != sdd->cur_mode) {
 		sdd->cur_bpw = bpw;
 		sdd->cur_speed = speed;
 		sdd->cur_mode = spi->mode;
@@ -714,10 +717,7 @@ static int s3c64xx_spi_transfer_one(struct spi_master *master,
 			    && (sdd->state & RXBUSY))
 				dmaengine_terminate_all(sdd->rx_dma.ch);
 		}
-	} else {
-		flush_fifo(sdd);
 	}
-
 	return status;
 }
 
