@@ -638,11 +638,18 @@ static int s3c64xx_spi_prepare_message(struct spi_master *master,
 	struct spi_device *spi = msg->spi;
 	struct s3c64xx_spi_csinfo *cs = spi->controller_data;
 
-	/* spi controller reset */
-	flush_fifo(sdd);
-
 	/* Configure feedback delay */
 	writel(cs->fb_delay & 0x3, sdd->regs + S3C64XX_SPI_FB_CLK);
+
+	/* spi controller reset */
+	flush_fifo(sdd);
+	usleep_range(10, 20);
+
+	/* changed spi mode before cs level is low. */
+	if (sdd->cur_mode != spi->mode) {
+		sdd->cur_mode = spi->mode;
+		s3c64xx_spi_config(sdd);
+	}
 
 	return 0;
 }
@@ -669,11 +676,9 @@ static int s3c64xx_spi_transfer_one(struct spi_master *master,
 			bpw = 32;
 	}
 
-	if (bpw != sdd->cur_bpw || speed != sdd->cur_speed ||
-		spi->mode != sdd->cur_mode) {
+	if (bpw != sdd->cur_bpw || speed != sdd->cur_speed) {
 		sdd->cur_bpw = bpw;
 		sdd->cur_speed = speed;
-		sdd->cur_mode = spi->mode;
 		s3c64xx_spi_config(sdd);
 	}
 
