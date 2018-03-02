@@ -1374,6 +1374,10 @@ static void s2mps11_pmic_shutdown(struct platform_device *pdev)
 	int ret;
 
 	ret = regmap_read(iodev->regmap_pmic, S2MPS11_REG_CTRL1, &reg_val);
+
+pr_err("%s : reg = 0x%x, mask = 0x%x, reg_val = 0x%x, ret = %d\n",
+	__func__, S2MPS11_REG_CTRL1, BIT(4), reg_val, ret);
+
 	if (ret < 0) {
 		dev_crit(&pdev->dev, "could not read S2MPS11_REG_CTRL1 value\n");
 	} else {
@@ -1386,6 +1390,7 @@ static void s2mps11_pmic_shutdown(struct platform_device *pdev)
 			ret = regmap_update_bits(iodev->regmap_pmic,
 						 S2MPS11_REG_CTRL1,
 						 BIT(4), BIT(0));
+pr_err("%s : reg = 0x%x, mask = 0x%x\n", __func__, S2MPS11_REG_CTRL1, BIT(4));
 			if (ret)
 				dev_crit(&pdev->dev,
 					 "could not update S2MPS11_REG_CTRL1 value\n");
@@ -1415,21 +1420,7 @@ static void s2mps11_pmic_shutdown(struct platform_device *pdev)
 
 	s2mps11_pmic_ethonoff(pdev, false);
 
-	/* USB3.0 Hub Power OFF(GL3512) : BUCK9 */
-	if (regmap_update_bits(iodev->regmap_pmic,
-		S2MPS11_REG_B9CTRL1, 0xC0, 0x00)) {
-		dev_crit(&pdev->dev,
-			"could not update S2MPS11_REG_B9CTRL1 Error!!\n");
-	}
-
 	mdelay(10);
-
-	/* USB3.0 Hub Power ON(GL3512) : BUCK9 */
-	if (regmap_update_bits(iodev->regmap_pmic,
-		S2MPS11_REG_B9CTRL1, 0xC0, 0xC0)) {
-		dev_crit(&pdev->dev,
-			"could not update S2MPS11_REG_B9CTRL1 Error!!\n");
-	}
 
 	if (regmap_update_bits(iodev->regmap_pmic,
 				S2MPS11_REG_L19CTRL, 0x3F, reg_val)) {
