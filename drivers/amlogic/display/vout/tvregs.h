@@ -376,6 +376,14 @@ static const struct reg_s tvregs_1080p_24hz_enc[] = {
 	{MREG_END_MARKER,            0      }
 };
 
+static const struct reg_s tvregs_4k2k_60hz_enc[] = {
+	{MREG_END_MARKER,            0      },
+};
+
+static const struct reg_s tvregs_4k2k_50hz_enc[] = {
+	{MREG_END_MARKER,            0      },
+};
+
 static const struct reg_s tvregs_4k2k_30hz_enc[] = {
 	{MREG_END_MARKER,            0      },
 };
@@ -506,6 +514,10 @@ static struct tvregs_set_t tvregsTab[] = {
 	{TVMODE_1080P_30HZ, tvregs_1080p_30hz_clk, tvregs_1080p_30hz_enc},
 	{TVMODE_1080P_25HZ, tvregs_1080p_25hz_clk, tvregs_1080p_25hz_enc},
 	{TVMODE_1080P_24HZ, tvregs_1080p_24hz_clk, tvregs_1080p_24hz_enc},
+	{TVMODE_4K2K_60HZ, NULL, tvregs_4k2k_60hz_enc},
+	{TVMODE_4K2K_60HZ_Y420, NULL, tvregs_4k2k_60hz_enc},
+	{TVMODE_4K2K_50HZ, NULL, tvregs_4k2k_50hz_enc},
+	{TVMODE_4K2K_50HZ_Y420, NULL, tvregs_4k2k_50hz_enc},
 	{TVMODE_4K2K_30HZ, NULL, tvregs_4k2k_30hz_enc},
 	{TVMODE_4K2K_25HZ, NULL, tvregs_4k2k_25hz_enc},
 	{TVMODE_4K2K_24HZ, NULL, tvregs_4k2k_24hz_enc},
@@ -525,6 +537,10 @@ static struct tvregs_set_t tvregsTab[] = {
 	{TVMODE_1600x1200p60hz, NULL, tvregs_vesa_1600x1200p_enc},
 	{TVMODE_1680x1050p60hz, NULL, tvregs_vesa_1680x1050p_enc},
 	{TVMODE_1920x1200p60hz, NULL, tvregs_vesa_1920x1200p_enc},
+	{TVMODE_2560x1080p60hz, NULL, tvregs_vesa_2560x1080_enc},
+	{TVMODE_2560x1440p60hz, NULL, tvregs_vesa_2560x1440_enc},
+	{TVMODE_2560x1600p60hz, NULL, tvregs_vesa_2560x1600_enc},
+	{TVMODE_3440x1440p60hz, NULL, tvregs_vesa_3440x1440_enc},
 	{TVMODE_480x320p60hz, NULL, tvregs_vesa_480x320p60hz_enc},
 	{TVMODE_VGA, tvregs_vga_640x480_clk, tvregs_vga_640x480_enc},
 	{TVMODE_SVGA, tvregs_svga_800x600_clk, tvregs_svga_800x600_enc},
