@@ -27,7 +27,7 @@ EXTRA_CFLAGS += -Wno-unused
 # Relax some warnings from '-Wextra' so we won't get flooded with warnings
 EXTRA_CFLAGS += -Wno-sign-compare
 EXTRA_CFLAGS += -Wno-missing-field-initializers
-
+EXTRA_CFLAGS += -Wno-incompatible-pointer-types
 EXTRA_CFLAGS += -I$(src)/include
 EXTRA_CFLAGS += -I$(src)/hal/phydm
 
