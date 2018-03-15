@@ -8,6 +8,9 @@ obj-y				  += backlight/
 
 obj-y				  += fbdev/
 
+# Linux Framebuffer driver for small TFT-LCD display modules.
+obj-y				  += fbtft/
+
 obj-$(CONFIG_VIDEOMODE_HELPERS) += display_timing.o videomode.o
 ifeq ($(CONFIG_OF),y)
 obj-$(CONFIG_VIDEOMODE_HELPERS) += of_display_timing.o of_videomode.o
