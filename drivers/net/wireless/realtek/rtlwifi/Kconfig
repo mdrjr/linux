@@ -105,7 +105,7 @@ config RTL8821AE
 
 	If you choose to build it as a module, it will be called rtl8821ae
 
-config RTL8192CUXXX
+config RTL8192CU
 	tristate "Realtek RTL8192CU/RTL8188CU USB Wireless Network Adapter"
 	depends on USB
 	select RTLWIFI
