@@ -47,7 +47,6 @@ source "drivers/net/wireless/ti/Kconfig"
 source "drivers/net/wireless/zydas/Kconfig"
 source "drivers/net/wireless/quantenna/Kconfig"
 source "drivers/net/wireless/rtl8812au/Kconfig"
-source "drivers/net/wireless/rtl8192cu/Kconfig"
 source "drivers/net/wireless/rtl8188eu/Kconfig"
 
 config PCMCIA_RAYCS
