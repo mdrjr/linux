@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 4.14.37 Kernel Configuration
+# Linux/arm 4.14.50 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -1484,7 +1484,7 @@ CONFIG_BT_BNEP_PROTO_FILTER=y
 CONFIG_BT_HIDP=m
 CONFIG_BT_HS=y
 CONFIG_BT_LE=y
-# CONFIG_BT_6LOWPAN is not set
+CONFIG_BT_6LOWPAN=m
 CONFIG_BT_LEDS=y
 CONFIG_BT_DEBUGFS=y
 
