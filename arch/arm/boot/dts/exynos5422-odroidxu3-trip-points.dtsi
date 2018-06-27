@@ -82,7 +82,7 @@
 				*/
 				map4 {
 					trip = <&UNIQIFY(cpu_alert4)>;
-					cooling-device = <&cpu4 2 8>;
+					cooling-device = <&cpu4 4 8>;
 				};
 				/*
 				 * When reaching cpu_alert5, reduce all CPUs to ensure thermal
@@ -95,6 +95,6 @@
 				};
 				map6 {
 					trip = <&UNIQIFY(cpu_alert5)>;
-					cooling-device = <&cpu4 5 14>;
+					cooling-device = <&cpu4 8 14>;
 				};
 			};
