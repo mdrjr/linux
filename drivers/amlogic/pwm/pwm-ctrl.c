@@ -91,7 +91,8 @@ static ssize_t set_duty0(struct device *dev,
 		return -EINVAL;
 
 	if ((val > DUTY_MAX) || (val < 0)) {
-		dev_err(dev, "PWM_0 : Invalid param. Duty cycle range is 0 to 100\n");
+		dev_err(dev, "PWM_0 : Invalid param. Duty range is 0 to %d\n",
+				DUTY_MAX);
 		return count;
 	}
 	dev_dbg(dev, "PWM_0 : %s [%d]\n", __func__, val);
@@ -242,7 +243,8 @@ static	ssize_t set_duty1(
 		return -EINVAL;
 
 	if ((val > DUTY_MAX) || (val < 0)) {
-		dev_err(dev, "PWM_1 : Invalid param. Duty cycle range is 0 to 100\n");
+		dev_err(dev, "PWM_1 : Invalid param. Duty range is 0 to %d\n",
+				DUTY_MAX);
 		return count;
 	}
 	dev_dbg(dev, "PWM_1 : %s [%d]\n", __func__, val);
