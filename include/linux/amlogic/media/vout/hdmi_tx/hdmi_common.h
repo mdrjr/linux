@@ -158,6 +158,10 @@ enum hdmi_vic {
 	HDMI_3840x1080p100hz,
 	HDMI_3840x540p240hz,
 	HDMI_3840x540p200hz,
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	HDMI_480x320p60_4x3,
+	HDMI_480x800p60_4x3,
+#endif
 
 	/*
 	 * the following vic is for those y420 mode

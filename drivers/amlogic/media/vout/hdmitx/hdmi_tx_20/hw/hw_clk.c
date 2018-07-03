@@ -820,54 +820,106 @@ static struct hw_enc_clk_val_group setting_enc_clk_val_24[] = {
 	  HDMI_3840x2160p50_16x9_Y420,
 	  HDMI_VIC_END},
 		5940000, 2, 1, 1, VID_PLL_DIV_5, 1, 2, 1, -1},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	{{HDMIV_2560x1440p60hz,
+	  HDMI_VIC_END},
+		2415000, 1, 1, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+	{{HDMI_480x320p60_4x3,
+	  HDMI_VIC_END},
+		/* actual hpll : 2016000 */
+		2000000, 4, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+	{{HDMI_480x800p60_4x3,
+	  HDMI_VIC_END},
+		2560000, 4, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+#endif
 	{{HDMI_VIC_FAKE,
 	  HDMI_VIC_END},
 		3450000, 1, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
 	/* pll setting for VESA modes */
 	{{HDMIV_640x480p60hz, /* 4.028G / 16 = 251.75M */
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2000000, 4, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+#else
 		4028000, 4, 4, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_800x480p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2415000, 4, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+#else
 		4761600, 4, 4, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_800x600p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		3243240, 4, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+#else
 		3200000, 4, 2, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_852x480p60hz,
 	   HDMIV_854x480p60hz,
 	  HDMI_VIC_END},
 		4838400, 4, 4, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
 	{{HDMIV_1024x600p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2058000, 4, 1, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
+#else
 		4115866, 4, 2, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1024x768p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2600000, 2, 2, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		5200000, 4, 2, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1280x768p60hz,
 	  HDMI_VIC_END},
 		3180000, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
 	{{HDMIV_1280x800p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		1422000, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		5680000, 4, 2, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1152x864p75hz,
 	  HDMIV_1280x960p60hz,
 	  HDMIV_1280x1024p60hz,
 	  HDMIV_1600x900p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		4324320, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		4320000, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1600x1200p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		3243240, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		3240000, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1360x768p60hz,
 	  HDMIV_1366x768p60hz,
 	  HDMI_VIC_END},
 		3420000, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
 	{{HDMIV_1400x1050p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2134000, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		4870000, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1440x900p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		2134000, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		4260000, 4, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 	{{HDMIV_1440x2560p60hz,
 	  HDMI_VIC_END},
 		4897000, 2, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
@@ -882,7 +934,11 @@ static struct hw_enc_clk_val_group setting_enc_clk_val_24[] = {
 		5371100, 1, 2, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
 	{{HDMIV_2560x1600p60hz,
 	  HDMI_VIC_END},
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+		3450000, 1, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#else
 		3485000, 1, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+#endif
 };
 
 /* For colordepth 10bits */
