@@ -107,7 +107,7 @@
 #define EEPROM_THERMAL_OFFSET			0xF5
 #endif //CONFIG_RF_GAIN_OFFSET
 //----------------------------------------------------------------------------
-//       88E Driver Initialization Offload REG_FDHM0(Offset 0x88, 8 bits)  
+//       88E Driver Initialization Offload REG_FDHM0(Offset 0x88, 8 bits)
 //----------------------------------------------------------------------------
 //IOL config for REG_FDHM0(Reg0x88)
 #define CMD_INIT_LLT					BIT0
@@ -148,10 +148,7 @@
 //========================================================
 
 #define MACID_NUM_88E 64
-#define SEC_CAM_ENT_NUM_88E 32
-#define NSS_NUM_88E 1
-#define BAND_CAP_88E (BAND_CAP_2G)
-#define BW_CAP_88E (BW_CAP_20M | BW_CAP_40M)
+#define CAM_ENTRY_NUM_88E 32
 
 //----------------------------------------------------------------------------
 //       8192C EEPROM/EFUSE share register definition.

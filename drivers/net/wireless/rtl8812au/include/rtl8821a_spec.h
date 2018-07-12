@@ -98,10 +98,6 @@
 //========================================================
 
 #define MACID_NUM_8821A 128
-#define SEC_CAM_ENT_NUM_8821A 64
-#define NSS_NUM_8821A 1
-#define BAND_CAP_8821A (BAND_CAP_2G | BAND_CAP_5G)
-#define BW_CAP_8821A (BW_CAP_20M | BW_CAP_40M | BW_CAP_80M)
+#define CAM_ENTRY_NUM_8821A 64
 
 #endif /* __RTL8821A_SPEC_H__ */
-

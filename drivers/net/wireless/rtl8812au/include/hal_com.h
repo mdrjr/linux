@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -26,9 +26,8 @@
 #include "hal_phy_reg.h"
 #include "hal_com_reg.h"
 #include "hal_com_phycfg.h"
-#include "../hal/hal_com_c2h.h"
 
-/*------------------------------ Tx Desc definition Macro ------------------------*/ 
+/*------------------------------ Tx Desc definition Macro ------------------------*/
 //#pragma mark -- Tx Desc related definition. --
 //----------------------------------------------------------------------------
 //-----------------------------------------------------------
@@ -123,7 +122,7 @@
 #define DESC_RATEVHTSS4MCS7		0x51
 #define DESC_RATEVHTSS4MCS8		0x52
 #define DESC_RATEVHTSS4MCS9		0x53
-#define DESC_RATEMAX			0x54
+
 #define HDATA_RATE(rate)\
 (rate==DESC_RATE1M)?"CCK_1M":\
 (rate==DESC_RATE2M)?"CCK_2M":\
@@ -175,9 +174,9 @@
 (rate==DESC_RATEVHTSS2MCS9)?"VHTSS2MCS9":"UNKNOW"
 
 
-enum{
+enum {
 	UP_LINK,
-	DOWN_LINK,	
+	DOWN_LINK,
 };
 typedef enum _RT_MEDIA_STATUS {
 	RT_MEDIA_DISCONNECT = 0,
@@ -215,11 +214,10 @@ typedef enum _FIRMWARE_SOURCE {
 #define PageNum_512(_Len)		(u32)(((_Len)>>9) + ((_Len)&0x1FF ? 1:0))
 #define PageNum(_Len, _Size)		(u32)(((_Len)/(_Size)) + ((_Len)&((_Size) - 1) ? 1:0))
 
-struct dbg_rx_counter
-{
+struct dbg_rx_counter {
 	u32	rx_pkt_ok;
 	u32	rx_pkt_crc_error;
-	u32	rx_pkt_drop;	
+	u32	rx_pkt_drop;
 	u32	rx_ofdm_fa;
 	u32	rx_cck_fa;
 	u32	rx_ht_fa;
@@ -239,89 +237,40 @@ void rtw_dump_phy_rxcnts_preprocess(_adapter* padapter,u8 rx_cnt_mode);
 void rtw_dump_rx_counters(_adapter* padapter);
 #endif
 
+u8 rtw_hal_data_init(_adapter *padapter);
+void rtw_hal_data_deinit(_adapter *padapter);
+
 void dump_chip_info(HAL_VERSION	ChipVersion);
-void rtw_hal_config_rftype(PADAPTER  padapter);
-
-#define BAND_CAP_2G			BIT0
-#define BAND_CAP_5G			BIT1
-#define BAND_CAP_BIT_NUM	2
-
-#define BW_CAP_5M		BIT0
-#define BW_CAP_10M		BIT1
-#define BW_CAP_20M		BIT2
-#define BW_CAP_40M		BIT3
-#define BW_CAP_80M		BIT4
-#define BW_CAP_160M		BIT5
-#define BW_CAP_80_80M	BIT6
-#define BW_CAP_BIT_NUM	7
-
-#define WL_FUNC_P2P			BIT0
-#define WL_FUNC_MIRACAST	BIT1
-#define WL_FUNC_TDLS		BIT2
-#define WL_FUNC_FTM			BIT3
-#define WL_FUNC_BIT_NUM		4
-
-int hal_spec_init(_adapter *adapter);
-void dump_hal_spec(void *sel, _adapter *adapter);
-
-bool hal_chk_band_cap(_adapter *adapter, u8 cap);
-bool hal_chk_bw_cap(_adapter *adapter, u8 cap);
-bool hal_is_band_support(_adapter *adapter, u8 band);
-bool hal_is_bw_support(_adapter *adapter, u8 bw);
-u8 hal_largest_bw(_adapter *adapter, u8 in_bw);
-
-bool hal_chk_wl_func(_adapter *adapter, u8 func);
-#ifdef CONFIG_P2P
-#define HAL_HAS_WL_FUNC_P2P(adapter) hal_chk_wl_func((adapter), WL_FUNC_P2P)
-#else
-#define HAL_HAS_WL_FUNC_P2P(adapter) 0
-#endif
-
-#ifdef CONFIG_WFD
-#define HAL_HAS_WL_FUNC_MIRACAST(adapter) hal_chk_wl_func((adapter), WL_FUNC_MIRACAST)
-#else
-#define HAL_HAS_WL_FUNC_MIRACAST(adapter) 0
-#endif
-
-#ifdef CONFIG_TDLS
-#define HAL_HAS_WL_FUNC_TDLS(adapter) hal_chk_wl_func((adapter), WL_FUNC_TDLS)
-#else
-#define HAL_HAS_WL_FUNC_TDLS(adapter) 0
-#endif
-
-#define HAL_HAS_WL_FUNC_FTM(adapter) hal_chk_wl_func((adapter), WL_FUNC_FTM)
 
 u8	//return the final channel plan decision
 hal_com_config_channel_plan(
-	IN	PADAPTER	padapter,
-	IN	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
-	IN	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
-	IN	u8			def_channel_plan,	//channel plan used when the former two is invalid
-	IN	BOOLEAN		AutoLoadFail
-	);
-
-int hal_config_macaddr(_adapter *adapter, bool autoload_fail);
+    IN	PADAPTER	padapter,
+    IN	u8			hw_channel_plan,	//channel plan from HW (efuse/eeprom)
+    IN	u8			sw_channel_plan,	//channel plan from SW (registry/module param)
+    IN	u8			def_channel_plan,	//channel plan used when the former two is invalid
+    IN	BOOLEAN		AutoLoadFail
+);
 
 BOOLEAN
 HAL_IsLegalChannel(
-	IN	PADAPTER	Adapter,
-	IN	u32			Channel
-	);
+    IN	PADAPTER	Adapter,
+    IN	u32			Channel
+);
 
 u8	MRateToHwRate(u8 rate);
 
 u8	HwRateToMRate(u8 rate);
 
 void	HalSetBrateCfg(
-	IN PADAPTER		Adapter,
-	IN u8			*mBratesOS,
-	OUT u16			*pBrateCfg);
+    IN PADAPTER		Adapter,
+    IN const u8		*mBratesOS,
+    OUT u16			*pBrateCfg);
 
 BOOLEAN
 Hal_MappingOutPipe(
-	IN	PADAPTER	pAdapter,
-	IN	u8		NumOutPipe
-	);
+    IN	PADAPTER	pAdapter,
+    IN	u8		NumOutPipe
+);
 
 void hal_init_macaddr(_adapter *adapter);
 
@@ -335,79 +284,72 @@ u8  rtw_hal_networktype_to_raid(_adapter *adapter, struct sta_info *psta);
 u8 rtw_get_mgntframe_raid(_adapter *adapter,unsigned char network_type);
 void rtw_hal_update_sta_rate_mask(PADAPTER padapter, struct sta_info *psta);
 
-/* access HW only */
-u32 rtw_sec_read_cam(_adapter *adapter, u8 addr);
-void rtw_sec_write_cam(_adapter *adapter, u8 addr, u32 wdata);
-void rtw_sec_read_cam_ent(_adapter *adapter, u8 id, u8 *ctrl, u8 *mac, u8 *key);
-void rtw_sec_write_cam_ent(_adapter *adapter, u8 id, u16 ctrl, u8 *mac, u8 *key);
-bool rtw_sec_read_cam_is_gk(_adapter *adapter, u8 id);
-
 void hw_var_port_switch(_adapter *adapter);
 
-void SetHwReg(PADAPTER padapter, u8 variable, u8 *val);
+void SetHwReg(PADAPTER padapter, u8 variable, const u8 *val);
 void GetHwReg(PADAPTER padapter, u8 variable, u8 *val);
 void rtw_hal_check_rxfifo_full(_adapter *adapter);
 
-u8 SetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
+u8 SetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, const void *value);
 u8 GetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
 
-BOOLEAN 
+BOOLEAN
 eqNByte(
-	u8*	str1,
-	u8*	str2,
-	u32	num
-	);
+    u8*	str1,
+    u8*	str2,
+    u32	num
+);
 
-BOOLEAN 
+BOOLEAN
 IsHexDigit(
-	IN	char	chTmp
-	);
+    IN	char	chTmp
+);
 
 u32
 MapCharToHexDigit(
-	IN	char	chTmp
+    IN	char	chTmp
 );
 
-BOOLEAN 
+BOOLEAN
 GetHexValueFromString(
-	IN		char*			szStr,
-	IN OUT	u32*			pu4bVal,
-	IN OUT	u32*			pu4bMove
-	);
+    IN		char*			szStr,
+    IN OUT	u32*			pu4bVal,
+    IN OUT	u32*			pu4bMove
+);
 
-BOOLEAN 
+BOOLEAN
 GetFractionValueFromString(
-	IN		char*		szStr,
-	IN OUT	u8*			pInteger,
-	IN OUT	u8*			pFraction,
-	IN OUT	u32*		pu4bMove
-	);
+    IN		char*		szStr,
+    IN OUT	u8*			pInteger,
+    IN OUT	u8*			pFraction,
+    IN OUT	u32*		pu4bMove
+);
 
 BOOLEAN
 IsCommentString(
-	IN		char*		szStr
-	);
+    IN		char*		szStr
+);
 
-BOOLEAN 
+BOOLEAN
 ParseQualifiedString(
-    IN	char* In, 
-    IN OUT  u32* Start, 
-    OUT	char* Out, 
-    IN	char  LeftQualifier, 
+    IN	char* In,
+    IN OUT  u32* Start,
+    OUT	char* Out,
+    IN	char  LeftQualifier,
     IN	char  RightQualifier
-    );
+);
 
 BOOLEAN
 GetU1ByteIntegerFromStringInDecimal(
-	IN		char* Str,
-	IN OUT	u8* pInt
-	);
+    IN		char* Str,
+    IN OUT	u8* pInt
+);
 
 BOOLEAN
 isAllSpaceOrTab(
-	u8*	data,
-	u8	size
-	);
+    u8*	data,
+    u8	size
+);
 
 void linked_info_dump(_adapter *padapter,u8 benable);
 #ifdef DBG_RX_SIGNAL_DISPLAY_RAW_DATA
@@ -419,13 +361,12 @@ void rtw_dump_raw_rssi_info(_adapter *padapter);
 #define		HWSET_MAX_SIZE			512
 #ifdef CONFIG_EFUSE_CONFIG_FILE
 #define		EFUSE_FILE_COLUMN_NUM		16
-u32 Hal_readPGDataFromConfigFile(PADAPTER padapter);
-u32 Hal_ReadMACAddrFromFile(PADAPTER padapter, u8 *mac_addr);
-#endif /* CONFIG_EFUSE_CONFIG_FILE */
-
+u32 Hal_readPGDataFromConfigFile(PADAPTER padapter, struct file *fp);
+void Hal_ReadMACAddrFromFile(PADAPTER padapter, struct file *fp);
+void Hal_GetPhyEfuseMACAddr(PADAPTER padapter, u8* mac_addr);
 int check_phy_efuse_tx_power_info_valid(PADAPTER padapter);
-int hal_efuse_macaddr_offset(_adapter *adapter);
-int Hal_GetPhyEfuseMACAddr(PADAPTER padapter, u8 *mac_addr);
+int check_phy_efuse_macaddr_info_valid(PADAPTER padapter);
+#endif //CONFIG_EFUSE_CONFIG_FILE
 
 #ifdef CONFIG_RF_GAIN_OFFSET
 void rtw_bb_rf_gain_offset(_adapter *padapter);
@@ -433,27 +374,25 @@ void rtw_bb_rf_gain_offset(_adapter *padapter);
 
 void dm_DynamicUsbTxAgg(_adapter *padapter, u8 from_timer);
 u8 rtw_hal_busagg_qsel_check(_adapter *padapter,u8 pre_qsel,u8 next_qsel);
-void GetHalODMVar(	
-	PADAPTER				Adapter,
-	HAL_ODM_VARIABLE		eVariable,
-	PVOID					pValue1,
-	PVOID					pValue2);
+void GetHalODMVar(
+    PADAPTER				Adapter,
+    HAL_ODM_VARIABLE		eVariable,
+    PVOID					pValue1,
+    PVOID					pValue2);
 void SetHalODMVar(
-	PADAPTER				Adapter,
-	HAL_ODM_VARIABLE		eVariable,
-	PVOID					pValue1,
-	BOOLEAN					bSet);
+    PADAPTER				Adapter,
+    HAL_ODM_VARIABLE		eVariable,
+    PVOID					pValue1,
+    BOOLEAN					bSet);
 
 #ifdef CONFIG_BACKGROUND_NOISE_MONITOR
-struct noise_info
-{
+struct noise_info {
 	u8 		bPauseDIG;
 	u8 		IGIValue;
-	u32 	max_time;//ms	
+	u32 	max_time;//ms
 	u8		chan;
 };
 #endif
-
 void rtw_get_noise(_adapter* padapter);
 
 void rtw_hal_set_fw_rsvd_page(_adapter* adapter, bool finished);
@@ -466,58 +405,10 @@ int rtw_hal_register_gpio_interrupt(_adapter* adapter, int gpio_num, void(*callb
 int rtw_hal_disable_gpio_interrupt(_adapter* adapter, int gpio_num);
 #endif
 
-#ifdef CONFIG_GPIO_WAKEUP
-void rtw_hal_set_output_gpio(_adapter *padapter, u8 index, u8 outputval);
-#endif
-
-typedef enum _HAL_PHYDM_OPS {
-	HAL_PHYDM_DIS_ALL_FUNC,
-	HAL_PHYDM_FUNC_SET,
-	HAL_PHYDM_FUNC_CLR,
-	HAL_PHYDM_ABILITY_BK,
-	HAL_PHYDM_ABILITY_RESTORE,
-	HAL_PHYDM_ABILITY_SET,
-	HAL_PHYDM_ABILITY_GET,
-} HAL_PHYDM_OPS;
-
-
-#define DYNAMIC_FUNC_DISABLE		(0x0)
-u32 rtw_phydm_ability_ops(_adapter *adapter, HAL_PHYDM_OPS ops, u32 ability);
-
-#define rtw_phydm_func_disable_all(adapter)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_DIS_ALL_FUNC, 0)
-
-#define rtw_phydm_func_for_offchannel(adapter) \
-	do { \
-		rtw_phydm_ability_ops(adapter, HAL_PHYDM_DIS_ALL_FUNC, 0); \
-		if (rtw_odm_adaptivity_needed(adapter)) \
-			rtw_phydm_ability_ops(adapter, HAL_PHYDM_FUNC_SET, ODM_BB_ADAPTIVITY); \
-	} while (0)
-
-#define rtw_phydm_func_set(adapter, ability)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_FUNC_SET, ability)
-
-#define rtw_phydm_func_clr(adapter, ability)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_FUNC_CLR, ability)
-
-#define rtw_phydm_ability_backup(adapter)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_ABILITY_BK, 0)
-
-#define rtw_phydm_ability_restore(adapter)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_ABILITY_RESTORE, 0)
-
-#define rtw_phydm_ability_set(adapter, ability)	\
-	rtw_phydm_ability_ops(adapter, HAL_PHYDM_ABILITY_SET, 0)
-
-static inline u32 rtw_phydm_ability_get(_adapter *adapter)
-{
-	return rtw_phydm_ability_ops(adapter, HAL_PHYDM_ABILITY_GET, 0);
-}
-
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 extern char *rtw_phy_file_path;
-extern char phy_para_file_path[PATH_LENGTH_MAX];
-#define GetLineFromBuffer(buffer)   strsep(&buffer, "\r\n")
+extern char rtw_file_path[PATH_LENGTH_MAX];
+#define GetLineFromBuffer(buffer)   strsep(&buffer, "\n")
 #endif
 
 #ifdef CONFIG_FW_C2H_DEBUG
@@ -525,13 +416,5 @@ void Debug_FwC2H(PADAPTER padapter, u8 *pdata, u8 len);
 #endif
 /*CONFIG_FW_C2H_DEBUG*/
 
-void update_IOT_info(_adapter *padapter);
-
-#ifdef CONFIG_AUTO_CHNL_SEL_NHM
-void rtw_acs_start(_adapter *padapter, bool bStart);
-#endif
-
-void hal_set_crystal_cap(_adapter *adapter, u8 crystal_cap);
 
 #endif //__HAL_COMMON_H__
-

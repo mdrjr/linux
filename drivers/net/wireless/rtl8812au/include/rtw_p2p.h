@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -148,7 +148,6 @@ void dbg_rtw_p2p_set_role(struct wifidirect_info *wdinfo, enum P2P_ROLE role, co
 #define rtw_p2p_findphase_ex_set(wdinfo, value) \
 	(wdinfo)->find_phase_state_exchange_cnt = (value)
 
-#ifdef CONFIG_P2P
 //is this find phase exchange for social channel scan?
 #define rtw_p2p_findphase_ex_is_social(wdinfo)   \
 	(wdinfo)->find_phase_state_exchange_cnt >= P2P_FINDPHASE_EX_SOCIAL_FIRST
@@ -156,13 +155,7 @@ void dbg_rtw_p2p_set_role(struct wifidirect_info *wdinfo, enum P2P_ROLE role, co
 //should we need find phase exchange anymore?
 #define rtw_p2p_findphase_ex_is_needed(wdinfo) \
 	((wdinfo)->find_phase_state_exchange_cnt < P2P_FINDPHASE_EX_MAX && \
-	(wdinfo)->find_phase_state_exchange_cnt != P2P_FINDPHASE_EX_NONE && \
-	!(wdinfo)->rx_invitereq_info.scan_op_ch_only && \
-	!(wdinfo)->p2p_info.scan_op_ch_only)
-#else
-#define rtw_p2p_findphase_ex_is_social(wdinfo) 0
-#define rtw_p2p_findphase_ex_is_needed(wdinfo) 0
-#endif /* CONFIG_P2P */
+	(wdinfo)->find_phase_state_exchange_cnt != P2P_FINDPHASE_EX_NONE)
 
 #endif
 

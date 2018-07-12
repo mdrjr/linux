@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
- *                                        
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -81,39 +81,22 @@ enum _EFUSE_DEF_TYPE {
 /*--------------------------Define Parameters-------------------------------*/
 #define		EFUSE_MAX_WORD_UNIT			4
 
-/*------------------------------Define structure----------------------------*/ 
-typedef struct PG_PKT_STRUCT_A{
+/*------------------------------Define structure----------------------------*/
+typedef struct PG_PKT_STRUCT_A {
 	u8 offset;
 	u8 word_en;
-	u8 data[8];	
+	u8 data[8];
 	u8 word_cnts;
-}PGPKT_STRUCT,*PPGPKT_STRUCT;
+} PGPKT_STRUCT,*PPGPKT_STRUCT;
 
-typedef enum
-{
-	ERR_SUCCESS = 0,
-	ERR_DRIVER_FAILURE,
-	ERR_IO_FAILURE,
-	ERR_WI_TIMEOUT,
-	ERR_WI_BUSY,
-	ERR_BAD_FORMAT,
-	ERR_INVALID_DATA,
-	ERR_NOT_ENOUGH_SPACE,
-	ERR_WRITE_PROTECT,
-	ERR_READ_BACK_FAIL,
-	ERR_OUT_OF_RANGE
-} ERROR_CODE;
-
-/*------------------------------Define structure----------------------------*/ 
-typedef struct _EFUSE_HAL{
+/*------------------------------Define structure----------------------------*/
+typedef struct _EFUSE_HAL {
 	u8	fakeEfuseBank;
 	u32	fakeEfuseUsedBytes;
 	u8	fakeEfuseContent[EFUSE_MAX_HW_SIZE];
 	u8	fakeEfuseInitMap[EFUSE_MAX_MAP_LEN];
 	u8	fakeEfuseModifiedMap[EFUSE_MAX_MAP_LEN];
-	u32	EfuseUsedBytes;
-	u8	EfuseUsedPercentage;
-	
+
 	u16	BTEfuseUsedBytes;
 	u8	BTEfuseUsedPercentage;
 	u8	BTEfuseContent[EFUSE_MAX_BT_BANK][EFUSE_MAX_HW_SIZE];
@@ -124,30 +107,7 @@ typedef struct _EFUSE_HAL{
 	u8	fakeBTEfuseContent[EFUSE_MAX_BT_BANK][EFUSE_MAX_HW_SIZE];
 	u8	fakeBTEfuseInitMap[EFUSE_BT_MAX_MAP_LEN];
 	u8	fakeBTEfuseModifiedMap[EFUSE_BT_MAX_MAP_LEN];
-
-	// EFUSE Configuration, initialized in HAL_CmnInitPGData().
-	const u16  MaxSecNum_WiFi;
-	const u16  MaxSecNum_BT;	
-	const u16  WordUnit;	
-	const u16  PhysicalLen_WiFi;
-	const u16  PhysicalLen_BT;	
-	const u16  LogicalLen_WiFi;
-	const u16  LogicalLen_BT;	
-	const u16  BankSize;
-	const u16  TotalBankNum;
-	const u16  BankNum_WiFi;
-	const u16  BankNum_BT;	
-	const u16  OOBProtectBytes;
-	const u16  ProtectBytes;
-	const u16  BankAvailBytes;	
-	const u16  TotalAvailBytes_WiFi;
-	const u16  TotalAvailBytes_BT;	
-	const u16  HeaderRetry;	
-	const u16  DataRetry;	
-
-	ERROR_CODE 	  Status;
-	
-}EFUSE_HAL, *PEFUSE_HAL;
+} EFUSE_HAL, *PEFUSE_HAL;
 
 extern u8 maskfileBuffer[32];
 
@@ -172,7 +132,6 @@ extern u8 fakeBTEfuseModifiedMap[];
 u8	efuse_GetCurrentSize(PADAPTER padapter, u16 *size);
 u16	efuse_GetMaxSize(PADAPTER padapter);
 u8	rtw_efuse_access(PADAPTER padapter, u8 bRead, u16 start_addr, u16 cnts, u8 *data);
-u8	rtw_efuse_mask_map_read(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_efuse_map_read(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_BT_efuse_map_read(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
@@ -189,20 +148,15 @@ void	BTEfuse_PowerSwitch(PADAPTER pAdapter,u8	bWrite,u8	 PwrState);
 void	Efuse_PowerSwitch(PADAPTER pAdapter,u8	bWrite,u8	 PwrState);
 int 	Efuse_PgPacketRead(PADAPTER pAdapter, u8 offset, u8 *data, BOOLEAN bPseudoTest);
 int 	Efuse_PgPacketWrite(PADAPTER pAdapter, u8 offset, u8 word_en, u8 *data, BOOLEAN bPseudoTest);
-void	efuse_WordEnableDataRead(u8 word_en, u8 *sourdata, u8 *targetdata);
+void	efuse_WordEnableDataRead(u8 word_en, const u8 *sourdata, u8 *targetdata);
 u8	Efuse_WordEnableDataWrite(PADAPTER pAdapter, u16 efuse_addr, u8 word_en, u8 *data, BOOLEAN bPseudoTest);
 
 u8	EFUSE_Read1Byte(PADAPTER pAdapter, u16 Address);
 void	EFUSE_ShadowMapUpdate(PADAPTER pAdapter, u8 efuseType, BOOLEAN bPseudoTest);
 void	EFUSE_ShadowRead(PADAPTER pAdapter, u8 Type, u16 Offset, u32 *Value);
+void Rtw_Hal_ReadMACAddrFromFile(PADAPTER padapter);
+u32 Rtw_Hal_readPGDataFromConfigFile(PADAPTER	padapter);
 u8 rtw_efuse_file_read(PADAPTER padapter,u8 *filepatch,u8 *buf, u32 len);
-
-#ifdef PLATFORM_LINUX
-#ifdef CONFIG_EFUSE_CONFIG_FILE
-u32 rtw_read_efuse_from_file(const char *path, u8 *buf);
-u32 rtw_read_macaddr_from_file(const char *path, u8 *buf);
-#endif /* CONFIG_EFUSE_CONFIG_FILE */
-#endif /* PLATFORM_LINUX */
 
 #endif
 

@@ -26,21 +26,19 @@
 #ifdef PLATFORM_OS_CE
 #define MAX_RECVBUF_SZ (8192+1024) // 8K+1k
 #else
-	#ifdef CONFIG_MINIMAL_MEMORY_USAGE
-		#define MAX_RECVBUF_SZ (4000) // about 4K
-	#else
-		#ifdef CONFIG_PREALLOC_RX_SKB_BUFFER
-			#define MAX_RECVBUF_SZ (rtw_rtkm_get_buff_size()) /*depend rtkm*/
-		#elif defined(CONFIG_PLATFORM_HISILICON)
-			#define MAX_RECVBUF_SZ (16384) /* 16k */
-		#else
-			#define MAX_RECVBUF_SZ (32768) /* 32k */
-		#endif
-		//#define MAX_RECVBUF_SZ (20480) //20K
-		//#define MAX_RECVBUF_SZ (10240) //10K 
-		//#define MAX_RECVBUF_SZ (16384) //  16k - 92E RX BUF :16K
-		//#define MAX_RECVBUF_SZ (8192+1024) // 8K+1k		
-	#endif
+#ifdef CONFIG_MINIMAL_MEMORY_USAGE
+#define MAX_RECVBUF_SZ (4000) // about 4K
+#else
+#ifdef CONFIG_PLATFORM_MSTAR
+#define MAX_RECVBUF_SZ (8192) // 8K
+#else
+#define MAX_RECVBUF_SZ (32768) // 32k
+#endif
+//#define MAX_RECVBUF_SZ (20480) //20K
+//#define MAX_RECVBUF_SZ (10240) //10K
+//#define MAX_RECVBUF_SZ (16384) //  16k - 92E RX BUF :16K
+//#define MAX_RECVBUF_SZ (8192+1024) // 8K+1k
+#endif
 #endif
 #endif //!MAX_RECVBUF_SZ
 
@@ -48,13 +46,13 @@
 //#ifndef CONFIG_MINIMAL_MEMORY_USAGE
 //	#define MAX_RECVBUF_SZ (9100)
 //#else
-	#define MAX_RECVBUF_SZ (4000) // about 4K
+#define MAX_RECVBUF_SZ (4000) // about 4K
 //#endif
 
 
 #elif defined(CONFIG_SDIO_HCI)
 
-#define MAX_RECVBUF_SZ (16384)
+#define MAX_RECVBUF_SZ (10240)
 
 #endif
 
@@ -159,6 +157,7 @@ void rtl8192es_recv_hdl(PADAPTER padapter, struct recv_buf *precvbuf);
 #endif
 
 #ifdef CONFIG_USB_HCI
+#define INTERRUPT_MSG_FORMAT_LEN 60
 void rtl8192eu_init_recvbuf(_adapter *padapter, struct recv_buf *precvbuf);
 s32 rtl8192eu_init_recv_priv(PADAPTER padapter);
 void rtl8192eu_free_recv_priv(PADAPTER padapter);
