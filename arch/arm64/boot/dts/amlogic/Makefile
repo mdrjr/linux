@@ -4,7 +4,7 @@ dtb-y += g12a_s905d2_u200.dtb
 dtb-y += g12a_s905d2_u200_buildroot.dtb
 dtb-y += g12a_s905d2_u200_drm_buildroot.dtb
 dtb-y += g12a_s905d2_u220.dtb
-dtb-y += s905d2_odroidc3.dtb
+dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += s922d_odroidn2.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
