@@ -4447,6 +4447,11 @@ CONFIG_NVMEM=y
 # CONFIG_TEE is not set
 
 #
+# Gator module for ARM streamline
+#
+# CONFIG_GATOR is not set
+
+#
 # Firmware Drivers
 #
 CONFIG_ARM_PSCI_FW=y
