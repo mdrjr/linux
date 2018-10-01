@@ -703,9 +703,11 @@ __SYSCALL(277, sys_ni_syscall)
 __SYSCALL(278, sys_ni_syscall)
 #define __NR_memfd_create 279
 __SYSCALL(__NR_memfd_create, sys_memfd_create)
+#define __NR_seccomp 280
+__SYSCALL(__NR_seccomp, sys_seccomp)
 
 #undef __NR_syscalls
-#define __NR_syscalls 280
+#define __NR_syscalls 281
 
 /*
  * All syscalls below here should go away really,
