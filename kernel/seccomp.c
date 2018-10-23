@@ -16,6 +16,8 @@
 #include <linux/atomic.h>
 #include <linux/audit.h>
 #include <linux/compat.h>
+#include <linux/nospec.h>
+#include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/seccomp.h>
 #include <linux/syscalls.h>
@@ -205,9 +207,15 @@ static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
 	return true;
 }
 
-static inline void seccomp_assign_mode(unsigned long seccomp_mode)
+void __weak arch_seccomp_spec_mitigate(struct task_struct *task) { }
+
+static inline void seccomp_assign_mode(unsigned long seccomp_mode,
+				       unsigned long flags)
 {
 	current->seccomp.mode = seccomp_mode;
+	/* Assume default seccomp processes want spec flaw mitigation. */
+	if ((flags & SECCOMP_FILTER_FLAG_SPEC_ALLOW) == 0)
+		arch_seccomp_spec_mitigate(current);
 	set_tsk_thread_flag(current, TIF_SECCOMP);
 }
 
@@ -507,7 +515,7 @@ static long seccomp_set_mode_strict(void)
 #ifdef TIF_NOTSC
 	disable_TSC();
 #endif
-	seccomp_assign_mode(seccomp_mode);
+	seccomp_assign_mode(seccomp_mode, 0);
 	ret = 0;
 
 out:
@@ -536,7 +544,7 @@ static long seccomp_set_mode_filter(unsigned int flags,
 	long ret = -EINVAL;
 
 	/* Validate flags. */
-	if (flags != 0)
+	if (flags & ~SECCOMP_FILTER_FLAG_MASK)
 		goto out;
 
 	if (!seccomp_may_assign_mode(seccomp_mode))
@@ -546,7 +554,7 @@ static long seccomp_set_mode_filter(unsigned int flags,
 	if (ret)
 		goto out;
 
-	seccomp_assign_mode(seccomp_mode);
+	seccomp_assign_mode(seccomp_mode, flags);
 out:
 	return ret;
 }
