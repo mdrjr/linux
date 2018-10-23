@@ -174,7 +174,11 @@ static int set_rq_size(struct mlx5_ib_dev *dev, struct ib_qp_cap *cap,
 	} else {
 		if (ucmd) {
 			qp->rq.wqe_cnt = ucmd->rq_wqe_count;
+			if (ucmd->rq_wqe_shift > BITS_PER_BYTE * sizeof(ucmd->rq_wqe_shift))
+				return -EINVAL;
 			qp->rq.wqe_shift = ucmd->rq_wqe_shift;
+			if ((1 << qp->rq.wqe_shift) / sizeof(struct mlx5_wqe_data_seg) < qp->wq_sig)
+				return -EINVAL;
 			qp->rq.max_gs = (1 << qp->rq.wqe_shift) / sizeof(struct mlx5_wqe_data_seg) - qp->wq_sig;
 			qp->rq.max_post = qp->rq.wqe_cnt;
 		} else {
@@ -352,11 +356,6 @@ static int qp_has_rq(struct ib_qp_init_attr *attr)
 	return 1;
 }
 
-static int first_med_uuar(void)
-{
-	return 1;
-}
-
 static int next_uuar(int n)
 {
 	n++;
@@ -391,6 +390,11 @@ static int max_uuari(struct mlx5_uuar_info *uuari)
 	return uuari->num_uars * 4;
 }
 
+static int first_med_uuar(struct mlx5_uuar_info *uuari)
+{
+	return num_med_uuar(uuari) ? 1 : -ENOMEM;
+}
+
 static int first_hi_uuar(struct mlx5_uuar_info *uuari)
 {
 	int med;
@@ -416,10 +420,13 @@ static int alloc_high_class_uuar(struct mlx5_uuar_info *uuari)
 
 static int alloc_med_class_uuar(struct mlx5_uuar_info *uuari)
 {
-	int minidx = first_med_uuar();
+	int minidx = first_med_uuar(uuari);
 	int i;
 
-	for (i = first_med_uuar(); i < first_hi_uuar(uuari); i = next_uuar(i)) {
+	if (minidx < 0)
+		return minidx;
+
+	for (i = minidx; i < first_hi_uuar(uuari); i = next_uuar(i)) {
 		if (uuari->count[i] < uuari->count[minidx])
 			minidx = i;
 		if (!uuari->count[minidx])
@@ -1281,18 +1288,18 @@ enum {
 
 static int ib_rate_to_mlx5(struct mlx5_ib_dev *dev, u8 rate)
 {
-	if (rate == IB_RATE_PORT_CURRENT) {
+	if (rate == IB_RATE_PORT_CURRENT)
 		return 0;
-	} else if (rate < IB_RATE_2_5_GBPS || rate > IB_RATE_300_GBPS) {
-		return -EINVAL;
-	} else {
-		while (rate != IB_RATE_2_5_GBPS &&
-		       !(1 << (rate + MLX5_STAT_RATE_OFFSET) &
-			 dev->mdev.caps.stat_rate_support))
-			--rate;
-	}
 
-	return rate + MLX5_STAT_RATE_OFFSET;
+	if (rate < IB_RATE_2_5_GBPS || rate > IB_RATE_300_GBPS)
+		return -EINVAL;
+
+	while (rate != IB_RATE_PORT_CURRENT &&
+	       !(1 << (rate + MLX5_STAT_RATE_OFFSET) &
+		 dev->mdev.caps.stat_rate_support))
+		--rate;
+
+	return rate ? rate + MLX5_STAT_RATE_OFFSET : rate;
 }
 
 static int mlx5_set_path(struct mlx5_ib_dev *dev, const struct ib_ah_attr *ah,

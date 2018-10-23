@@ -188,6 +188,7 @@ ext4_xattr_check_names(struct ext4_xattr_entry *entry, void *end,
 {
 	struct ext4_xattr_entry *e = entry;
 
+	/* Find the end of the names list */
 	while (!IS_LAST_ENTRY(e)) {
 		struct ext4_xattr_entry *next = EXT4_XATTR_NEXT(e);
 		if ((void *)next >= end)
@@ -195,13 +196,27 @@ ext4_xattr_check_names(struct ext4_xattr_entry *entry, void *end,
 		e = next;
 	}
 
+	/* Check the values */
 	while (!IS_LAST_ENTRY(entry)) {
-		if (entry->e_value_size != 0 &&
-		    (value_start + le16_to_cpu(entry->e_value_offs) <
-		     (void *)e + sizeof(__u32) ||
-		     value_start + le16_to_cpu(entry->e_value_offs) +
-		    le32_to_cpu(entry->e_value_size) > end))
-			return -EIO;
+		if (entry->e_value_size != 0) {
+			u16 offs = le16_to_cpu(entry->e_value_offs);
+			u32 size = le32_to_cpu(entry->e_value_size);
+			void *value;
+
+			/*
+			 * The value cannot overlap the names, and the value
+			 * with padding cannot extend beyond 'end'.  Check both
+			 * the padded and unpadded sizes, since the size may
+			 * overflow to 0 when adding padding.
+			 */
+			if (offs > end - value_start)
+				return -EIO;
+			value = value_start + offs;
+			if (value < (void *)e + sizeof(u32) ||
+			    size > end - value ||
+			    EXT4_XATTR_SIZE(size) > end - value)
+				return -EIO;
+		}
 		entry = EXT4_XATTR_NEXT(entry);
 	}
 
@@ -240,18 +255,23 @@ ext4_xattr_check_entry(struct ext4_xattr_entry *entry, size_t size)
 }
 
 static int
-ext4_xattr_find_entry(struct ext4_xattr_entry **pentry, int name_index,
-		      const char *name, size_t size, int sorted)
+xattr_find_entry(struct inode *inode, struct ext4_xattr_entry **pentry,
+		 void *end, int name_index, const char *name, size_t size,
+		 int sorted)
 {
-	struct ext4_xattr_entry *entry;
+	struct ext4_xattr_entry *entry, *next;
 	size_t name_len;
 	int cmp = 1;
 
 	if (name == NULL)
 		return -EINVAL;
 	name_len = strlen(name);
-	entry = *pentry;
-	for (; !IS_LAST_ENTRY(entry); entry = EXT4_XATTR_NEXT(entry)) {
+	for (entry = *pentry; !IS_LAST_ENTRY(entry); entry = next) {
+		next = EXT4_XATTR_NEXT(entry);
+		if ((void *) next >= end) {
+			EXT4_ERROR_INODE(inode, "corrupted xattr entries");
+			return -EIO;
+		}
 		cmp = name_index - entry->e_name_index;
 		if (!cmp)
 			cmp = name_len - entry->e_name_len;
@@ -273,6 +293,7 @@ ext4_xattr_block_get(struct inode *inode, int name_index, const char *name,
 	struct buffer_head *bh = NULL;
 	struct ext4_xattr_entry *entry;
 	size_t size;
+	void *end;
 	int error;
 	struct mb_cache *ext4_mb_cache = EXT4_GET_MB_CACHE(inode);
 
@@ -298,18 +319,26 @@ bad_block:
 	}
 	ext4_xattr_cache_insert(ext4_mb_cache, bh);
 	entry = BFIRST(bh);
-	error = ext4_xattr_find_entry(&entry, name_index, name, bh->b_size, 1);
+	end = bh->b_data + bh->b_size;
+	error = xattr_find_entry(inode, &entry, end, name_index, name,
+				 bh->b_size, 1);
 	if (error == -EIO)
 		goto bad_block;
 	if (error)
 		goto cleanup;
 	size = le32_to_cpu(entry->e_value_size);
+	error = -ERANGE;
+	if (unlikely(size > EXT4_XATTR_SIZE_MAX))
+		goto cleanup;
 	if (buffer) {
-		error = -ERANGE;
+		u16 offset = le16_to_cpu(entry->e_value_offs);
+		void *p = bh->b_data + offset;
+
 		if (size > buffer_size)
 			goto cleanup;
-		memcpy(buffer, bh->b_data + le16_to_cpu(entry->e_value_offs),
-		       size);
+		if (unlikely(p + size > end))
+			goto cleanup;
+		memcpy(buffer, p, size);
 	}
 	error = size;
 
@@ -342,17 +371,23 @@ ext4_xattr_ibody_get(struct inode *inode, int name_index, const char *name,
 	error = ext4_xattr_check_names(entry, end, entry);
 	if (error)
 		goto cleanup;
-	error = ext4_xattr_find_entry(&entry, name_index, name,
-				      end - (void *)entry, 0);
+	error = xattr_find_entry(inode, &entry, end, name_index, name,
+				 end - (void *)entry, 0);
 	if (error)
 		goto cleanup;
 	size = le32_to_cpu(entry->e_value_size);
+	error = -ERANGE;
+	if (unlikely(size > EXT4_XATTR_SIZE_MAX))
+		goto cleanup;
 	if (buffer) {
-		error = -ERANGE;
+		u16 offset = le16_to_cpu(entry->e_value_offs);
+		void *p = (void *)IFIRST(header) + offset;
+
 		if (size > buffer_size)
 			goto cleanup;
-		memcpy(buffer, (void *)IFIRST(header) +
-		       le16_to_cpu(entry->e_value_offs), size);
+		if (unlikely(p + size > end))
+			goto cleanup;
+		memcpy(buffer, p, size);
 	}
 	error = size;
 
@@ -761,8 +796,9 @@ ext4_xattr_block_find(struct inode *inode, struct ext4_xattr_info *i,
 		bs->s.first = BFIRST(bs->bh);
 		bs->s.end = bs->bh->b_data + bs->bh->b_size;
 		bs->s.here = bs->s.first;
-		error = ext4_xattr_find_entry(&bs->s.here, i->name_index,
-					      i->name, bs->bh->b_size, 1);
+		error = xattr_find_entry(inode, &bs->s.here, bs->s.end,
+					 i->name_index, i->name,
+					 bs->bh->b_size, 1);
 		if (error && error != -ENODATA)
 			goto cleanup;
 		bs->s.not_found = error;
@@ -1007,9 +1043,9 @@ int ext4_xattr_ibody_find(struct inode *inode, struct ext4_xattr_info *i,
 		if (error)
 			return error;
 		/* Find the named attribute. */
-		error = ext4_xattr_find_entry(&is->s.here, i->name_index,
-					      i->name, is->s.end -
-					      (void *)is->s.base, 0);
+		error = xattr_find_entry(inode, &is->s.here, is->s.end,
+					 i->name_index, i->name,
+					 is->s.end - (void *)is->s.base, 0);
 		if (error && error != -ENODATA)
 			return error;
 		is->s.not_found = error;

@@ -300,13 +300,14 @@ static struct net_device *__ip_tunnel_create(struct net *net,
 	struct net_device *dev;
 	char name[IFNAMSIZ];
 
-	if (parms->name[0])
-		strlcpy(name, parms->name, IFNAMSIZ);
-	else {
-		if (strlen(ops->kind) > (IFNAMSIZ - 3)) {
-			err = -E2BIG;
+	err = -E2BIG;
+	if (parms->name[0]) {
+		if (!dev_valid_name(parms->name))
 			goto failed;
-		}
+		strlcpy(name, parms->name, IFNAMSIZ);
+	} else {
+		if (strlen(ops->kind) > (IFNAMSIZ - 3))
+			goto failed;
 		strlcpy(name, ops->kind, IFNAMSIZ);
 		strncat(name, "%d", 2);
 	}
@@ -386,7 +387,7 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
 
 	if (tdev) {
 		hlen = tdev->hard_header_len + tdev->needed_headroom;
-		mtu = tdev->mtu;
+		mtu = min(tdev->mtu, IP_MAX_MTU);
 	}
 	dev->iflink = tunnel->parms.link;
 
@@ -850,7 +851,7 @@ int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu)
 	int t_hlen = tunnel->hlen + sizeof(struct iphdr);
 
 	if (new_mtu < 68 ||
-	    new_mtu > 0xFFF8 - dev->hard_header_len - t_hlen)
+	    new_mtu > IP_MAX_MTU - dev->hard_header_len - t_hlen)
 		return -EINVAL;
 	dev->mtu = new_mtu;
 	return 0;
@@ -978,7 +979,7 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
 
 	mtu = ip_tunnel_bind_dev(dev);
 	if (tb[IFLA_MTU]) {
-		unsigned int max = 0xfff8 - dev->hard_header_len - nt->hlen;
+		unsigned int max = IP_MAX_MTU - dev->hard_header_len - nt->hlen;
 
 		mtu = clamp(dev->mtu, (unsigned int)ETH_MIN_MTU,
 			    (unsigned int)(max - sizeof(struct iphdr)));

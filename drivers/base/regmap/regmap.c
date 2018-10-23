@@ -144,7 +144,7 @@ static bool regmap_volatile_range(struct regmap *map, unsigned int reg,
 	unsigned int i;
 
 	for (i = 0; i < num; i++)
-		if (!regmap_volatile(map, reg + i))
+		if (!regmap_volatile(map, reg + (i * map->reg_stride)))
 			return false;
 
 	return true;
@@ -2240,13 +2240,31 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg, void *val,
 		for (i = 0; i < val_count * val_bytes; i += val_bytes)
 			map->format.parse_inplace(val + i);
 	} else {
+		u32 *u32 = val;
+		u16 *u16 = val;
+		u8 *u8 = val;
+
 		for (i = 0; i < val_count; i++) {
 			unsigned int ival;
+
 			ret = regmap_read(map, reg + (i * map->reg_stride),
 					  &ival);
 			if (ret != 0)
 				return ret;
-			map->format.format_val(val + (i * val_bytes), ival, 0);
+
+			switch (map->format.val_bytes) {
+			case 4:
+				u32[i] = ival;
+				break;
+			case 2:
+				u16[i] = ival;
+				break;
+			case 1:
+				u8[i] = ival;
+				break;
+			default:
+				return -EINVAL;
+			}
 		}
 	}
 
