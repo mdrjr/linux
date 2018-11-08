@@ -235,12 +235,21 @@ void aml_hw_iec958_init(struct snd_pcm_substream *substream)
 	audio_hw_958_enable(0);
 	pr_info("----aml_hw_iec958_init,runtime->rate=%d,sample_rate=%d--\n",
 	       runtime->rate, sample_rate);
+#if defined(CONFIG_ARCH_MESON64_ODROIDC2)
+	/* int srate; */
+	/* srate = params_rate(params); */
+	aml_set_spdif_clk(runtime->rate * 512, 1);
+	audio_util_set_dac_958_format(AUDIO_ALGOUT_DAC_FORMAT_DSP);
+	/*clear the same source function as new raw data output */
+	audio_i2s_958_same_source(1);
+#else
 	/* int srate; */
 	/* srate = params_rate(params); */
 	aml_set_spdif_clk(runtime->rate * 512, 0);
 	audio_util_set_dac_958_format(AUDIO_ALGOUT_DAC_FORMAT_DSP);
 	/*clear the same source function as new raw data output */
 	audio_i2s_958_same_source(0);
+#endif
 
 	switch (runtime->format) {
 	case SNDRV_PCM_FORMAT_S32_LE:
