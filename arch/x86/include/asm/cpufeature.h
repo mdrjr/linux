@@ -253,10 +253,12 @@
 #define X86_FEATURE_SPEC_CTRL_SSBD	(10*32+31) /* "" Speculative Store Bypass Disable */
 
 /* AMD-defined CPU features, CPUID level 0x80000008 (EBX), word 11 */
-#define X86_FEATURE_AMD_IBPB		(11*32+12) /* Indirect Branch Prediction Barrier */
-#define X86_FEATURE_AMD_IBRS		(11*32+14) /* Indirect Branch Restricted Speculation */
-#define X86_FEATURE_AMD_STIBP		(11*32+15) /* Single Thread Indirect Branch Predictors */
+#define X86_FEATURE_AMD_IBPB		(11*32+12) /* "" Indirect Branch Prediction Barrier */
+#define X86_FEATURE_AMD_IBRS		(11*32+14) /* "" Indirect Branch Restricted Speculation */
+#define X86_FEATURE_AMD_STIBP		(11*32+15) /* "" Single Thread Indirect Branch Predictors */
+#define X86_FEATURE_AMD_SSBD		(11*32+24) /* "" Speculative Store Bypass Disable */
 #define X86_FEATURE_VIRT_SSBD		(11*32+25) /* Virtualized Speculative Store Bypass Disable */
+#define X86_FEATURE_AMD_SSB_NO		(11*32+26) /* "" Speculative Store Bypass is fixed in hardware. */
 
 /*
  * BUG word(s)
