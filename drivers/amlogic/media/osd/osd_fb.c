@@ -390,6 +390,22 @@ static int osd_cursor(struct fb_info *fbi, struct fb_cursor *var);
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 extern int  soft_cursor(struct fb_info *info, struct fb_cursor *cursor);
 
+static int osd_set_fb_var(int index, const struct vinfo_s *vinfo)
+{
+	if ((vinfo->width < 0) || (vinfo->height < 0)) {
+		pr_err("invalid vinfo\n");
+		return 1;
+	}
+
+	fb_def_var[index].xres = vinfo->width;
+	fb_def_var[index].yres = vinfo->height;
+	fb_def_var[index].xres_virtual = vinfo->width;
+	fb_def_var[index].yres_virtual = vinfo->height * 2;
+	fb_def_var[index].bits_per_pixel = 32;
+
+	return 0;
+}
+
 static void osd_set_fb_parameters(int index, const struct vinfo_s *vinfo)
 {
 	osd_set_free_scale_enable_hw(index, 0);
@@ -397,7 +413,6 @@ static void osd_set_fb_parameters(int index, const struct vinfo_s *vinfo)
 	osd_set_free_scale_axis_hw(index, 0, 0, vinfo->width, vinfo->height);
 	osd_set_window_axis_hw(index, 0, 0, vinfo->width, vinfo->height);
 	osd_enable_hw(index, 1);
-
 }
 #endif /* CONFIG_ARCH_MESON64_ODROID_COMMON */
 
@@ -4369,6 +4384,32 @@ static int osd_probe(struct platform_device *pdev)
 			if (ret)
 				osd_log_info("not found display_size_default\n");
 			else {
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+				if (osd_set_fb_var(index, vinfo)) {
+					/* no available vinfo, set default */
+					fb_def_var[index].xres =
+						var_screeninfo[0];
+					fb_def_var[index].yres =
+						var_screeninfo[1];
+					fb_def_var[index].xres_virtual =
+						var_screeninfo[2];
+					fb_def_var[index].yres_virtual =
+						var_screeninfo[3];
+					fb_def_var[index].bits_per_pixel =
+						var_screeninfo[4];
+				}
+				pr_info("fb def : %d %d %d %d %d\n",
+					fb_def_var[index].xres,
+					fb_def_var[index].yres,
+					fb_def_var[index].xres_virtual,
+					fb_def_var[index].yres_virtual,
+					fb_def_var[index].bits_per_pixel);
+				pr_info("init fbdev bpp is:%d\n",
+					fb_def_var[index].bits_per_pixel);
+
+				if (fb_def_var[index].bits_per_pixel > 32)
+					fb_def_var[index].bits_per_pixel = 32;
+#else
 				fb_def_var[index].xres = var_screeninfo[0];
 				fb_def_var[index].yres = var_screeninfo[1];
 				fb_def_var[index].xres_virtual =
@@ -4381,6 +4422,7 @@ static int osd_probe(struct platform_device *pdev)
 					fb_def_var[index].bits_per_pixel);
 				if (fb_def_var[index].bits_per_pixel > 32)
 					fb_def_var[index].bits_per_pixel = 32;
+#endif
 			}
 		}
 
