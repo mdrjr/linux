@@ -161,6 +161,7 @@ enum hdmi_vic {
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 	HDMI_480x320p60_4x3,
 	HDMI_480x800p60_4x3,
+	HDMI_CUSTOMBUILT,
 #endif
 
 	/*
