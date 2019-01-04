@@ -4257,6 +4257,9 @@ static void hdmitx_hpd_plugin_handler(struct work_struct *work)
 	info = hdmitx_get_current_vinfo();
 	if (info && (info->mode == VMODE_HDMI))
 		hdmitx_set_audio(hdev, &(hdev->cur_audio_param));
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	set_disp_mode_auto();
+#endif
 	hdev->hpd_state = 1;
 	hdmitx_notify_hpd(hdev->hpd_state);
 

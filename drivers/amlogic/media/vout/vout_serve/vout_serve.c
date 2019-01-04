@@ -894,7 +894,16 @@ static int refresh_tvout_mode(void)
 	if (tvout_monitor_flag == 0)
 		return 0;
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	/*
+	 * vout mode is treated as HDMI always initialized
+	 * even though HDMI cable is detached.
+	 * TODO : except cvbs cable is plugged in.
+	 */
+	hpd_state = 1;
+#else
 	hpd_state = vout_get_hpd_state();
+#endif
 	if (hpd_state) {
 		/* Vout will check the checksum of EDID of uboot and kernel.
 		 * If checksum is different. Vout will set null to display/mode.
