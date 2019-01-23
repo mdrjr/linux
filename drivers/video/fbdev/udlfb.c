@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/prefetch.h>
 #include <linux/delay.h>
+#include <asm/unaligned.h>
 #include <video/udlfb.h>
 #include "edid.h"
 
@@ -443,9 +444,9 @@ static void dlfb_compress_hline(
 
 		*cmd++ = 0xAF;
 		*cmd++ = 0x6B;
-		*cmd++ = (uint8_t) ((dev_addr >> 16) & 0xFF);
-		*cmd++ = (uint8_t) ((dev_addr >> 8) & 0xFF);
-		*cmd++ = (uint8_t) ((dev_addr) & 0xFF);
+		*cmd++ = dev_addr >> 16;
+		*cmd++ = dev_addr >> 8;
+		*cmd++ = dev_addr;
 
 		cmd_pixels_count_byte = cmd++; /*  we'll know this later */
 		cmd_pixel_start = pixel;
@@ -453,16 +454,16 @@ static void dlfb_compress_hline(
 		raw_pixels_count_byte = cmd++; /*  we'll know this later */
 		raw_pixel_start = pixel;
 
-		cmd_pixel_end = pixel + min(MAX_CMD_PIXELS + 1,
-			min((int)(pixel_end - pixel),
-			    (int)(cmd_buffer_end - cmd) / bpp));
+		cmd_pixel_end = pixel + min3(MAX_CMD_PIXELS + 1UL,
+					(unsigned long)(pixel_end - pixel),
+					(unsigned long)(cmd_buffer_end - 1 - cmd) / bpp);
 
-		prefetch_range((void *) pixel, (cmd_pixel_end - pixel) * bpp);
+		prefetch_range((void *) pixel, (u8 *)cmd_pixel_end - (u8 *)pixel);
 
 		while (pixel < cmd_pixel_end) {
 			const uint16_t * const repeating_pixel = pixel;
 
-			*(uint16_t *)cmd = cpu_to_be16p(pixel);
+			put_unaligned_be16(*pixel, cmd);
 			cmd += 2;
 			pixel++;
 
@@ -489,13 +490,16 @@ static void dlfb_compress_hline(
 		if (pixel > raw_pixel_start) {
 			/* finalize last RAW span */
 			*raw_pixels_count_byte = (pixel-raw_pixel_start) & 0xFF;
+		} else {
+			/* undo unused byte */
+			cmd--;
 		}
 
 		*cmd_pixels_count_byte = (pixel - cmd_pixel_start) & 0xFF;
-		dev_addr += (pixel - cmd_pixel_start) * bpp;
+		dev_addr += (u8 *)pixel - (u8 *)cmd_pixel_start;
 	}
 
-	if (cmd_buffer_end <= MIN_RLX_CMD_BYTES + cmd) {
+	if (cmd_buffer_end - MIN_RLX_CMD_BYTES <= cmd) {
 		/* Fill leftover bytes with no-ops */
 		if (cmd_buffer_end > cmd)
 			memset(cmd, 0xAF, cmd_buffer_end - cmd);
@@ -615,8 +619,11 @@ static int dlfb_handle_damage(struct dlfb_data *dev, int x, int y,
 	}
 
 	if (cmd > (char *) urb->transfer_buffer) {
+		int len;
+		if (cmd < (char *) urb->transfer_buffer + urb->transfer_buffer_length)
+			*cmd++ = 0xAF;
 		/* Send partial buffer remaining before exiting */
-		int len = cmd - (char *) urb->transfer_buffer;
+		len = cmd - (char *) urb->transfer_buffer;
 		ret = dlfb_submit_urb(dev, urb, len);
 		bytes_sent += len;
 	} else
@@ -740,8 +747,11 @@ static void dlfb_dpy_deferred_io(struct fb_info *info,
 	}
 
 	if (cmd > (char *) urb->transfer_buffer) {
+		int len;
+		if (cmd < (char *) urb->transfer_buffer + urb->transfer_buffer_length)
+			*cmd++ = 0xAF;
 		/* Send partial buffer remaining before exiting */
-		int len = cmd - (char *) urb->transfer_buffer;
+		len = cmd - (char *) urb->transfer_buffer;
 		dlfb_submit_urb(dev, urb, len);
 		bytes_sent += len;
 	} else
@@ -924,20 +934,8 @@ static void dlfb_free(struct kref *kref)
 
 	if (dev->backing_buffer)
 		vfree(dev->backing_buffer);
-
 	kfree(dev->edid);
-
-	pr_warn("freeing dlfb_data %p\n", dev);
-
 	kfree(dev);
-}
-
-static void dlfb_release_urb_work(struct work_struct *work)
-{
-	struct urb_node *unode = container_of(work, struct urb_node,
-					      release_urb_work.work);
-
-	up(&unode->dev->urbs.limit_sem);
 }
 
 static void dlfb_free_framebuffer(struct dlfb_data *dev)
@@ -945,8 +943,6 @@ static void dlfb_free_framebuffer(struct dlfb_data *dev)
 	struct fb_info *info = dev->info;
 
 	if (info) {
-		int node = info->node;
-
 		unregister_framebuffer(info);
 
 		if (info->cmap.len != 0)
@@ -962,8 +958,6 @@ static void dlfb_free_framebuffer(struct dlfb_data *dev)
 
 		/* Assume info structure is freed after this point */
 		framebuffer_release(info);
-
-		pr_warn("fb_info for /dev/fb%d has been freed\n", node);
 	}
 
 	/* ref taken in probe() as part of registering framebfufer */
@@ -1063,12 +1057,25 @@ static int dlfb_ops_set_par(struct fb_info *info)
 	int result;
 	u16 *pix_framebuffer;
 	int i;
+	struct fb_var_screeninfo fvs;
 
-	pr_notice("set_par mode %dx%d\n", info->var.xres, info->var.yres);
+	/* clear the activate field because it causes spurious miscompares */
+	fvs = info->var;
+	fvs.activate = 0;
+	fvs.vmode &= ~FB_VMODE_SMOOTH_XPAN;
+
+	if (!memcmp(&dev->current_mode, &fvs, sizeof(struct fb_var_screeninfo)))
+		return 0;
 
 	result = dlfb_set_video_mode(dev, &info->var);
 
-	if ((result == 0) && (dev->fb_count == 0)) {
+	if (result)
+		return result;
+
+	dev->current_mode = fvs;
+	info->fix.line_length = info->var.xres * (info->var.bits_per_pixel / 8);
+
+	if (dev->fb_count == 0) {
 
 		/* paint greenscreen */
 
@@ -1080,7 +1087,7 @@ static int dlfb_ops_set_par(struct fb_info *info)
 				   info->screen_base);
 	}
 
-	return result;
+	return 0;
 }
 
 /* To fonzi the jukebox (e.g. make blanking changes take effect) */
@@ -1167,8 +1174,6 @@ static int dlfb_realloc_framebuffer(struct dlfb_data *dev, struct fb_info *info)
 	unsigned char *old_fb = info->screen_base;
 	unsigned char *new_fb;
 	unsigned char *new_back = NULL;
-
-	pr_warn("Reallocating framebuffer. Addresses will change!\n");
 
 	new_len = info->fix.line_length * info->var.yres;
 
@@ -1420,9 +1425,6 @@ static ssize_t edid_show(
 	if (off + count > dev->edid_size)
 		count = dev->edid_size - off;
 
-	pr_info("sysfs edid copy %p to %p, %d bytes\n",
-		dev->edid, buf, (int) count);
-
 	memcpy(buf, dev->edid, count);
 
 	return count;
@@ -1448,7 +1450,6 @@ static ssize_t edid_store(
 	if (!dev->edid || memcmp(src, dev->edid, src_size))
 		return -EINVAL;
 
-	pr_info("sysfs written EDID is new default\n");
 	dlfb_ops_set_par(fb_info);
 	return src_size;
 }
@@ -1548,15 +1549,16 @@ static int dlfb_parse_vendor_descriptor(struct dlfb_data *dev,
 			u8 length;
 			u16 key;
 
-			key = le16_to_cpu(*((u16 *) desc));
-			desc += sizeof(u16);
-			length = *desc;
-			desc++;
+			key = *desc++;
+			key |= (u16)*desc++ << 8;
+			length = *desc++;
 
 			switch (key) {
 			case 0x0200: { /* max_area */
-				u32 max_area;
-				max_area = le32_to_cpu(*((u32 *)desc));
+				u32 max_area = *desc++;
+				max_area |= (u32)*desc++ << 8;
+				max_area |= (u32)*desc++ << 16;
+				max_area |= (u32)*desc++ << 24;
 				pr_warn("DL chip limited to %d pixel modes\n",
 					max_area);
 				dev->sku_pixel_limit = max_area;
@@ -1679,7 +1681,8 @@ static void dlfb_init_framebuffer_work(struct work_struct *work)
 	dev->info = info;
 	info->par = dev;
 	info->pseudo_palette = dev->pseudo_palette;
-	info->fbops = &dlfb_ops;
+	dev->ops = dlfb_ops;
+	info->fbops = &dev->ops;
 
 	retval = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (retval < 0) {
@@ -1812,14 +1815,7 @@ static void dlfb_urb_completion(struct urb *urb)
 	dev->urbs.available++;
 	spin_unlock_irqrestore(&dev->urbs.lock, flags);
 
-	/*
-	 * When using fb_defio, we deadlock if up() is called
-	 * while another is waiting. So queue to another process.
-	 */
-	if (fb_defio)
-		schedule_delayed_work(&unode->release_urb_work, 0);
-	else
-		up(&dev->urbs.limit_sem);
+	up(&dev->urbs.limit_sem);
 }
 
 static void dlfb_free_urb_list(struct dlfb_data *dev)
@@ -1828,18 +1824,11 @@ static void dlfb_free_urb_list(struct dlfb_data *dev)
 	struct list_head *node;
 	struct urb_node *unode;
 	struct urb *urb;
-	int ret;
 	unsigned long flags;
-
-	pr_notice("Freeing all render urbs\n");
 
 	/* keep waiting and freeing, until we've got 'em all */
 	while (count--) {
-
-		/* Getting interrupted means a leak, but ok at disconnect */
-		ret = down_interruptible(&dev->urbs.limit_sem);
-		if (ret)
-			break;
+		down(&dev->urbs.limit_sem);
 
 		spin_lock_irqsave(&dev->urbs.lock, flags);
 
@@ -1863,24 +1852,26 @@ static void dlfb_free_urb_list(struct dlfb_data *dev)
 
 static int dlfb_alloc_urb_list(struct dlfb_data *dev, int count, size_t size)
 {
-	int i = 0;
 	struct urb *urb;
 	struct urb_node *unode;
 	char *buf;
+	size_t wanted_size = count * size;
 
 	spin_lock_init(&dev->urbs.lock);
 
+retry:
 	dev->urbs.size = size;
 	INIT_LIST_HEAD(&dev->urbs.list);
 
-	while (i < count) {
+	sema_init(&dev->urbs.limit_sem, 0);
+	dev->urbs.count = 0;
+	dev->urbs.available = 0;
+
+	while (dev->urbs.count * size < wanted_size) {
 		unode = kzalloc(sizeof(struct urb_node), GFP_KERNEL);
 		if (!unode)
 			break;
 		unode->dev = dev;
-
-		INIT_DELAYED_WORK(&unode->release_urb_work,
-			  dlfb_release_urb_work);
 
 		urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
@@ -1889,11 +1880,16 @@ static int dlfb_alloc_urb_list(struct dlfb_data *dev, int count, size_t size)
 		}
 		unode->urb = urb;
 
-		buf = usb_alloc_coherent(dev->udev, MAX_TRANSFER, GFP_KERNEL,
+		buf = usb_alloc_coherent(dev->udev, size, GFP_KERNEL,
 					 &urb->transfer_dma);
 		if (!buf) {
 			kfree(unode);
 			usb_free_urb(urb);
+			if (size > PAGE_SIZE) {
+				size /= 2;
+				dlfb_free_urb_list(dev);
+				goto retry;
+			}
 			break;
 		}
 
@@ -1904,16 +1900,12 @@ static int dlfb_alloc_urb_list(struct dlfb_data *dev, int count, size_t size)
 
 		list_add_tail(&unode->entry, &dev->urbs.list);
 
-		i++;
+		up(&dev->urbs.limit_sem);
+		dev->urbs.count++;
+		dev->urbs.available++;
 	}
 
-	sema_init(&dev->urbs.limit_sem, i);
-	dev->urbs.count = i;
-	dev->urbs.available = i;
-
-	pr_notice("allocated %d %d byte urbs\n", i, (int) size);
-
-	return i;
+	return dev->urbs.count;
 }
 
 static struct urb *dlfb_get_urb(struct dlfb_data *dev)

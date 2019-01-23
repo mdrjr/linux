@@ -139,6 +139,10 @@ static char *type_string (u8 bmAttributes)
 #define valid_bit	cpu_to_le32 (1 << VALID_BIT)
 #define dma_done_ie	cpu_to_le32 (1 << DMA_DONE_INTERRUPT_ENABLE)
 
+static void stop_activity(struct net2280 *dev,
+					struct usb_gadget_driver *driver);
+static void ep0_start(struct net2280 *dev);
+
 /*-------------------------------------------------------------------------*/
 
 static int
@@ -1390,12 +1394,18 @@ static int net2280_pullup(struct usb_gadget *_gadget, int is_on)
 	spin_lock_irqsave (&dev->lock, flags);
 	tmp = readl (&dev->usb->usbctl);
 	dev->softconnect = (is_on != 0);
-	if (is_on)
-		tmp |= (1 << USB_DETECT_ENABLE);
-	else
-		tmp &= ~(1 << USB_DETECT_ENABLE);
-	writel (tmp, &dev->usb->usbctl);
+	if (is_on) {
+		ep0_start(dev);
+		writel(tmp | BIT(USB_DETECT_ENABLE), &dev->usb->usbctl);
+	} else {
+		writel(tmp & ~BIT(USB_DETECT_ENABLE), &dev->usb->usbctl);
+		stop_activity(dev, NULL);
+	}
+
 	spin_unlock_irqrestore (&dev->lock, flags);
+
+	if (!is_on && dev->driver)
+		dev->driver->disconnect(&dev->gadget);
 
 	return 0;
 }
@@ -1941,8 +1951,11 @@ stop_activity (struct net2280 *dev, struct usb_gadget_driver *driver)
 		nuke (&dev->ep [i]);
 
 	/* report disconnect; the driver is already quiesced */
-	if (driver)
+	if (driver) {
+		spin_unlock(&dev->lock);
 		driver->disconnect(&dev->gadget);
+		spin_lock(&dev->lock);
+	}
 
 	usb_reinit (dev);
 }
@@ -1956,10 +1969,8 @@ static int net2280_stop(struct usb_gadget *_gadget,
 	dev = container_of (_gadget, struct net2280, gadget);
 
 	spin_lock_irqsave (&dev->lock, flags);
-	stop_activity (dev, driver);
+	stop_activity(dev, NULL);
 	spin_unlock_irqrestore (&dev->lock, flags);
-
-	dev->driver = NULL;
 
 	net2280_led_active (dev, 0);
 
@@ -1970,7 +1981,8 @@ static int net2280_stop(struct usb_gadget *_gadget,
 	device_remove_file (&dev->pdev->dev, &dev_attr_queues);
 
 	DEBUG(dev, "unregistered driver '%s'\n",
-			driver ? driver->driver.name : "");
+	      dev->driver ? dev->driver->driver.name : "");
+	dev->driver = NULL;
 
 	return 0;
 }
@@ -2446,6 +2458,8 @@ next_endpoints:
 		| (1 << PCI_RETRY_ABORT_INTERRUPT))
 
 static void handle_stat1_irqs (struct net2280 *dev, u32 stat)
+__releases(dev->lock)
+__acquires(dev->lock)
 {
 	struct net2280_ep	*ep;
 	u32			tmp, num, mask, scratch;
@@ -2488,6 +2502,7 @@ static void handle_stat1_irqs (struct net2280 *dev, u32 stat)
 	tmp = (1 << SUSPEND_REQUEST_CHANGE_INTERRUPT);
 	if (stat & tmp) {
 		writel (tmp, &dev->regs->irqstat1);
+		spin_unlock(&dev->lock);
 		if (stat & (1 << SUSPEND_REQUEST_INTERRUPT)) {
 			if (dev->driver->suspend)
 				dev->driver->suspend (&dev->gadget);
@@ -2498,6 +2513,7 @@ static void handle_stat1_irqs (struct net2280 *dev, u32 stat)
 				dev->driver->resume (&dev->gadget);
 			/* at high speed, note erratum 0133 */
 		}
+		spin_lock(&dev->lock);
 		stat &= ~tmp;
 	}
 

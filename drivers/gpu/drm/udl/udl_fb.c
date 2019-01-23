@@ -344,7 +344,7 @@ static int udl_fb_open(struct fb_info *info, int user)
 
 		struct fb_deferred_io *fbdefio;
 
-		fbdefio = kmalloc(sizeof(struct fb_deferred_io), GFP_KERNEL);
+		fbdefio = kzalloc(sizeof(struct fb_deferred_io), GFP_KERNEL);
 
 		if (fbdefio) {
 			fbdefio->delay = DL_DEFIO_WRITE_DELAY;
@@ -574,9 +574,11 @@ static void udl_fbdev_destroy(struct drm_device *dev,
 		framebuffer_release(info);
 	}
 	drm_fb_helper_fini(&ufbdev->helper);
-	drm_framebuffer_unregister_private(&ufbdev->ufb.base);
-	drm_framebuffer_cleanup(&ufbdev->ufb.base);
-	drm_gem_object_unreference_unlocked(&ufbdev->ufb.obj->base);
+	if (ufbdev->ufb.obj) {
+		drm_framebuffer_unregister_private(&ufbdev->ufb.base);
+		drm_framebuffer_cleanup(&ufbdev->ufb.base);
+		drm_gem_object_unreference_unlocked(&ufbdev->ufb.obj->base);
+	}
 }
 
 int udl_fbdev_init(struct drm_device *dev)

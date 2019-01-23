@@ -795,10 +795,9 @@ static void igmp_timer_expire(unsigned long data)
 	spin_lock(&im->lock);
 	im->tm_running = 0;
 
-	if (im->unsolicit_count) {
-		im->unsolicit_count--;
+	if (im->unsolicit_count && --im->unsolicit_count)
 		igmp_start_timer(im, unsolicited_report_interval(in_dev));
-	}
+
 	im->reporter = 1;
 	spin_unlock(&im->lock);
 
@@ -1257,6 +1256,8 @@ static void igmp_group_added(struct ip_mc_list *im)
 
 	if (in_dev->dead)
 		return;
+
+	im->unsolicit_count = IGMP_Unsolicited_Report_Count;
 	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
 		spin_lock_bh(&im->lock);
 		igmp_start_timer(im, IGMP_Initial_Report_Delay);
@@ -1361,7 +1362,6 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
 	spin_lock_init(&im->lock);
 #ifdef CONFIG_IP_MULTICAST
 	setup_timer(&im->timer, &igmp_timer_expire, (unsigned long)im);
-	im->unsolicit_count = IGMP_Unsolicited_Report_Count;
 #endif
 
 	im->next_rcu = in_dev->mc_list;
