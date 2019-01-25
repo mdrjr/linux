@@ -1190,17 +1190,17 @@ static int mmc_select_hs400(struct mmc_card *card)
 				mmc_hostname(host));
 		}
 	}
-	if (raw_driver_strength & (1 << 1)) {
-		val =
-			(0x1 << EXT_CSD_DRV_STR_SHIFT)
-			| EXT_CSD_TIMING_HS400;
-		pr_info("%s: support driver strength type 1\n",
-				mmc_hostname(host));
-	} else if (raw_driver_strength & (1 << 4)) {
+	if (raw_driver_strength & (1 << 4)) {
 		val =
 			(0x4 << EXT_CSD_DRV_STR_SHIFT)
 			| EXT_CSD_TIMING_HS400;
 		pr_info("%s: support driver strength type 4\n",
+				mmc_hostname(host));
+	} else if (raw_driver_strength & (1 << 1)) {
+		val =
+			(0x1 << EXT_CSD_DRV_STR_SHIFT)
+			| EXT_CSD_TIMING_HS400;
+		pr_info("%s: support driver strength type 1\n",
 				mmc_hostname(host));
 	} else  {
 		val = EXT_CSD_TIMING_HS400;
