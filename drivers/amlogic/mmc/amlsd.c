@@ -384,6 +384,7 @@ int of_amlsd_init(struct amlsd_platform *pdata)
 		}
 	}
 #endif
+#if !defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 	if (pdata->gpio_power) {
 		if (pdata->power_level &&
 		    !aml_card_type_non_sdio(pdata)) {
@@ -396,6 +397,7 @@ int of_amlsd_init(struct amlsd_platform *pdata)
 			CHECK_RET(ret);
 		}
 	}
+#endif
 
 	/* if(pdata->port == MESON_SDIO_PORT_A) */
 	/* wifi_setup_dt(); */
