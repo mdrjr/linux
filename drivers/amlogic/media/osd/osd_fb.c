@@ -383,9 +383,13 @@ struct ion_handle *fb_ion_handle[OSD_COUNT][OSD_MAX_BUF_NUM];
 };
 #endif
 
+#ifdef CONFIG_AMLOGIC_MEDIA_FB_OSD2_CURSOR
 static int osd_cursor(struct fb_info *fbi, struct fb_cursor *var);
+#endif
 
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+extern int  soft_cursor(struct fb_info *info, struct fb_cursor *cursor);
+
 static void osd_set_fb_parameters(int index, const struct vinfo_s *vinfo)
 {
 	osd_set_free_scale_enable_hw(index, 0);
@@ -1874,6 +1878,7 @@ static int osd_pan_display(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+#ifdef CONFIG_AMLOGIC_MEDIA_FB_OSD2_CURSOR
 static int osd_cursor(struct fb_info *fbi, struct fb_cursor *var)
 {
 	s16 startx = 0, starty = 0;
@@ -1896,6 +1901,7 @@ static int osd_cursor(struct fb_info *fbi, struct fb_cursor *var)
 
 	return 0;
 }
+#endif
 
 static int osd_sync(struct fb_info *info)
 {
@@ -1913,10 +1919,17 @@ static struct fb_ops osd_ops = {
 	.fb_fillrect    = cfb_fillrect,
 	.fb_copyarea    = cfb_copyarea,
 	.fb_imageblit   = cfb_imageblit,
-#ifdef CONFIG_FB_SOFT_CURSOR
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON) \
+	&& !defined(CONFIG_AMLOGIC_MEDIA_FB_OSD2_CURSOR)
+	.fb_cursor      = soft_cursor,
+#else
+#if defined(CONFIG_FB_SOFT_CURSOR)
 	.fb_cursor      = soft_cursor,
 #endif
+#ifdef CONFIG_AMLOGIC_MEDIA_FB_OSD2_CURSOR
 	.fb_cursor      = osd_cursor,
+#endif
+#endif
 	.fb_ioctl       = osd_ioctl,
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = osd_compat_ioctl,
