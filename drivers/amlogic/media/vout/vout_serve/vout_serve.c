@@ -64,7 +64,9 @@ static char vout_mode_uboot[VMODE_NAME_LEN_MAX] = "null";
 static char vout_mode[VMODE_NAME_LEN_MAX] __nosavedata;
 static char local_name[VMODE_NAME_LEN_MAX] = {0};
 static u32 vout_init_vmode = VMODE_INIT_NULL;
+#if !defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 static int uboot_display;
+#endif
 static unsigned int bist_mode;
 
 static char vout_axis[64] __nosavedata;
@@ -289,6 +291,13 @@ static int set_vout_init_mode(void)
 	char init_mode_str[VMODE_NAME_LEN_MAX];
 	int ret = 0;
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	strncpy(vout_mode_uboot,
+			(vout_get_hpd_state() || !cvbs_cable_connected()) ?
+			hdmimode : cvbsmode,
+			sizeof(vout_mode_uboot));
+#endif
+
 	snprintf(init_mode_str, VMODE_NAME_LEN_MAX, "%s", vout_mode_uboot);
 	vout_init_vmode = validate_vmode(vout_mode_uboot);
 	if (vout_init_vmode >= VMODE_MAX) {
@@ -308,10 +317,10 @@ static int set_vout_init_mode(void)
 	}
 	last_vmode = vout_init_vmode;
 
-	if (uboot_display)
-		vmode = vout_init_vmode | VMODE_INIT_BIT_MASK;
-	else
-		vmode = vout_init_vmode;
+	vmode = vout_init_vmode;
+#if !defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	vmode |= VMODE_INIT_BIT_MASK;
+#endif
 
 	memset(local_name, 0, sizeof(local_name));
 	snprintf(local_name, VMODE_NAME_LEN_MAX, "%s", init_mode_str);
@@ -901,16 +910,14 @@ static int refresh_tvout_mode(void)
 	if (tvout_monitor_flag == 0)
 		return 0;
 
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	/*
-	 * vout mode is treated as HDMI always initialized
-	 * even though HDMI cable is detached.
-	 * TODO : except cvbs cable is plugged in.
-	 */
-	hpd_state = 1;
-#else
 	hpd_state = vout_get_hpd_state();
+
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	/* Unless CVBS cable is not attached, we assumed that HDMI cable is attached */
+	if (!cvbs_cable_connected())
+		hpd_state = 1;
 #endif
+
 	if (hpd_state) {
 		/* Vout will check the checksum of EDID of uboot and kernel.
 		 * If checksum is different. Vout will set null to display/mode.
@@ -1161,6 +1168,7 @@ static __exit void vout_exit_module(void)
 subsys_initcall(vout_init_module);
 module_exit(vout_exit_module);
 
+#if !defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 static int str2lower(char *str)
 {
 	while (*str != '\0') {
@@ -1230,6 +1238,7 @@ static int __init get_vout_init_mode(char *str)
 	return 0;
 }
 __setup("vout=", get_vout_init_mode);
+#endif
 
 static int __init get_hdmi_mode(char *str)
 {
