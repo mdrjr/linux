@@ -1640,6 +1640,22 @@ static int __init cvbs_performance_setup(char *line)
 }
 __setup("cvbsdrv=", cvbs_performance_setup);
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+static unsigned long cvbs_cable = 0;
+
+int cvbs_cable_connected(void)
+{
+	return (int)cvbs_cable;
+}
+EXPORT_SYMBOL(cvbs_cable_connected);
+
+static int __init get_cvbs_cable(char *str)
+{
+	return kstrtoul(str, 10, (unsigned long *)&cvbs_cable);
+}
+__setup("cvbscable=", get_cvbs_cable);
+#endif
+
 arch_initcall(cvbs_init_module);
 module_exit(cvbs_exit_module);
 
