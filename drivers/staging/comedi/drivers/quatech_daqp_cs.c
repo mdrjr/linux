@@ -633,6 +633,19 @@ static int daqp_ai_cmd(struct comedi_device *dev, struct comedi_subdevice *s)
 	return 0;
 }
 
+static int daqp_ao_empty(struct comedi_device *dev,
+			 struct comedi_subdevice *s,
+			 struct comedi_insn *insn,
+			 unsigned long context)
+{
+	unsigned int status;
+
+	status = inb(dev->iobase + DAQP_AUX);
+	if ((status & DAQP_AUX_DA_BUFFER) == 0)
+		return 0;
+	return -EBUSY;
+}
+
 static int daqp_ao_insn_write(struct comedi_device *dev,
 			      struct comedi_subdevice *s,
 			      struct comedi_insn *insn,
@@ -640,7 +653,6 @@ static int daqp_ao_insn_write(struct comedi_device *dev,
 {
 	struct daqp_private *devpriv = dev->private;
 	unsigned int chan = CR_CHAN(insn->chanspec);
-	unsigned int val;
 	int i;
 
 	if (devpriv->stop)
@@ -649,8 +661,15 @@ static int daqp_ao_insn_write(struct comedi_device *dev,
 	/* Make sure D/A update mode is direct update */
 	outb(0, dev->iobase + DAQP_AUX);
 
-	for (i = 0; i > insn->n; i++) {
-		val = data[0];
+	for (i = 0; i < insn->n; i++) {
+		unsigned val = data[i];
+		int ret;
+
+		/* D/A transfer rate is about 8ms */
+		ret = comedi_timeout(dev, s, insn, daqp_ao_empty, 0);
+		if (ret)
+			return ret;
+
 		val &= 0x0fff;
 		val ^= 0x0800;		/* Flip the sign */
 		val |= (chan << 12);

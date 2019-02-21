@@ -629,11 +629,19 @@ static void gem_rx_refill(struct macb *bp)
 
 			if (entry == RX_RING_SIZE - 1)
 				paddr |= MACB_BIT(RX_WRAP);
-			bp->rx_ring[entry].addr = paddr;
 			bp->rx_ring[entry].ctrl = 0;
+			/* Setting addr clears RX_USED and allows reception,
+			 * make sure ctrl is cleared first to avoid a race.
+			 */
+			wmb();
+			bp->rx_ring[entry].addr = paddr;
 
 			/* properly align Ethernet header */
 			skb_reserve(skb, NET_IP_ALIGN);
+		} else {
+			bp->rx_ring[entry].ctrl = 0;
+			wmb();
+			bp->rx_ring[entry].addr &= ~MACB_BIT(RX_USED);
 		}
 	}
 
@@ -683,10 +691,14 @@ static int gem_rx(struct macb *bp, int budget)
 		rmb();
 
 		addr = desc->addr;
-		ctrl = desc->ctrl;
 
 		if (!(addr & MACB_BIT(RX_USED)))
 			break;
+
+		/* Ensure ctrl is at least as up-to-date as rxused */
+		rmb();
+
+		ctrl = desc->ctrl;
 
 		bp->rx_tail++;
 		count++;
@@ -830,10 +842,14 @@ static int macb_rx(struct macb *bp, int budget)
 		rmb();
 
 		addr = desc->addr;
-		ctrl = desc->ctrl;
 
 		if (!(addr & MACB_BIT(RX_USED)))
 			break;
+
+		/* Ensure ctrl is at least as up-to-date as addr */
+		rmb();
+
+		ctrl = desc->ctrl;
 
 		if (ctrl & MACB_BIT(RX_SOF)) {
 			if (first_frag != -1)
