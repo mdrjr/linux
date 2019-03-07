@@ -1044,7 +1044,9 @@ static inline void *aml_slub_alloc_large(size_t size, gfp_t flags, int order)
 		unsigned long used_pages = PAGE_ALIGN(size) / PAGE_SIZE;
 		unsigned long total_pages = 1 << order;
 		unsigned long saved = 0;
+	#ifdef CONFIG_AMLOGIC_PAGE_TRACE
 		unsigned long fun = 0;
+	#endif
 		int i;
 
 		/* record how many pages in first page*/
@@ -1071,9 +1073,11 @@ static inline void *aml_slub_alloc_large(size_t size, gfp_t flags, int order)
 			p++;
 			saved++;
 		}
+	#ifdef CONFIG_AMLOGIC_PAGE_TRACE
 		pr_debug("%s, page:%p, all:%5ld, size:%5ld, save:%5ld, f:%pf\n",
 			__func__, page_address(page), total_pages * PAGE_SIZE,
 			(long)size, saved * PAGE_SIZE, (void *)fun);
+	#endif
 		return page;
 	} else
 		return NULL;
