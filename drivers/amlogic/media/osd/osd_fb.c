@@ -1878,9 +1878,46 @@ done:
 	return err;
 }
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+extern void control_hdmiphy(bool on);
+
+static bool monitor_onoff_action;
+
+static int __init osd_setup_monitor_onoff(char *str)
+{
+	if (!strcmp(str, "true") || !strcmp(str, "1"))
+		monitor_onoff_action = true;
+	else
+		monitor_onoff_action = false;
+
+	return 0;
+}
+__setup("monitor_onoff=", osd_setup_monitor_onoff);
+#endif
+
 int osd_blank(int blank_mode, struct fb_info *info)
 {
 	osd_enable_hw(info->node, (blank_mode != 0) ? 0 : 1);
+
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	if (!monitor_onoff_action)
+		return 0;
+
+	switch (blank_mode) {
+	case FB_BLANK_UNBLANK:
+		control_hdmiphy(true);
+		break;
+	case FB_BLANK_POWERDOWN:
+		control_hdmiphy(false);
+		break;
+	case FB_BLANK_NORMAL:
+	case FB_BLANK_HSYNC_SUSPEND:
+	case FB_BLANK_VSYNC_SUSPEND:
+	default:
+		break;
+	}
+#endif
+
 	return 0;
 }
 

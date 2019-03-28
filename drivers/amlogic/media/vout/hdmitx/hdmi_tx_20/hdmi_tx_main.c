@@ -5392,3 +5392,10 @@ static int __init hdmitx_boot_hdr_priority(char *str)
 
 __setup("hdr_priority=", hdmitx_boot_hdr_priority);
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+void control_hdmiphy(bool on)
+{
+	hdmitx_device.hwop.cntlmisc(&hdmitx_device, MISC_TMDS_PHY_OP,
+			on ?  TMDS_PHY_ENABLE : TMDS_PHY_DISABLE);
+}
+#endif
