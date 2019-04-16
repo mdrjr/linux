@@ -1196,7 +1196,40 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 	pte_t pteval;
 	spinlock_t *ptl;
 	int ret = SWAP_AGAIN;
+	unsigned long sh_address;
+	bool pmd_sharing_possible = false;
+	unsigned long spmd_start, spmd_end;
 	enum ttu_flags flags = (enum ttu_flags)arg;
+
+	/* munlock has nothing to gain from examining un-locked vmas */
+	if ((flags & TTU_MUNLOCK) && !(vma->vm_flags & VM_LOCKED))
+		goto out;
+
+	/*
+	 * Only use the range_start/end mmu notifiers if huge pmd sharing
+	 * is possible.  In the normal case, mmu_notifier_invalidate_page
+	 * is sufficient as we only unmap a page.  However, if we unshare
+	 * a pmd, we will unmap a PUD_SIZE range.
+	 */
+	if (PageHuge(page)) {
+		spmd_start = address;
+		spmd_end = spmd_start + vma_mmu_pagesize(vma);
+
+		/*
+		 * Check if pmd sharing is possible.  If possible, we could
+		 * unmap a PUD_SIZE range.  spmd_start/spmd_end will be
+		 * modified if sharing is possible.
+		 */
+		adjust_range_if_pmd_sharing_possible(vma, &spmd_start,
+								&spmd_end);
+		if (spmd_end - spmd_start != vma_mmu_pagesize(vma)) {
+			sh_address = address;
+
+			pmd_sharing_possible = true;
+			mmu_notifier_invalidate_range_start(vma->vm_mm,
+							spmd_start, spmd_end);
+		}
+	}
 
 	pte = page_check_address(page, mm, address, &ptl, 0);
 	if (!pte)
@@ -1208,9 +1241,12 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 	 * skipped over this mm) then we should reactivate it.
 	 */
 	if (!(flags & TTU_IGNORE_MLOCK)) {
-		if (vma->vm_flags & VM_LOCKED)
-			goto out_mlock;
-
+		if (vma->vm_flags & VM_LOCKED) {
+			/* Holding pte lock, we do *not* need mmap_sem here */
+			mlock_vma_page(page);
+			ret = SWAP_MLOCK;
+			goto out_unmap;
+		}
 		if (flags & TTU_MUNLOCK)
 			goto out_unmap;
 	}
@@ -1220,6 +1256,30 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 			goto out_unmap;
 		}
   	}
+
+	/*
+	 * Call huge_pmd_unshare to potentially unshare a huge pmd.  Pass
+	 * sh_address as it will be modified if unsharing is successful.
+	 */
+	if (PageHuge(page) && huge_pmd_unshare(mm, &sh_address, pte)) {
+		/*
+		 * huge_pmd_unshare unmapped an entire PMD page.  There is
+		 * no way of knowing exactly which PMDs may be cached for
+		 * this mm, so flush them all.  spmd_start/spmd_end cover
+		 * this PUD_SIZE range.
+		 */
+		flush_cache_range(vma, spmd_start, spmd_end);
+		flush_tlb_range(vma, spmd_start, spmd_end);
+
+		/*
+		 * The ref count of the PMD page was dropped which is part
+		 * of the way map counting is done for shared PMDs.  When
+		 * there is no other sharing, huge_pmd_unshare returns false
+		 * and we will unmap the actual page and drop map count
+		 * to zero.
+		 */
+		goto out_unmap;
+	}
 
 	/* Nuke the page table entry. */
 	flush_cache_page(vma, address, page_to_pfn(page));
@@ -1300,30 +1360,12 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 
 out_unmap:
 	pte_unmap_unlock(pte, ptl);
-	if (ret != SWAP_FAIL && !(flags & TTU_MUNLOCK))
+	if (ret != SWAP_FAIL && ret != SWAP_MLOCK && !(flags & TTU_MUNLOCK))
 		mmu_notifier_invalidate_page(mm, address);
 out:
-	return ret;
-
-out_mlock:
-	pte_unmap_unlock(pte, ptl);
-
-
-	/*
-	 * We need mmap_sem locking, Otherwise VM_LOCKED check makes
-	 * unstable result and race. Plus, We can't wait here because
-	 * we now hold anon_vma->rwsem or mapping->i_mmap_mutex.
-	 * if trylock failed, the page remain in evictable lru and later
-	 * vmscan could retry to move the page to unevictable lru if the
-	 * page is actually mlocked.
-	 */
-	if (down_read_trylock(&vma->vm_mm->mmap_sem)) {
-		if (vma->vm_flags & VM_LOCKED) {
-			mlock_vma_page(page);
-			ret = SWAP_MLOCK;
-		}
-		up_read(&vma->vm_mm->mmap_sem);
-	}
+	if (pmd_sharing_possible)
+		mmu_notifier_invalidate_range_end(vma->vm_mm,
+							spmd_start, spmd_end);
 	return ret;
 }
 
