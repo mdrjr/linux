@@ -301,6 +301,12 @@ static int odroid_card_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S
 			| SND_SOC_DAIFMT_NB_NF
 			| SND_SOC_DAIFMT_CBS_CFS);
+	/*
+	 *  We add 2 to the rclk_freq value in order to avoid too low clock
+	 *  frequency values due to the EPLL output frequency not being exact
+	 *  multiple of the audio sampling rate.
+	 */
+	rclk_freq = params_rate(params) * rfs + 2;
 
 	ret = snd_soc_dai_set_sysclk(codec_dai, 0, rclk, SND_SOC_CLOCK_IN);
 
