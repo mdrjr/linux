@@ -91,26 +91,67 @@ struct bcm2835_desc {
 
 #define BCM2835_DMA_CS		0x00
 #define BCM2835_DMA_ADDR	0x04
+#define BCM2835_DMA_TI		0x08
 #define BCM2835_DMA_SOURCE_AD	0x0c
 #define BCM2835_DMA_DEST_AD	0x10
-#define BCM2835_DMA_NEXTCB	0x1C
+#define BCM2835_DMA_LEN		0x14
+#define BCM2835_DMA_STRIDE	0x18
+#define BCM2835_DMA_NEXTCB	0x1c
+#define BCM2835_DMA_DEBUG	0x20
 
 /* DMA CS Control and Status bits */
-#define BCM2835_DMA_ACTIVE	BIT(0)
-#define BCM2835_DMA_INT	BIT(2)
+#define BCM2835_DMA_ACTIVE	BIT(0)  /* activate the DMA */
+#define BCM2835_DMA_END		BIT(1)  /* current CB has ended */
+#define BCM2835_DMA_INT		BIT(2)  /* interrupt status */
+#define BCM2835_DMA_DREQ	BIT(3)  /* DREQ state */
 #define BCM2835_DMA_ISPAUSED	BIT(4)  /* Pause requested or not active */
 #define BCM2835_DMA_ISHELD	BIT(5)  /* Is held by DREQ flow control */
-#define BCM2835_DMA_ERR	BIT(8)
+#define BCM2835_DMA_WAITING_FOR_WRITES BIT(6) /* waiting for last
+					       * AXI-write to ack
+					       */
+#define BCM2835_DMA_ERR		BIT(8)
+#define BCM2835_DMA_PRIORITY(x) ((x & 15) << 16) /* AXI priority */
+#define BCM2835_DMA_PANIC_PRIORITY(x) ((x & 15) << 20) /* panic priority */
+/* current value of TI.BCM2835_DMA_WAIT_RESP */
+#define BCM2835_DMA_WAIT_FOR_WRITES BIT(28)
+#define BCM2835_DMA_DIS_DEBUG	BIT(29) /* disable debug pause signal */
 #define BCM2835_DMA_ABORT	BIT(30) /* Stop current CB, go to next, WO */
 #define BCM2835_DMA_RESET	BIT(31) /* WO, self clearing */
 
+/* Transfer information bits - also bcm2835_cb.info field */
 #define BCM2835_DMA_INT_EN	BIT(0)
+#define BCM2835_DMA_TDMODE	BIT(1) /* 2D-Mode */
+#define BCM2835_DMA_WAIT_RESP	BIT(3) /* wait for AXI-write to be acked */
 #define BCM2835_DMA_D_INC	BIT(4)
-#define BCM2835_DMA_D_DREQ	BIT(6)
+#define BCM2835_DMA_D_WIDTH	BIT(5) /* 128bit writes if set */
+#define BCM2835_DMA_D_DREQ	BIT(6) /* enable DREQ for destination */
+#define BCM2835_DMA_D_IGNORE	BIT(7) /* ignore destination writes */
 #define BCM2835_DMA_S_INC	BIT(8)
-#define BCM2835_DMA_S_DREQ	BIT(10)
+#define BCM2835_DMA_S_WIDTH	BIT(9) /* 128bit writes if set */
+#define BCM2835_DMA_S_DREQ	BIT(10) /* enable SREQ for source */
+#define BCM2835_DMA_S_IGNORE	BIT(11) /* ignore source reads - read 0 */
+#define BCM2835_DMA_BURST_LENGTH(x) ((x & 15) << 12)
+#define BCM2835_DMA_PER_MAP(x)	((x & 31) << 16) /* REQ source */
+#define BCM2835_DMA_WAIT(x)	((x & 31) << 21) /* add DMA-wait cycles */
+#define BCM2835_DMA_NO_WIDE_BURSTS BIT(26) /* no 2 beat write bursts */
 
-#define BCM2835_DMA_PER_MAP(x)	((x) << 16)
+/* debug register bits */
+#define BCM2835_DMA_DEBUG_LAST_NOT_SET_ERR	BIT(0)
+#define BCM2835_DMA_DEBUG_FIFO_ERR		BIT(1)
+#define BCM2835_DMA_DEBUG_READ_ERR		BIT(2)
+#define BCM2835_DMA_DEBUG_OUTSTANDING_WRITES_SHIFT 4
+#define BCM2835_DMA_DEBUG_OUTSTANDING_WRITES_BITS 4
+#define BCM2835_DMA_DEBUG_ID_SHIFT		16
+#define BCM2835_DMA_DEBUG_ID_BITS		9
+#define BCM2835_DMA_DEBUG_STATE_SHIFT		16
+#define BCM2835_DMA_DEBUG_STATE_BITS		9
+#define BCM2835_DMA_DEBUG_VERSION_SHIFT		25
+#define BCM2835_DMA_DEBUG_VERSION_BITS		3
+#define BCM2835_DMA_DEBUG_LITE			BIT(28)
+
+/* shared registers for all dma channels */
+#define BCM2835_DMA_INT_STATUS         0xfe0
+#define BCM2835_DMA_ENABLE             0xff0
 
 #define BCM2835_DMA_DATA_TYPE_S8	1
 #define BCM2835_DMA_DATA_TYPE_S16	2
@@ -150,38 +191,32 @@ static void bcm2835_dma_desc_free(struct virt_dma_desc *vd)
 	kfree(desc);
 }
 
-static int bcm2835_dma_abort(void __iomem *chan_base)
+static int bcm2835_dma_abort(struct bcm2835_chan *c)
 {
-	unsigned long cs;
+	void __iomem *chan_base = c->chan_base;
 	long int timeout = 10000;
 
-	cs = readl(chan_base + BCM2835_DMA_CS);
-	if (!(cs & BCM2835_DMA_ACTIVE))
+	/*
+	 * A zero control block address means the channel is idle.
+	 * (The ACTIVE flag in the CS register is not a reliable indicator.)
+	 */
+	if (!readl(chan_base + BCM2835_DMA_ADDR))
 		return 0;
 
 	/* Write 0 to the active bit - Pause the DMA */
 	writel(0, chan_base + BCM2835_DMA_CS);
 
 	/* Wait for any current AXI transfer to complete */
-	while ((cs & BCM2835_DMA_ISPAUSED) && --timeout) {
+	while ((readl(chan_base + BCM2835_DMA_CS) &
+		BCM2835_DMA_WAITING_FOR_WRITES) && --timeout)
 		cpu_relax();
-		cs = readl(chan_base + BCM2835_DMA_CS);
-	}
 
-	/* We'll un-pause when we set of our next DMA */
+	/* Peripheral might be stuck and fail to signal AXI write responses */
 	if (!timeout)
-		return -ETIMEDOUT;
+		dev_err(c->vc.chan.device->dev,
+			"failed to complete outstanding writes\n");
 
-	if (!(cs & BCM2835_DMA_ACTIVE))
-		return 0;
-
-	/* Terminate the control block chain */
-	writel(0, chan_base + BCM2835_DMA_NEXTCB);
-
-	/* Abort the whole DMA */
-	writel(BCM2835_DMA_ABORT | BCM2835_DMA_ACTIVE,
-	       chan_base + BCM2835_DMA_CS);
-
+	writel(BCM2835_DMA_RESET, chan_base + BCM2835_DMA_CS);
 	return 0;
 }
 
@@ -211,8 +246,15 @@ static irqreturn_t bcm2835_dma_callback(int irq, void *data)
 
 	spin_lock_irqsave(&c->vc.lock, flags);
 
-	/* Acknowledge interrupt */
-	writel(BCM2835_DMA_INT, c->chan_base + BCM2835_DMA_CS);
+	/*
+	 * Clear the INT flag to receive further interrupts. Keep the channel
+	 * active in case the descriptor is cyclic or in case the client has
+	 * already terminated the descriptor and issued a new one. (May happen
+	 * if this IRQ handler is threaded.) If the channel is finished, it
+	 * will remain idle despite the ACTIVE flag being set.
+	 */
+	writel(BCM2835_DMA_INT | BCM2835_DMA_ACTIVE,
+	       c->chan_base + BCM2835_DMA_CS);
 
 	d = c->desc;
 
@@ -220,9 +262,6 @@ static irqreturn_t bcm2835_dma_callback(int irq, void *data)
 		/* TODO Only works for cyclic DMA */
 		vchan_cyclic_callback(&d->vd);
 	}
-
-	/* Keep the DMA engine running */
-	writel(BCM2835_DMA_ACTIVE, c->chan_base + BCM2835_DMA_CS);
 
 	spin_unlock_irqrestore(&c->vc.lock, flags);
 
@@ -456,7 +495,6 @@ static int bcm2835_dma_terminate_all(struct bcm2835_chan *c)
 {
 	struct bcm2835_dmadev *d = to_bcm2835_dma_dev(c->vc.chan.device);
 	unsigned long flags;
-	int timeout = 10000;
 	LIST_HEAD(head);
 
 	spin_lock_irqsave(&c->vc.lock, flags);
@@ -466,26 +504,10 @@ static int bcm2835_dma_terminate_all(struct bcm2835_chan *c)
 	list_del_init(&c->node);
 	spin_unlock(&d->lock);
 
-	/*
-	 * Stop DMA activity: we assume the callback will not be called
-	 * after bcm_dma_abort() returns (even if it does, it will see
-	 * c->desc is NULL and exit.)
-	 */
+	/* stop DMA activity */
 	if (c->desc) {
 		c->desc = NULL;
-		bcm2835_dma_abort(c->chan_base);
-
-		/* Wait for stopping */
-		while (--timeout) {
-			if (!(readl(c->chan_base + BCM2835_DMA_CS) &
-						BCM2835_DMA_ACTIVE))
-				break;
-
-			cpu_relax();
-		}
-
-		if (!timeout)
-			dev_err(d->ddev.dev, "DMA transfer could not be terminated\n");
+		bcm2835_dma_abort(c);
 	}
 
 	vchan_get_all_descriptors(&c->vc, &head);

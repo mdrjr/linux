@@ -953,6 +953,7 @@ static int vc_do_resize(struct tty_struct *tty, struct vc_data *vc,
 	if (CON_IS_VISIBLE(vc))
 		update_screen(vc);
 	vt_event_post(VT_EVENT_RESIZE, vc->vc_num, vc->vc_num);
+	notify_update(vc);
 	return err;
 }
 
@@ -2415,8 +2416,8 @@ rescan_last_byte:
 	}
 	FLUSH
 	console_conditional_schedule();
-	console_unlock();
 	notify_update(vc);
+	console_unlock();
 	return n;
 #undef FLUSH
 }
