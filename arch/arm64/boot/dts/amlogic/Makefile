@@ -8,3 +8,4 @@ dtb-y += g12b_a311d_w400.dtb
 dtb-y += g12b_a311d_w400_buildroot.dtb
 endif
 dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2.dtb
+dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2_drm.dtb
