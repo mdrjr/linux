@@ -29,6 +29,7 @@
 #define	VMODE_MODE_BIT_MASK	0xff
 typedef enum {
     VMODE_480X320P_60HZ = 0,
+    VMODE_480X272P_60HZ,
     VMODE_480I,
     VMODE_480I_RPT  ,
     VMODE_480CVBS,

@@ -7,7 +7,7 @@
     } while (0)
 
 #ifdef CONFIG_AM_HDMI_ONLY
-#define PARA_HDMI_ONLY    31
+#define PARA_HDMI_ONLY    32
 
 typedef  struct {
 	char *name;

@@ -84,7 +84,7 @@ SET_TV_CLASS_ATTR(policy_fr_auto, policy_framerate_automation_store)
 
 static const tvmode_t vmode_tvmode_tab[] =
 {
-	TVMODE_480X320P_60HZ, TVMODE_480I, TVMODE_480I_RPT, TVMODE_480CVBS, TVMODE_480P, 
+	TVMODE_480X320P_60HZ, TVMODE_480X272P_60HZ, TVMODE_480I, TVMODE_480I_RPT, TVMODE_480CVBS, TVMODE_480P, 
 #ifdef CONFIG_AML_VOUT_FRAMERATE_AUTOMATION
 	TVMODE_480P_59HZ,
 #endif
@@ -135,6 +135,18 @@ static const vinfo_t tv_info[] =
 		.sync_duration_num	= 60,
 		.sync_duration_den	= 1,
 		.video_clk		= 25175000,
+    },
+    { /* VMODE_480X272P_60HZ */
+	.name			= "480x272p60hz",
+	.mode 			= VMODE_480X272P_60HZ,
+	.width			= 480,
+	.height			= 272,
+	.field_height		= 272,
+	.aspect_ratio_num	= 3,
+	.aspect_ratio_den	= 2,
+	.sync_duration_num	= 60,
+	.sync_duration_den	= 1,
+	.video_clk		= 25175000,
     },
     { /* VMODE_480I */
 		.name              = "480i",

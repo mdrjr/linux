@@ -4,6 +4,7 @@
 typedef enum HDMI_Video_Type_ {
     HDMI_Unkown = 0 ,
     HDMI_480x320p60hz = 1,
+    HDMI_480x272p60hz,
     HDMI_640x480p60,
     HDMI_480p60,
     HDMI_480p60_16x9,
