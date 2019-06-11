@@ -201,6 +201,7 @@ enum hdmi_vic {
 	HDMIV_2560x1080p60hz,
 	HDMIV_3440x1440p60hz,
 	HDMIV_480x320p60hz,
+	HDMIV_480x272p60hz,
 	HDMI_VIC_VESA_MAX,
 	/*
 	 the following vic is custom-built one

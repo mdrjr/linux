@@ -1372,6 +1372,36 @@ static struct hdmi_format_para fmt_para_vesa_480x320p60_3x2 = {
 	},
 };
 
+static struct hdmi_format_para fmt_para_vesa_480x272p60_3x2 = {
+	.vic = HDMIV_480x272p60hz,
+	.name = "480x272p60hz",
+	.pixel_repetition_factor = 0,
+	.progress_mode = 1,
+	.scrambler_en = 0,
+	.tmds_clk_div40 = 0,
+	.tmds_clk = 25200,
+	.timing = {
+		.pixel_freq = 25200,
+		.h_freq = 31500,
+		.v_freq = 60000,
+		.vsync_polarity = 0, /* -VSync */
+		.hsync_polarity = 0, /* -HSync */
+		.h_active = 480,
+		.h_total = 800,
+		.h_blank = 320,
+		.h_front = 120,
+		.h_sync = 100,
+		.h_back = 100,
+		.v_active = 272,
+		.v_total = 525,
+		.v_blank = 253,
+		.v_front = 8,
+		.v_sync = 7,
+		.v_back = 238,
+		.v_sync_ln = 1,
+	},
+};
+
 #if defined(CONFIG_ARCH_MESON64_ODROIDC2)
 static struct hdmi_format_para fmt_para_custombuilt = {
 	.vic = HDMIV_CUSTOMBUILT,
@@ -1589,6 +1619,7 @@ static struct hdmi_format_para *all_fmt_paras[] = {
 	&fmt_para_vesa_2560x1080p60_128x59,
 	&fmt_para_vesa_3440x1440p60_43x18,
 	&fmt_para_vesa_480x320p60_3x2,
+	&fmt_para_vesa_480x272p60_3x2,
 	&fmt_para_custombuilt,
 	NULL,
 };

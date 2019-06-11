@@ -363,6 +363,7 @@ static struct hdmitx_clk hdmitx_clk[] = {
 	{HDMIV_2560x1080p60hz, 24000, 1855800, 185580, 185580, -1, 185580},
 	{HDMIV_3440x1440p60hz, 24000, 3197500, 319750, 319750, -1, 319750},
 	{HDMIV_480x320p60hz, 24000, 252000, 25200, 25200, -1, 25200},
+	{HDMIV_480x272p60hz, 24000, 252000, 25200, 25200, -1, 25200},
 };
 
 /* check the availability to handle pointer
@@ -1495,6 +1496,22 @@ static int __hdmi_tvenc_set(struct hdmitx_vidpara *param, struct hdmi_format_par
 		EOF_LINES           = 8;
 		VSYNC_LINES         = 4;
 		SOF_LINES           = 95;
+		TOTAL_FRAMES        = 4;
+		break;
+	case HDMIV_480x272p60hz:
+		INTERLACE_MODE      = 0;
+		PIXEL_REPEAT_VENC   = 0;
+		PIXEL_REPEAT_HDMI   = 0;
+		ACTIVE_PIXELS       = 480;
+		ACTIVE_LINES        = 272;
+		LINES_F0            = 263;
+		LINES_F1            = 263;
+		FRONT_PORCH         = 120;
+		HSYNC_PIXELS        = 100;
+		BACK_PORCH          = 100;
+		EOF_LINES           = 8;
+		VSYNC_LINES         = 4;
+		SOF_LINES           = 119;
 		TOTAL_FRAMES        = 4;
 		break;
 	default:

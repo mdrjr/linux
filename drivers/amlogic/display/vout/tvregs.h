@@ -489,6 +489,10 @@ static const struct reg_s tvregs_vesa_480x320p60hz_enc[] = {
 	{MREG_END_MARKER,            0      }
 };
 
+static const struct reg_s tvregs_vesa_480x272p60hz_enc[] = {
+	{MREG_END_MARKER,            0      }
+};
+
 static const struct reg_s tvregs_custombuilt_enc[] = {
 	{MREG_END_MARKER,            0      }
 };
@@ -542,6 +546,7 @@ static struct tvregs_set_t tvregsTab[] = {
 	{TVMODE_2560x1600p60hz, NULL, tvregs_vesa_2560x1600_enc},
 	{TVMODE_3440x1440p60hz, NULL, tvregs_vesa_3440x1440_enc},
 	{TVMODE_480x320p60hz, NULL, tvregs_vesa_480x320p60hz_enc},
+	{TVMODE_480x272p60hz, NULL, tvregs_vesa_480x272p60hz_enc},
 	{TVMODE_VGA, tvregs_vga_640x480_clk, tvregs_vga_640x480_enc},
 	{TVMODE_SVGA, tvregs_svga_800x600_clk, tvregs_svga_800x600_enc},
 	{TVMODE_XGA, tvregs_xga_1024x768_clk, tvregs_xga_1024x768_enc},
