@@ -1237,7 +1237,7 @@ static int aml_dai_spdif_prepare(
 		spdif_get_channel_status_info(&chsts, runtime->rate);
 		spdif_set_channel_status_info(&chsts, p_spdif->id);
 
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+#if defined(CONFIG_ARCH_MESON64_ODROIDN2)
 		/* TOHDMITX_CTRL0
 		 * ODROID is spdif_b only would notify to hdmitx
 		 */
