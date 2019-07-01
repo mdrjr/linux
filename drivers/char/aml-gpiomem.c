@@ -46,18 +46,28 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/cdev.h>
 #include <linux/pagemap.h>
+#include <linux/io.h>
+#include <linux/of.h>
+#include <asm/io.h>
 
 #define DEVICE_NAME "aml-gpiomem"
 #define DRIVER_NAME "gpiomem-aml"
 #define DEVICE_MINOR 0
 
+struct regs_phys {
+	unsigned long start;
+	unsigned long end;
+};
+
 struct aml_gpiomem_instance {
-	unsigned long gpio_regs_phys;
+	struct regs_phys gpio_regs_phys[32];
+	int gpio_area_count;
 	struct device *dev;
 };
 
@@ -101,16 +111,29 @@ static const struct vm_operations_struct aml_gpiomem_vm_ops = {
 
 static int aml_gpiomem_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned long gpio_page = inst->gpio_regs_phys >> PAGE_SHIFT;
+	int gpio_area = 0;
+	unsigned long start = vma->vm_pgoff << PAGE_SHIFT;
+	unsigned long end   = start + vma->vm_end - vma->vm_start;
 
-	vma->vm_page_prot = phys_mem_access_prot(file, gpio_page,
-						 PAGE_SIZE,
-						 vma->vm_page_prot);
+	while (gpio_area < inst->gpio_area_count) {
+		if ((inst->gpio_regs_phys[gpio_area].start >= start) &&
+		    (inst->gpio_regs_phys[gpio_area].end   <= end))
+			goto found;
+		gpio_area++;
+	}
+
+	return -EACCES;
+
+found:
+	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_pgoff,
+			vma->vm_end - vma->vm_start,
+			vma->vm_page_prot);
 
 	vma->vm_ops = &aml_gpiomem_vm_ops;
+
 	if (remap_pfn_range(vma, vma->vm_start,
-				gpio_page,
-				PAGE_SIZE,
+				vma->vm_pgoff,
+				vma->vm_end - vma->vm_start,
 				vma->vm_page_prot)) {
 		return -EAGAIN;
 	}
@@ -130,24 +153,41 @@ static int aml_gpiomem_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct resource *res = NULL;
+	int i = 0;
 
 	/* Allocate buffers and instance data */
 	inst = kzalloc(sizeof(struct aml_gpiomem_instance), GFP_KERNEL);
+
 	if (!inst) {
 		err = -ENOMEM;
 		goto failed_inst_alloc;
 	}
 
 	inst->dev = dev;
+	inst->gpio_area_count = of_property_count_elems_of_size(np, "reg",
+				sizeof(u32)) / 4;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res) {
-		inst->gpio_regs_phys = res->start;
-	} else {
-		dev_err(inst->dev, "failed to get IO resource");
-		err = -ENOENT;
-		goto failed_get_resource;
+	if (inst->gpio_area_count > 32 || inst->gpio_area_count <= 0) {
+		dev_err(inst->dev, "failed to get gpio register area.");
+		err = -EINVAL;
+		goto failed_inst_alloc;
+	}
+
+	dev_info(inst->dev, "Initialised: GPIO register area is %d",
+			inst->gpio_area_count);
+
+	for (i = 0; i < inst->gpio_area_count; ++i) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		if (res) {
+			inst->gpio_regs_phys[i].start = res->start;
+			inst->gpio_regs_phys[i].end   = res->end;
+		} else {
+			dev_err(inst->dev, "failed to get IO resource area %d", i);
+			err = -ENOENT;
+			goto failed_get_resource;
+		}
 	}
 
 	/* Create character device entries */
@@ -178,8 +218,13 @@ static int aml_gpiomem_probe(struct platform_device *pdev)
 	if (err)
 		goto failed_device_create;
 
-	dev_info(inst->dev, "Initialised: Registers at 0x%08lx",
-		 inst->gpio_regs_phys);
+	for (i = 0; i < inst->gpio_area_count; ++i) {
+		dev_info(inst->dev,
+			"Initialised: Registers at start:0x%08lx end:0x%08lx size:0x%08lx",
+			inst->gpio_regs_phys[i].start,
+			inst->gpio_regs_phys[i].end,
+			inst->gpio_regs_phys[i].end - inst->gpio_regs_phys[i].start);
+	}
 
 	return 0;
 
