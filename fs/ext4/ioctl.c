@@ -14,6 +14,7 @@
 #include <linux/compat.h>
 #include <linux/mount.h>
 #include <linux/file.h>
+#include <linux/quotaops.h>
 #include <asm/uaccess.h>
 #include "ext4_jbd2.h"
 #include "ext4.h"
@@ -60,20 +61,21 @@ static void swap_inode_data(struct inode *inode1, struct inode *inode2)
 	loff_t isize;
 	struct ext4_inode_info *ei1;
 	struct ext4_inode_info *ei2;
+	unsigned long tmp;
 
 	ei1 = EXT4_I(inode1);
 	ei2 = EXT4_I(inode2);
 
 	memswap(&inode1->i_version, &inode2->i_version,
 		  sizeof(inode1->i_version));
-	memswap(&inode1->i_blocks, &inode2->i_blocks,
-		  sizeof(inode1->i_blocks));
-	memswap(&inode1->i_bytes, &inode2->i_bytes, sizeof(inode1->i_bytes));
 	memswap(&inode1->i_atime, &inode2->i_atime, sizeof(inode1->i_atime));
 	memswap(&inode1->i_mtime, &inode2->i_mtime, sizeof(inode1->i_mtime));
 
 	memswap(ei1->i_data, ei2->i_data, sizeof(ei1->i_data));
-	memswap(&ei1->i_flags, &ei2->i_flags, sizeof(ei1->i_flags));
+	tmp = ei1->i_flags & EXT4_FL_SHOULD_SWAP;
+	ei1->i_flags = (ei2->i_flags & EXT4_FL_SHOULD_SWAP) |
+		(ei1->i_flags & ~EXT4_FL_SHOULD_SWAP);
+	ei2->i_flags = tmp | (ei2->i_flags & ~EXT4_FL_SHOULD_SWAP);
 	memswap(&ei1->i_disksize, &ei2->i_disksize, sizeof(ei1->i_disksize));
 	ext4_es_remove_extent(inode1, 0, EXT_MAX_BLOCKS);
 	ext4_es_remove_extent(inode2, 0, EXT_MAX_BLOCKS);
@@ -117,15 +119,9 @@ static long swap_inode_boot_loader(struct super_block *sb,
 	struct inode *inode_bl;
 	struct ext4_inode_info *ei_bl;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
-
-	if (inode->i_nlink != 1 || !S_ISREG(inode->i_mode) ||
-	    IS_SWAPFILE(inode) ||
-	    ext4_has_inline_data(inode))
-		return -EINVAL;
-
-	if (IS_RDONLY(inode) || IS_APPEND(inode) || IS_IMMUTABLE(inode) ||
-	    !inode_owner_or_capable(inode) || !capable(CAP_SYS_ADMIN))
-		return -EPERM;
+	qsize_t size, size_bl, diff;
+	blkcnt_t blocks;
+	unsigned short bytes;
 
 	inode_bl = ext4_iget(sb, EXT4_BOOT_LOADER_INO, EXT4_IGET_SPECIAL);
 	if (IS_ERR(inode_bl))
@@ -138,6 +134,19 @@ static long swap_inode_boot_loader(struct super_block *sb,
 	/* Protect orig inodes against a truncate and make sure,
 	 * that only 1 swap_inode_boot_loader is running. */
 	lock_two_nondirectories(inode, inode_bl);
+
+	if (inode->i_nlink != 1 || !S_ISREG(inode->i_mode) ||
+	    IS_SWAPFILE(inode) ||
+	    ext4_has_inline_data(inode)) {
+		err = -EINVAL;
+		goto journal_err_out;
+	}
+
+	if (IS_RDONLY(inode) || IS_APPEND(inode) || IS_IMMUTABLE(inode) ||
+	    !inode_owner_or_capable(inode) || !capable(CAP_SYS_ADMIN)) {
+		err = -EPERM;
+		goto journal_err_out;
+	}
 
 	/* Wait for all existing dio workers */
 	ext4_inode_block_unlocked_dio(inode);
@@ -175,6 +184,11 @@ static long swap_inode_boot_loader(struct super_block *sb,
 			memset(ei_bl->i_data, 0, sizeof(ei_bl->i_data));
 	}
 
+	dquot_initialize(inode);
+
+	size = (qsize_t)(inode->i_blocks) * (1 << 9) + inode->i_bytes;
+	size_bl = (qsize_t)(inode_bl->i_blocks) * (1 << 9) + inode_bl->i_bytes;
+	diff = size - size_bl;
 	swap_inode_data(inode, inode_bl);
 
 	inode->i_ctime = inode_bl->i_ctime = ext4_current_time(inode);
@@ -190,24 +204,46 @@ static long swap_inode_boot_loader(struct super_block *sb,
 
 	err = ext4_mark_inode_dirty(handle, inode);
 	if (err < 0) {
+		/* No need to update quota information. */
 		ext4_warning(inode->i_sb,
 			"couldn't mark inode #%lu dirty (err %d)",
 			inode->i_ino, err);
 		/* Revert all changes: */
 		swap_inode_data(inode, inode_bl);
 		ext4_mark_inode_dirty(handle, inode);
-	} else {
-		err = ext4_mark_inode_dirty(handle, inode_bl);
-		if (err < 0) {
-			ext4_warning(inode_bl->i_sb,
-				"couldn't mark inode #%lu dirty (err %d)",
-				inode_bl->i_ino, err);
-			/* Revert all changes: */
-			swap_inode_data(inode, inode_bl);
-			ext4_mark_inode_dirty(handle, inode);
-			ext4_mark_inode_dirty(handle, inode_bl);
-		}
+		goto err_out1;
 	}
+
+	blocks = inode_bl->i_blocks;
+	bytes = inode_bl->i_bytes;
+	inode_bl->i_blocks = inode->i_blocks;
+	inode_bl->i_bytes = inode->i_bytes;
+	err = ext4_mark_inode_dirty(handle, inode_bl);
+	if (err < 0) {
+		/* No need to update quota information. */
+		ext4_warning(inode_bl->i_sb,
+			"couldn't mark inode #%lu dirty (err %d)",
+			inode_bl->i_ino, err);
+		goto revert;
+	}
+
+	/* Bootloader inode should not be counted into quota information. */
+	if (diff > 0)
+		dquot_free_space(inode, diff);
+	else
+		err = dquot_alloc_space(inode, -1 * diff);
+
+	if (err < 0) {
+revert:
+		/* Revert all changes: */
+		inode_bl->i_blocks = blocks;
+		inode_bl->i_bytes = bytes;
+		swap_inode_data(inode, inode_bl);
+		ext4_mark_inode_dirty(handle, inode);
+		ext4_mark_inode_dirty(handle, inode_bl);
+	}
+
+err_out1:
 	ext4_journal_stop(handle);
 	ext4_double_up_write_data_sem(inode, inode_bl);
 
