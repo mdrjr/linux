@@ -60,6 +60,12 @@
 #define TCM_VHOST_PREALLOC_UPAGES 2048
 #define TCM_VHOST_PREALLOC_PROT_SGLS 512
 
+/* Max number of requests before requeueing the job.
+ * Using this limit prevents one virtqueue from starving others with
+ * request.
+ */
+#define VHOST_SCSI_WEIGHT 256
+
 struct vhost_scsi_inflight {
 	/* Wait for the flush operation to finish */
 	struct completion comp;
@@ -992,7 +998,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
 	u64 tag;
 	u32 exp_data_len, data_first, data_num, data_direction, prot_first;
 	unsigned out, in, i;
-	int head, ret, data_niov, prot_niov, prot_bytes;
+	int head, ret, data_niov, prot_niov, prot_bytes, c = 0;
 	size_t req_size;
 	u16 lun;
 	u8 *target, *lunp, task_attr;
@@ -1010,7 +1016,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
 
 	vhost_disable_notify(&vs->dev, vq);
 
-	for (;;) {
+	do {
 		head = vhost_get_vq_desc(vq, vq->iov,
 					ARRAY_SIZE(vq->iov), &out, &in,
 					NULL, NULL);
@@ -1213,7 +1219,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
 		 */
 		INIT_WORK(&cmd->work, tcm_vhost_submission_work);
 		queue_work(tcm_vhost_workqueue, &cmd->work);
-	}
+	} while (likely(!vhost_exceeds_weight(vq, ++c, 0)));
 
 	mutex_unlock(&vq->mutex);
 	return;
@@ -1576,7 +1582,8 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
 		vqs[i] = &vs->vqs[i].vq;
 		vs->vqs[i].vq.handle_kick = vhost_scsi_handle_kick;
 	}
-	vhost_dev_init(&vs->dev, vqs, VHOST_SCSI_MAX_VQ);
+	vhost_dev_init(&vs->dev, vqs, VHOST_SCSI_MAX_VQ,
+		       VHOST_SCSI_WEIGHT, 0);
 
 	tcm_vhost_init_inflight(vs, NULL);
 
