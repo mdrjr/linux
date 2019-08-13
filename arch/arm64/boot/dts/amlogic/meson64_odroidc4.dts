@@ -820,3 +820,7 @@
 &meson_cooldev {
 	status = "okay";
 };
+
+&usb3_phy_v2 {
+	portnum = <0>;
+};
