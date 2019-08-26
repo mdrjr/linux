@@ -43,6 +43,10 @@
 #include "../../base/power/opp/opp.h"
 #include "meson-cpufreq.h"
 
+#ifdef CONFIG_ARCH_MESON64_ODROID_COMMON
+#include <linux/platform_data/board_odroid.h>
+#endif
+
 #ifdef CONFIG_ARCH_MESON64_ODROIDN2
 #define OF_NODE_CPU_OPP_0	"/cpu_opp_table0/"	/* Core A53 */
 #define OF_NODE_CPU_OPP_1	"/cpu_opp_table1/"	/* Core A73 */
@@ -590,8 +594,9 @@ static int meson_cpufreq_init(struct cpufreq_policy *policy)
 	}
 
 #ifdef CONFIG_ARCH_MESON64_ODROIDN2
-	for (i = 0; (freq_table[cur_cluster][i].frequency != CPUFREQ_TABLE_END)
-		&& max_freq[cur_cluster]; i++) {
+	for (i = 0; board_is_odroidn2() &&
+			(freq_table[cur_cluster][i].frequency != CPUFREQ_TABLE_END)
+			&& max_freq[cur_cluster]; i++) {
 		if (freq_table[cur_cluster][i].frequency > max_freq[cur_cluster]) {
 			pr_info("dvfs [%s] - cluster %d freq %d\n",
 				__func__, cur_cluster,
@@ -635,7 +640,7 @@ static int meson_cpufreq_init(struct cpufreq_policy *policy)
 	policy->cpuinfo.transition_latency = transition_latency;
 	policy->suspend_freq = get_table_max(freq_table[cur_cluster]);
 	policy->cur = clk_get_rate(clk[cur_cluster]) / 1000;
-#ifdef CONFIG_ARCH_MESON64_ODROIDN2
+#ifdef CONFIG_ARCH_MESON64_ODROID_COMMON
 	policy->min = 667000;
 #endif
 
@@ -683,6 +688,9 @@ static int __init get_max_freq_a53(char *str)
 {
 	int ret;
 
+	if (!board_is_odroidn2())
+		return 0;
+
 	if (str == NULL) {
 		/* default freq value for A53 core is 1.896GHz */
 		pr_info("[%s] no data\n", __func__);
@@ -706,6 +714,9 @@ __setup("max_freq_a53=", get_max_freq_a53);
 static int __init get_max_freq_a73(char *str)
 {
 	int ret;
+
+	if (!board_is_odroidn2())
+		return 0;
 
 	if (str == NULL) {
 		/* default freq value for A73 core is 1.800GHz */
