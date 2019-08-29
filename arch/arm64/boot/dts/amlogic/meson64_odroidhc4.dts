@@ -1,0 +1,37 @@
+/*
+ * arch/arm64/boot/dts/amlogic/meson64_odroidhc4.dts
+ *
+ * Copyright (C) 2019 Hardkernel Co., Ltd. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#include "meson64_odroidc4.dts"
+
+/ {
+	model = "Hardkernel ODROID-HC4";
+};
+
+&pcie_A {
+	reset-gpio = <&gpio GPIOH_4 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&sd_emmc_c {
+	status = "disabled";
+};
+
+&dwc2_a {
+	port-type = <1>;
+	port-id-mode = <1>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
+	controller-type = <1>;
+};
