@@ -743,7 +743,7 @@ static void spdifin_status_event(struct aml_spdif *p_spdif)
 	if (p_spdif->chipinfo
 		&& p_spdif->chipinfo->pcpd_separated) {
 		if (intrpt_status & 0x8) {
-			pr_info("Pc changed, try to read spdifin audio type\n");
+			pr_debug("Pc changed, try to read spdifin audio type\n");
 
 			extcon_set_state(p_spdif->edev,
 				EXTCON_SPDIFIN_AUDIOTYPE, 1);
@@ -757,7 +757,7 @@ static void spdifin_status_event(struct aml_spdif *p_spdif)
 #endif
 		}
 		if (intrpt_status & 0x10)
-			pr_info("Pd changed\n");
+			pr_debug("Pd changed\n");
 	} else {
 		if (intrpt_status & 0x8)
 			pr_debug("CH status changed\n");
