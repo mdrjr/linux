@@ -1056,6 +1056,9 @@ static struct master_display_info_s hdr10_data;
 #define COMP_BUF_SIZE 8196
 static char *md_buf[2];
 static char *comp_buf[2];
+static char *drop_md_buf[2];
+static char *drop_comp_buf[2];
+
 static int currentId = 1;
 static int backup_comp_size;
 static int backup_md_size;
@@ -3805,6 +3808,12 @@ void dolby_vision_init_receiver(void *pdev)
 		comp_buf[i] = vmalloc(COMP_BUF_SIZE);
 		if (comp_buf[i] != NULL)
 			memset(comp_buf[i], 0, COMP_BUF_SIZE);
+		drop_md_buf[i] = vmalloc(MD_BUF_SIZE);
+		if (drop_md_buf[i] != NULL)
+			memset(drop_md_buf[i], 0, MD_BUF_SIZE);
+		drop_comp_buf[i] = vmalloc(COMP_BUF_SIZE);
+		if (drop_comp_buf[i] != NULL)
+			memset(drop_comp_buf[i], 0, COMP_BUF_SIZE);
 	}
 }
 
@@ -4787,7 +4796,7 @@ static int parse_sei_and_meta(
 	int *total_comp_size,
 	int *total_md_size,
 	enum signal_format_e *src_format,
-	int *ret_flags)
+	int *ret_flags, bool drop_flag)
 {
 	int i;
 	char *p;
@@ -4897,22 +4906,48 @@ static int parse_sei_and_meta(
 			}
 
 			md_size = comp_size = 0;
-			if (is_meson_tvmode())
-				rpu_ret = p_funcs_tv->metadata_parser_process(
+			if (drop_flag) {
+				if (is_meson_tvmode())
+					rpu_ret =
+					p_funcs_tv->metadata_parser_process(
+					meta_buf, size + 2,
+					drop_comp_buf[nextId] +
+					*total_comp_size,
+					&comp_size,
+					drop_md_buf[nextId] + *total_md_size,
+					&md_size,
+					true);
+				else
+					rpu_ret =
+					p_funcs_stb->metadata_parser_process(
+					meta_buf, size + 2,
+					drop_comp_buf[nextId] +
+					*total_comp_size,
+					&comp_size,
+					drop_md_buf[nextId] + *total_md_size,
+					&md_size,
+					true);
+			} else {
+				if (is_meson_tvmode())
+					rpu_ret =
+					p_funcs_tv->metadata_parser_process(
 					meta_buf, size + 2,
 					comp_buf[nextId] + *total_comp_size,
 					&comp_size,
 					md_buf[nextId] + *total_md_size,
 					&md_size,
 					true);
-			else
-				rpu_ret = p_funcs_stb->metadata_parser_process(
+				else
+					rpu_ret =
+					p_funcs_stb->metadata_parser_process(
 					meta_buf, size + 2,
 					comp_buf[nextId] + *total_comp_size,
 					&comp_size,
 					md_buf[nextId] + *total_md_size,
 					&md_size,
 					true);
+
+			}
 			if (rpu_ret < 0) {
 				pr_dolby_error(
 					"meta(%d), pts(%lld) -> metadata parser process fail\n",
@@ -5629,7 +5664,8 @@ static u32 last_total_md_size;
 static u32 last_total_comp_size;
 /* toggle mode: 0: not toggle; 1: toggle frame; 2: use keep frame */
 int dolby_vision_parse_metadata(
-	struct vframe_s *vf, u8 toggle_mode, bool bypass_release)
+	struct vframe_s *vf, u8 toggle_mode,
+	bool bypass_release, bool drop_flag)
 {
 	const struct vinfo_s *vinfo = get_current_vinfo();
 	struct vframe_s *el_vf;
@@ -5784,7 +5820,7 @@ int dolby_vision_parse_metadata(
 				&total_comp_size,
 				&total_md_size,
 				&src_format,
-				&ret_flags);
+				&ret_flags, drop_flag);
 			if (ret_flags && req.dv_enhance_exist
 				&& (frame_count == 0)) {
 				vf_notify_provider_by_name("dvbldec",
@@ -5892,7 +5928,7 @@ int dolby_vision_parse_metadata(
 							&el_comp_size,
 							&el_md_size,
 							&src_format,
-							&ret_flags);
+							&ret_flags, drop_flag);
 					}
 					if (!meta_flag_el) {
 						total_comp_size =
@@ -5946,8 +5982,10 @@ int dolby_vision_parse_metadata(
 			el_flag = 1;
 
 		if (toggle_mode != 2) {
-			last_total_md_size = total_md_size;
-			last_total_comp_size = total_comp_size;
+			if (!drop_flag) {
+				last_total_md_size = total_md_size;
+				last_total_comp_size = total_comp_size;
+			}
 		} else if (meta_flag_bl && meta_flag_el) {
 			total_md_size = last_total_md_size;
 			total_comp_size = last_total_comp_size;
@@ -6000,6 +6038,11 @@ int dolby_vision_parse_metadata(
 		if (p_funcs_tv)
 			p_funcs_tv->metadata_parser_release();
 		metadata_parser = NULL;
+	}
+
+	if (drop_flag) {
+		pr_dolby_dbg("drop frame_count %d\n", frame_count);
+		return 1;
 	}
 
 	check_format = src_format;
@@ -6690,9 +6733,8 @@ int dolby_vision_update_metadata(struct vframe_s *vf, bool drop_flag)
 		return -1;
 	if (vf && dolby_vision_vf_check(vf)) {
 		ret = dolby_vision_parse_metadata(
-			vf, 1, false);
-		if (!drop_flag)
-			frame_count++;
+			vf, 1, false, drop_flag);
+		frame_count++;
 	}
 
 	return ret;
@@ -6829,11 +6871,11 @@ int dolby_vision_process(struct vframe_s *vf, u32 display_size,
 
 	if (is_sink_cap_changed(vinfo)) {
 		if (vf)
-			dolby_vision_parse_metadata(vf, 1, false);
+			dolby_vision_parse_metadata(vf, 1, false, false);
 		dolby_vision_set_toggle_flag(1);
 	}
 	if (is_video_turn_on() == 1) {
-		if (vf && !dolby_vision_parse_metadata(vf, 0, false))
+		if (vf && !dolby_vision_parse_metadata(vf, 0, false, false))
 			dolby_vision_set_toggle_flag(1);
 	}
 
@@ -6855,7 +6897,7 @@ int dolby_vision_process(struct vframe_s *vf, u32 display_size,
 		}
 		if (dolby_vision_flags & FLAG_TOGGLE_FRAME)
 			dolby_vision_parse_metadata(
-				NULL, 1, false);
+				NULL, 1, false, false);
 	}
 
 	if (dolby_vision_mode == DOLBY_VISION_OUTPUT_MODE_BYPASS) {
@@ -7279,6 +7321,14 @@ int unregister_dv_functions(void)
 		if (comp_buf[i] != NULL) {
 			vfree(comp_buf[i]);
 			comp_buf[i] = NULL;
+		}
+		if (drop_md_buf[i] != NULL) {
+			vfree(drop_md_buf[i]);
+			drop_md_buf[i] = NULL;
+		}
+		if (drop_comp_buf[i] != NULL) {
+			vfree(drop_comp_buf[i]);
+			drop_comp_buf[i] = NULL;
 		}
 	}
 	if (p_funcs_stb || p_funcs_tv) {
