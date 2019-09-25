@@ -3761,6 +3761,7 @@ unsigned char dim_pre_de_buf_config(unsigned int channel)
 	struct di_dev_s *de_devp = get_dim_de_devp();
 	int cfg_prog_proc = dimp_get(eDI_MP_prog_proc_config);
 	bool flg_1080i = false;
+	bool flg_480i = false;
 
 	if (di_blocking || !dip_cma_st_is_ready(channel))
 		return 0;
@@ -4220,6 +4221,10 @@ unsigned char dim_pre_de_buf_config(unsigned int channel)
 		if ((di_buf->vframe->width >= 1920) &&
 		    (di_buf->vframe->height >= 1080))
 			flg_1080i = true;
+		else if ((di_buf->vframe->width == 720) &&
+			 (di_buf->vframe->height == 480))
+			flg_480i = true;
+
 		/*********************************/
 
 			if (!ppre->di_chan2_buf_dup_p) {
@@ -4410,6 +4415,8 @@ unsigned char dim_pre_de_buf_config(unsigned int channel)
 	if (ppre->combing_fix_en) {
 		if (flg_1080i)
 			get_ops_mtn()->com_patch_pre_sw_set(1);
+		else if (flg_480i)
+			get_ops_mtn()->com_patch_pre_sw_set(2);
 		else
 			get_ops_mtn()->com_patch_pre_sw_set(0);
 	}

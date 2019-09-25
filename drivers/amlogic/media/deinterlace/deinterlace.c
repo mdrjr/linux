@@ -3933,6 +3933,7 @@ static unsigned char pre_de_buf_config(void)
 	u32 afbc_busy;
 	u32 is_afbc_mode;
 	bool flg_1080i = false;
+	bool flg_480i = false;
 
 	if (di_blocking || !atomic_read(&de_devp->mem_flag))
 		return 0;
@@ -4439,6 +4440,9 @@ jiffies_to_msecs(jiffies_64 - vframe->ready_jiffies64));
 		if ((di_buf->vframe->width >= 1920) &&
 		    (di_buf->vframe->height >= 1080))
 			flg_1080i = true;
+		else if ((di_buf->vframe->width == 720) &&
+			 (di_buf->vframe->height == 480))
+			flg_480i = true;
 
 		/*********************************/
 			if (
@@ -4634,6 +4638,8 @@ jiffies_to_msecs(jiffies_64 - vframe->ready_jiffies64));
 	if (di_pre_stru.combing_fix_en) {
 		if (flg_1080i)
 			com_patch_pre_sw_set(1);
+		else if (flg_480i)
+			com_patch_pre_sw_set(2);
 		else
 			com_patch_pre_sw_set(0);
 	}
