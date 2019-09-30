@@ -617,6 +617,21 @@
 		status = "okay";
 	};
 
+	remote {
+		status = "disabled";
+	};
+
+	meson-ir {
+		compatible = "amlogic,meson6-ir";
+		/* Multi-format IR controller */
+		reg = <0x0 0xff808040 0x0 0x44>;
+		interrupts = <0 196 1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&remote_pins>;
+		pulse-inverted;
+		status = "ok";
+	};
+
 	/* Audio Related start */
 	dummy_codec:dummy{
 		#sound-dai-cells = <0>;
