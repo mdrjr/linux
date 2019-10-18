@@ -31,6 +31,7 @@
 	aliases {
 		serial0 = &uart_AO;
 		serial1 = &uart_A;
+		spi0 = &spi_gpio_0;
 	};
 
 	gpu_dvfs_tbl: gpu_dvfs_tbl {
@@ -807,7 +808,7 @@
 		status = "ok";
 	};
 
-	spi-gpio {
+	spi_gpio_0: spi-gpio {
 		compatible = "spi-gpio";
 		#address-cells = <1>;
 		#size-cells = <0>;
