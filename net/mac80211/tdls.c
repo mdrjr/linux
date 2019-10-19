@@ -8,6 +8,7 @@
  */
 
 #include <linux/ieee80211.h>
+#include <net/cfg80211.h>
 #include "ieee80211_i.h"
 
 static void ieee80211_tdls_add_ext_capab(struct sk_buff *skb)
@@ -322,4 +323,43 @@ int ieee80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
 	}
 
 	return 0;
+}
+
+void ieee80211_tdls_oper_request(struct ieee80211_vif *vif, const u8 *peer,
+				 enum nl80211_tdls_operation oper,
+				 u16 reason_code, gfp_t gfp)
+{
+	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+
+	if (vif->type != NL80211_IFTYPE_STATION || !vif->bss_conf.assoc) {
+		sdata_err(sdata, "Discarding TDLS oper %d - not STA or disconnected\n",
+			  oper);
+		return;
+	}
+
+	cfg80211_tdls_oper_request(sdata->dev, peer, oper, reason_code, gfp);
+}
+EXPORT_SYMBOL(ieee80211_tdls_oper_request);
+
+void ieee80211_tdls_handle_disconnect(struct ieee80211_sub_if_data *sdata,
+				      const u8 *peer, u16 reason)
+{
+	struct ieee80211_sta *sta;
+
+	rcu_read_lock();
+	sta = ieee80211_find_sta(&sdata->vif, peer);
+	if (!sta || !sta->tdls) {
+		rcu_read_unlock();
+		return;
+	}
+	rcu_read_unlock();
+
+	tdls_dbg(sdata, "disconnected from TDLS peer %pM (Reason: %u=%s)\n",
+		 peer, reason,
+		 ieee80211_get_reason_code_string(reason));
+
+	ieee80211_tdls_oper_request(&sdata->vif, peer,
+				    NL80211_TDLS_TEARDOWN,
+				    WLAN_REASON_TDLS_TEARDOWN_UNREACHABLE,
+				    GFP_ATOMIC);
 }

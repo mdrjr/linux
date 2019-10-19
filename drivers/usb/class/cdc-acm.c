@@ -419,26 +419,61 @@ static void acm_read_bulk_callback(struct urb *urb)
 	struct acm_rb *rb = urb->context;
 	struct acm *acm = rb->instance;
 	unsigned long flags;
+	int status = urb->status;
+	bool stopped = false;
+	bool stalled = false;
 
 	dev_vdbg(&acm->data->dev, "%s - urb %d, len %d\n", __func__,
 					rb->index, urb->actual_length);
-	set_bit(rb->index, &acm->read_urbs_free);
 
 	if (!acm->dev) {
 		dev_dbg(&acm->data->dev, "%s - disconnected\n", __func__);
 		return;
 	}
 
-	if (urb->status) {
-		dev_dbg(&acm->data->dev, "%s - non-zero urb status: %d\n",
-							__func__, urb->status);
-		if ((urb->status != -ENOENT) || (urb->actual_length == 0))
-			return;
+	switch (status) {
+	case 0:
+		usb_mark_last_busy(acm->dev);
+		acm_process_read_urb(acm, urb);
+		break;
+	case -EPIPE:
+		set_bit(EVENT_RX_STALL, &acm->flags);
+		stalled = true;
+		break;
+	case -ENOENT:
+	case -ECONNRESET:
+	case -ESHUTDOWN:
+		dev_dbg(&acm->data->dev,
+			"%s - urb shutting down with status: %d\n",
+			__func__, status);
+		stopped = true;
+		break;
+	default:
+		dev_dbg(&acm->data->dev,
+			"%s - nonzero urb status received: %d\n",
+			__func__, status);
+		break;
 	}
 
-	usb_mark_last_busy(acm->dev);
+	/*
+	 * Make sure URB processing is done before marking as free to avoid
+	 * racing with unthrottle() on another CPU. Matches the barriers
+	 * implied by the test_and_clear_bit() in acm_submit_read_urb().
+	 */
+	smp_mb__before_atomic();
+	set_bit(rb->index, &acm->read_urbs_free);
+	/*
+	 * Make sure URB is marked as free before checking the throttled flag
+	 * to avoid racing with unthrottle() on another CPU. Matches the
+	 * smp_mb() in unthrottle().
+	 */
+	smp_mb__after_atomic();
 
-	acm_process_read_urb(acm, urb);
+	if (stopped || stalled) {
+		if (stalled)
+			schedule_work(&acm->work);
+		return;
+	}
 
 	/* throttle device if requested by tty */
 	spin_lock_irqsave(&acm->read_lock, flags);
@@ -468,16 +503,30 @@ static void acm_write_bulk(struct urb *urb)
 	spin_lock_irqsave(&acm->write_lock, flags);
 	acm_write_done(acm, wb);
 	spin_unlock_irqrestore(&acm->write_lock, flags);
+	set_bit(EVENT_TTY_WAKEUP, &acm->flags);
 	schedule_work(&acm->work);
 }
 
 static void acm_softint(struct work_struct *work)
 {
+	int i;
 	struct acm *acm = container_of(work, struct acm, work);
 
 	dev_vdbg(&acm->data->dev, "%s\n", __func__);
 
-	tty_port_tty_wakeup(&acm->port);
+	if (test_bit(EVENT_RX_STALL, &acm->flags)) {
+		if (!(usb_autopm_get_interface(acm->data))) {
+			for (i = 0; i < acm->rx_buflimit; i++)
+				usb_kill_urb(acm->read_urbs[i]);
+			usb_clear_halt(acm->dev, acm->in);
+			acm_submit_read_urbs(acm, GFP_KERNEL);
+			usb_autopm_put_interface(acm->data);
+		}
+		clear_bit(EVENT_RX_STALL, &acm->flags);
+	}
+
+	if (test_and_clear_bit(EVENT_TTY_WAKEUP, &acm->flags))
+		tty_port_tty_wakeup(&acm->port);
 }
 
 /*
@@ -772,6 +821,9 @@ static void acm_tty_unthrottle(struct tty_struct *tty)
 	acm->throttled = 0;
 	acm->throttle_req = 0;
 	spin_unlock_irq(&acm->read_lock);
+
+	/* Matches the smp_mb__after_atomic() in acm_read_bulk_callback(). */
+	smp_mb();
 
 	if (was_throttled)
 		acm_submit_read_urbs(acm, GFP_KERNEL);
@@ -1347,8 +1399,16 @@ made_compressed_probe:
 	spin_lock_init(&acm->read_lock);
 	mutex_init(&acm->mutex);
 	acm->is_int_ep = usb_endpoint_xfer_int(epread);
-	if (acm->is_int_ep)
+	if (acm->is_int_ep) {
 		acm->bInterval = epread->bInterval;
+		acm->in = usb_rcvintpipe(usb_dev, epread->bEndpointAddress);
+	} else {
+		acm->in = usb_rcvbulkpipe(usb_dev, epread->bEndpointAddress);
+	}
+	if (usb_endpoint_xfer_int(epwrite))
+		acm->out = usb_sndintpipe(usb_dev, epwrite->bEndpointAddress);
+	else
+		acm->out = usb_sndbulkpipe(usb_dev, epwrite->bEndpointAddress);
 	tty_port_init(&acm->port);
 	acm->port.ops = &acm_port_ops;
 	init_usb_anchor(&acm->delayed);
@@ -1393,20 +1453,15 @@ made_compressed_probe:
 		}
 		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 		urb->transfer_dma = rb->dma;
-		if (acm->is_int_ep) {
-			usb_fill_int_urb(urb, acm->dev,
-					 usb_rcvintpipe(usb_dev, epread->bEndpointAddress),
-					 rb->base,
+		if (acm->is_int_ep)
+			usb_fill_int_urb(urb, acm->dev, acm->in, rb->base,
 					 acm->readsize,
 					 acm_read_bulk_callback, rb,
 					 acm->bInterval);
-		} else {
-			usb_fill_bulk_urb(urb, acm->dev,
-					  usb_rcvbulkpipe(usb_dev, epread->bEndpointAddress),
-					  rb->base,
+		else
+			usb_fill_bulk_urb(urb, acm->dev, acm->in, rb->base,
 					  acm->readsize,
 					  acm_read_bulk_callback, rb);
-		}
 
 		acm->read_urbs[i] = urb;
 		__set_bit(i, &acm->read_urbs_free);
@@ -1422,12 +1477,10 @@ made_compressed_probe:
 		}
 
 		if (usb_endpoint_xfer_int(epwrite))
-			usb_fill_int_urb(snd->urb, usb_dev,
-				usb_sndintpipe(usb_dev, epwrite->bEndpointAddress),
+			usb_fill_int_urb(snd->urb, usb_dev, acm->out,
 				NULL, acm->writesize, acm_write_bulk, snd, epwrite->bInterval);
 		else
-			usb_fill_bulk_urb(snd->urb, usb_dev,
-				usb_sndbulkpipe(usb_dev, epwrite->bEndpointAddress),
+			usb_fill_bulk_urb(snd->urb, usb_dev, acm->out,
 				NULL, acm->writesize, acm_write_bulk, snd);
 		snd->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 		if (quirks & SEND_ZERO_PACKET)
@@ -1496,8 +1549,8 @@ skip_countries:
 	}
 
 	if (quirks & CLEAR_HALT_CONDITIONS) {
-		usb_clear_halt(usb_dev, usb_rcvbulkpipe(usb_dev, epread->bEndpointAddress));
-		usb_clear_halt(usb_dev, usb_sndbulkpipe(usb_dev, epwrite->bEndpointAddress));
+		usb_clear_halt(usb_dev, acm->in);
+		usb_clear_halt(usb_dev, acm->out);
 	}
 
 	return 0;
@@ -1670,6 +1723,15 @@ static int acm_reset_resume(struct usb_interface *intf)
 }
 
 #endif /* CONFIG_PM */
+
+static int acm_pre_reset(struct usb_interface *intf)
+{
+	struct acm *acm = usb_get_intfdata(intf);
+
+	clear_bit(EVENT_RX_STALL, &acm->flags);
+
+	return 0;
+}
 
 #define NOKIA_PCSUITE_ACM_INFO(x) \
 		USB_DEVICE_AND_INTERFACE_INFO(0x0421, x, \
@@ -1946,6 +2008,7 @@ static struct usb_driver acm_driver = {
 	.resume =	acm_resume,
 	.reset_resume =	acm_reset_resume,
 #endif
+	.pre_reset =	acm_pre_reset,
 	.id_table =	acm_ids,
 #ifdef CONFIG_PM
 	.supports_autosuspend = 1,
