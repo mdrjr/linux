@@ -3828,6 +3828,9 @@ static int perf_event_period(struct perf_event *event, u64 __user *arg)
 	if (perf_event_check_period(event, value))
 		return -EINVAL;
 
+	if (!event->attr.freq && (value & (1ULL << 63)))
+		return -EINVAL;
+
 	task = ctx->task;
 	pe.value = value;
 
@@ -4586,7 +4589,7 @@ static void perf_sample_regs_user(struct perf_regs_user *regs_user,
 				  struct pt_regs *regs)
 {
 	if (!user_mode(regs)) {
-		if (current->mm)
+		if (!(current->flags & PF_KTHREAD))
 			regs = task_pt_regs(current);
 		else
 			regs = NULL;
