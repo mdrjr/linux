@@ -40,6 +40,10 @@
 #include "resample_hw.h"
 #include "spdif.h"
 
+#ifdef CONFIG_ARCH_MESON64_ODROID_COMMON
+#include <linux/platform_data/board_odroid.h>
+#endif
+
 #define DRV_NAME "snd_spdif"
 
 /* Debug by PTM when bringup */
@@ -1237,24 +1241,19 @@ static int aml_dai_spdif_prepare(
 		spdif_get_channel_status_info(&chsts, runtime->rate);
 		spdif_set_channel_status_info(&chsts, p_spdif->id);
 
-#if defined(CONFIG_ARCH_MESON64_ODROIDN2)
-		/* TOHDMITX_CTRL0
-		 * ODROID is spdif_b only would notify to hdmitx
-		 */
-		if (p_spdif->id == 1) {
+		/* TOHDMITX_CTRL0 */
+		if (!board_is_odroidn2()) {
 			spdifout_to_hdmitx_ctrl(p_spdif->id);
 			/* notify to hdmitx */
 			spdif_notify_to_hdmitx(substream);
+		} else {
+			/* ODROID-N2 is spdif_b only would notify to hdmitx */
+			if (p_spdif->id == 1) {
+				spdifout_to_hdmitx_ctrl(p_spdif->id);
+				/* notify to hdmitx */
+				spdif_notify_to_hdmitx(substream);
+			}
 		}
-#else
-		/* TOHDMITX_CTRL0
-		 * Both spdif_a/spdif_b would notify to hdmitx
-		 */
-		spdifout_to_hdmitx_ctrl(p_spdif->id);
-		/* notify to hdmitx */
-		spdif_notify_to_hdmitx(substream);
-#endif
-
 	} else {
 		struct toddr *to = p_spdif->tddr;
 		struct toddr_fmt fmt;

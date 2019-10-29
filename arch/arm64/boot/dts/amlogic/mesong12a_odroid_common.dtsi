@@ -110,22 +110,6 @@
 		gpios = <&gpio GPIOA_13 GPIO_ACTIVE_HIGH>;
 		status = "disabled";
 	};
-
-	pwmgpio:pwmgpio {
-		compatible = "pwm-gpio";
-		#pwm-cells = <3>;
-		pwm-gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		status = "okay";
-	};
-
-	pwmfan:pwm-fan {
-		compatible = "pwm-fan";
-		pwms = <&pwmgpio 0 40000 PWM_POLARITY_INVERTED>;
-		cooling-min-state = <0>;
-		cooling-max-state = <3>;
-		#cooling-cells = <2>;
-		cooling-levels = <0 120 170 220>;
-	};
 };
 
 &ethmac {
@@ -272,10 +256,13 @@
 			drive-strength = <3>;
 		};
 	};
-	spdifout: spdifout {
-		mux {/* GPIOA_13 */
-			groups = "spdif_out_a13";
-			function = "spdif_out";
+	tdmout_a: tdmout_a {
+		mux { /* GPIOX_9, GPIOX_10, GPIOX_11 */
+			groups = "tdma_sclk",
+				"tdma_fs",
+				"tdma_dout0";
+			function = "tdma_out";
+			drive-strength = <2>;
 		};
 	};
 	pwmcd_to_gpios:pwmcd_gpio {
@@ -305,6 +292,23 @@
 		};
 	};
 }; /* end of pinctrl_periphs */
+
+&pinctrl_aobus {
+	spdifout: spdifout {
+		mux {/* GPIOAO_10 */
+			groups = "spdif_out_ao";
+			function = "spdif_out_ao";
+		};
+	};
+	tdma_mclk: tdma_mclk {
+		mux {
+			groups = "mclk0_ao";
+			function = "mclk0_ao";
+			drive-strength = <2>;
+		};
+	};
+
+}; /* end of pinctrl_aobus */
 
 &gpio_intc {
 	compatible = "amlogic,meson-gpio-intc-ext",
