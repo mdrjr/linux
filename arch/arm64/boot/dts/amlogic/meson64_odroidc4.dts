@@ -18,7 +18,7 @@
 /dts-v1/;
 
 #include "mesonsm1.dtsi"
-#include "mesong12a_odroid_common.dtsi"
+#include "mesong12_odroid_common.dtsi"
 
 / {
 	model = "Hardkernel ODROID-C4";
@@ -29,20 +29,12 @@
 
 	chosen { };
 
-/*
-	aliases {
-		serial0 = &uart_AO;
-		serial1 = &uart_A;
-		serial2 = &uart_B;
-		serial3 = &uart_C;
-		serial4 = &uart_AO_B;
-		i2c0 = &i2c0;
-		i2c1 = &i2c1;
-		i2c2 = &i2c2;
-		i2c3 = &i2c3;
-		i2c4 = &i2c_AO;
+	gpiomem {
+		compatible = "amlogic, gpiomem";
+		reg = <0x0 0xff634000 0x0 0x1000>,	/* GPIO banks */
+			<0x0 0xff800000 0x0 0x1000>;	/* GPIO_AO bank */
+		status = "okay";
 	};
-*/
 
 	reserved-memory {
 		#address-cells = <2>;
@@ -65,12 +57,20 @@
 			alignment = <0x0 0x400000>;
 			alloc-ranges = <0x0 0x05000000 0x0 0x400000>;
 		};
+
 		secos_reserved:linux,secos {
 			status = "disable";
 			compatible = "amlogic, aml_secos_memory";
 			reg = <0x0 0x05300000 0x0 0x2000000>;
 			no-map;
 		};
+
+		/*  POST PROCESS MANAGER */
+		ppmgr_reserved:linux,ppmgr {
+			compatible = "shared-dma-pool";
+			size = <0x0 0x0>;
+		};
+
 		logo_reserved:linux,meson-fb {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -84,6 +84,7 @@
 			size = <0x0 0x8000000>;
 			alignment = <0x0 0x400000>;
 		};
+
 		//di_reserved:linux,di {
 			//compatible = "amlogic, di-mem";
 			/* buffer_size = 3621952(yuv422 8bit) */
@@ -108,12 +109,6 @@
 			size = <0x0 0x02800000>;
 			alignment = <0x0 0x400000>;
 		};
-		/*  POST PROCESS MANAGER */
-		ppmgr_reserved:linux,ppmgr {
-			compatible = "shared-dma-pool";
-			size = <0x0 0x0>;
-		};
-
 		codec_mm_cma:linux,codec_mm_cma {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -733,6 +728,11 @@
 	gpio-reset {
 		/delete-node/ usb_hub_en;
 	};
+	onewire:onewire {
+		compatible = "w1-gpio";
+		gpios = <&gpio GPIOA_13 GPIO_ACTIVE_HIGH>;
+		status = "disabled";
+	};
 }; /* end of / */
 
 &audiobus {
@@ -775,23 +775,6 @@
 	status = "okay";
 };
 
-&sd_emmc_c {
-	status = "okay";
-	emmc {
-		caps = "MMC_CAP_8_BIT_DATA",
-			 "MMC_CAP_MMC_HIGHSPEED",
-			 "MMC_CAP_SD_HIGHSPEED",
-			 "MMC_CAP_NONREMOVABLE",
-			/* "MMC_CAP_1_8V_DDR", */
-			 "MMC_CAP_HW_RESET",
-			 "MMC_CAP_ERASE",
-			 "MMC_CAP_CMD23";
-		caps2 = "MMC_CAP2_HS200";
-		/* "MMC_CAP2_HS400";*/
-		f_min = <400000>;
-		f_max = <200000000>;
-	};
-};
 
 &sd_emmc_b {
 	status = "okay";
@@ -822,6 +805,31 @@
 	};
 };
 
-&meson_cooldev {
-	status = "okay";
+&pinctrl_periphs {
+	tdmout_a: tdmout_a {
+		mux { /* GPIOX_9, GPIOX_10, GPIOX_11 */
+			groups = "tdma_sclk",
+				"tdma_fs",
+				"tdma_dout0";
+			function = "tdma_out";
+			drive-strength = <2>;
+		};
+	};
 };
+
+&pinctrl_aobus {
+	spdifout: spdifout {
+		mux {/* GPIOAO_10 */
+			groups = "spdif_out_ao";
+			function = "spdif_out_ao";
+		};
+	};
+	tdma_mclk: tdma_mclk {
+		mux {
+			groups = "mclk0_ao";
+			function = "mclk0_ao";
+			drive-strength = <2>;
+		};
+	};
+
+}; /* end of pinctrl_aobus */

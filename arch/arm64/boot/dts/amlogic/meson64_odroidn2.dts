@@ -29,6 +29,12 @@
 
 	chosen { };
 
+	gpiomem {
+		compatible = "amlogic, gpiomem";
+		reg = <0x0 0xff634000 0x0 0x1000>;
+		status = "okay";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -186,11 +192,6 @@
 		nrds-enable = <1>;
 		pps-enable = <1>;
 	};
-	ionvideo {
-		compatible = "amlogic, ionvideo";
-		dev_name = "ionvideo";
-		status = "okay";
-	};
 
 	amlvecm {
 		compatible = "amlogic, vecm";
@@ -339,6 +340,107 @@
 		status = "ok";
 	};
 
+	/* Audio Related start */
+	dummy_codec:dummy{
+		#sound-dai-cells = <0>;
+		compatible = "linux,spdif-dit";
+		status = "okay";
+	};
+	amlogic_codec:t9015{
+		#sound-dai-cells = <0>;
+		compatible = "amlogic, aml_codec_T9015";
+		reg = <0x0 0xFF632000 0x0 0x2000>;
+		is_auge_used = <1>; /* meson or auge chipset used */
+		tdmout_index = <2>;
+		status = "okay";
+	};
+	audio_effect:eqdrc{
+		/*eq_enable = <1>;*/
+		/*drc_enable = <1>;*/
+		/*
+		 * 0:tdmout_a
+		 * 1:tdmout_b
+		 * 2:tdmout_c
+		 * 3:spdifout
+		 * 4:spdifout_b
+		 */
+		eqdrc_module = <1>;
+		/* max 0xf, each bit for one lane, usually one lane */
+		lane_mask = <0x1>;
+		/* max 0xff, each bit for one channel */
+		channel_mask = <0x3>;
+	};
+	auge_sound {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "AML-AUGESOUND";
+		/*line-out mute gpio*/
+		mute_gpio = <&gpio_ao GPIOAO_2 GPIO_ACTIVE_LOW>;
+		/*for audio effect ,eqdrc */
+		aml-audio-card,effect = <&audio_effect>;
+
+		/* spdif_b to hdmi, only playback */
+		aml-audio-card,dai-link@0 {
+			mclk-fs = <128>;
+			continuous-clock;
+			cpu {
+				sound-dai = <&aml_spdif_b>;
+				system-clock-frequency = <6144000>;
+			};
+			codec {
+				sound-dai = <&dummy_codec>;
+			};
+		};
+
+		aml-audio-card,dai-link@1 {
+			format = "i2s";// "dsp_a";
+			mclk-fs = <256>;
+			bitclock-master = <&aml_tdmc>;
+			frame-master = <&aml_tdmc>;
+			continuous-clock;
+			cpu {
+				sound-dai = <&aml_tdmc>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				system-clock-frequency = <12288000>;
+			};
+			codec {
+				sound-dai = <&amlogic_codec>;
+			};
+		};
+
+		/* spdif_out GPIOA_11 */
+		aml-audio-card,dai-link@2 {
+			mclk-fs = <128>;
+			continuous-clock;
+			cpu {
+				sound-dai = <&aml_spdif>;
+				system-clock-frequency = <6144000>;
+			};
+			codec {
+				sound-dai = <&dummy_codec>;
+			};
+		};
+	};
+	audiolocker: locker {
+		compatible = "amlogic, audiolocker";
+		clocks = <&clkaudio CLKID_AUDIO_LOCKER_OUT
+				&clkaudio CLKID_AUDIO_LOCKER_IN
+				&clkaudio CLKID_AUDIO_MCLK_D
+				&clkaudio CLKID_AUDIO_MCLK_E
+				&clkc CLKID_MPLL1
+				&clkc CLKID_MPLL2>;
+		clock-names = "lock_out", "lock_in", "out_src",
+					"in_src", "out_calc", "in_ref";
+		interrupts = <GIC_SPI 1 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq";
+		frequency = <49000000>; /* pll */
+		dividor = <49>; /* locker's parent */
+		status = "okay";
+	};
+	/* Audio Related end */
+
 	gpio_keypad{
 		compatible = "amlogic, gpio_keypad";
 		status = "okay";
@@ -355,7 +457,183 @@
 		reg = <0x0 0xff808040 0x0 0x44>;
 		status = "ok";
 	};
+
+	onewire:onewire {
+		compatible = "w1-gpio";
+		gpios = <&gpio GPIOA_13 GPIO_ACTIVE_HIGH>;
+		status = "disabled";
+	};
+
+	pwmgpio:pwmgpio {
+		compatible = "pwm-gpio";
+		#pwm-cells = <3>;
+		pwm-gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
+	pwmfan:pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwmgpio 0 40000 PWM_POLARITY_INVERTED>;
+		cooling-min-state = <0>;
+		cooling-max-state = <3>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 120 170 220>;
+	};
 }; /* end of / */
+
+&soc_thermal {
+	trips {
+		fan_0: trip-point@4 {
+			temperature = <45000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+		fan_1: trip-point@5 {
+			temperature = <55000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+		fan_2: trip-point@6 {
+			temperature = <60000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+	};
+	cooling-maps {
+		fan_cooling_map0 {
+			trip = <&fan_0>;
+			cooling-device = <&pwmfan 0 1>;
+		};
+		fan_cooling_map1 {
+			trip = <&fan_1>;
+			cooling-device = <&pwmfan 1 2>;
+		};
+		fan_cooling_map2 {
+			trip = <&fan_2>;
+			cooling-device = <&pwmfan 2 3>;
+		};
+	};
+};
+
+&audiobus {
+	/* tdmc to internal DAC output, no pinmux */
+	aml_tdmc: tdmc {
+		compatible = "amlogic, g12a-snd-tdmc";
+		#sound-dai-cells = <0>;
+		dai-tdm-lane-slot-mask-in = <0 1 0 0>;
+		dai-tdm-lane-slot-mask-out = <1 0 0 0>;
+		dai-tdm-clk-sel = <2>;
+		clocks = <&clkaudio CLKID_AUDIO_MCLK_C
+				&clkc CLKID_MPLL2>;
+		clock-names = "mclk", "clk_srcpll";
+		i2s2hdmi = <0>;
+		status = "okay";
+	};
+
+	aml_spdif: spdif {
+		compatible = "amlogic, g12a-snd-spdif-a";
+		#sound-dai-cells = <0>;
+		clocks = <&clkc CLKID_MPLL0
+				&clkc CLKID_FCLK_DIV4
+				&clkaudio CLKID_AUDIO_SPDIFIN
+				&clkaudio CLKID_AUDIO_SPDIFOUT
+				&clkaudio CLKID_AUDIO_SPDIFIN_CTRL
+				&clkaudio CLKID_AUDIO_SPDIFOUT_CTRL>;
+		clock-names = "sysclk", "fixed_clk", "gate_spdifin",
+				"gate_spdifout", "clk_spdifin", "clk_spdifout";
+		interrupts = <GIC_SPI 151 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "irq_spdifin";
+		pinctrl-names = "spdif_pins";
+		pinctrl-0 = <&spdifout>;
+		status = "okay";
+	};
+	aml_spdif_b: spdif_b {
+		compatible = "amlogic, g12a-snd-spdif-b";
+		#sound-dai-cells = <0>;
+		clocks = <&clkc CLKID_MPLL0 /*CLKID_HIFI_PLL*/
+				&clkaudio CLKID_AUDIO_SPDIFOUTB
+				&clkaudio CLKID_AUDIO_SPDIFOUTB_CTRL>;
+		clock-names = "sysclk",
+				"gate_spdifout", "clk_spdifout";
+		status = "okay";
+	};
+	aml_loopback: loopback {
+		compatible = "amlogic, snd-loopback";
+		/*
+		 * 0: out rate = in data rate;
+		 * 1: out rate = loopback data rate;
+		 */
+		lb_mode = <0>;
+
+		/* datain src
+		 * 0: tdmin_a;
+		 * 1: tdmin_b;
+		 * 2: tdmin_c;
+		 * 3: spdifin;
+		 * 4: pdmin;
+		 */
+		datain_src = <4>;
+		datain_chnum = <8>;
+		datain_chmask = <0x3f>;
+
+		/* tdmin_lb src
+		 * 0: tdmoutA
+		 * 1: tdmoutB
+		 * 2: tdmoutC
+		 * 3: PAD_tdminA
+		 * 4: PAD_tdminB
+		 * 5: PAD_tdminC
+		 */
+		datalb_src = <2>;
+		datalb_chnum = <8>;
+		datalb_chmask = <0x3>;
+
+		status = "disabled";
+	};
+
+	audioresample: resample {
+		compatible = "amlogic, g12a-resample";
+		clocks = <&clkc CLKID_MPLL3
+				&clkaudio CLKID_AUDIO_MCLK_F
+				&clkaudio CLKID_AUDIO_RESAMPLE_CTRL>;
+		clock-names = "resample_pll", "resample_src", "resample_clk";
+		/*same with toddr_src
+		 *	TDMIN_A, 0
+		 *	TDMIN_B, 1
+		 *	TDMIN_C, 2
+		 *	SPDIFIN, 3
+		 *	PDMIN,  4
+		 *	NONE,
+		 *	TDMIN_LB, 6
+		 *	LOOPBACK, 7
+		 */
+		resample_module = <4>;
+		status = "disabled";
+	};
+	aml_pwrdet: pwrdet {
+		compatible = "amlogic, g12a-power-detect";
+
+		interrupts = <GIC_SPI 155 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "pwrdet_irq";
+
+		/* pwrdet source sel
+		 * 7: loopback;
+		 * 6: tdmin_lb;
+		 * 5: reserved;
+		 * 4: pdmin;
+		 * 3: spdifin;
+		 * 2: tdmin_c;
+		 * 1: tdmin_b;
+		 * 0: tdmin_a;
+		 */
+		pwrdet_src = <4>;
+
+		hi_th = <0x70000>;
+		lo_th = <0x16000>;
+
+		status = "disabled";
+	};
+}; /* end of audiobus */
 
 &meson_fb {
 	status = "okay";
@@ -401,6 +679,38 @@
 	};
 };
 
+&sd_emmc_a {
+	status = "disabled";
+	sdio {
+		caps = "MMC_CAP_4_BIT_DATA",
+			 "MMC_CAP_MMC_HIGHSPEED",
+			 "MMC_CAP_SD_HIGHSPEED",
+			 "MMC_CAP_NONREMOVABLE",
+			 "MMC_CAP_UHS_SDR12",
+			 "MMC_CAP_UHS_SDR25",
+			 "MMC_CAP_UHS_SDR50",
+			 "MMC_CAP_UHS_SDR104",
+			 "MMC_PM_KEEP_POWER",
+			 "MMC_CAP_SDIO_IRQ";
+		f_min = <400000>;
+		f_max = <200000000>;
+	};
+};
+
+&pinctrl_periphs {
+	spdifout: spdifout {
+		mux {/* GPIOA_13 */
+			groups = "spdif_out_a13";
+			function = "spdif_out";
+		};
+	};
+}; /* end of pinctrl_periphs */
+
+&pinctrl_aobus {
+
+}; /* end of pinctrl_aobus */
+
+
 &saradc {
 	status = "okay";
 };
@@ -418,6 +728,11 @@
 &i2c3 {
 	/* default i2c clock-frequency is 100Khz */
 	status = "okay";
+
+	pcf8563: rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
 
 	/* Hardkernel I2C 3.5" Touchscreen */
 	/* drivers/input/sx8650.c */
@@ -486,5 +801,16 @@
 		ti,pressure-max = /bits/ 16 <255>;
 
 		linux,wakeup;
+	};
+};
+
+&spifc {
+	status = "disabled";
+	spi-nor@0 {
+		compatible = "jedec,spi-nor";
+		spifc-frequency = <40000000>;
+		read-capability = <2>;
+		spifc-io-width = <2>;
+		cs_gpios = <&gpio BOOT_14 GPIO_ACTIVE_LOW>;
 	};
 };
