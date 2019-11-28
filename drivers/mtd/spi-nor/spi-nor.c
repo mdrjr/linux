@@ -1016,6 +1016,7 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "cat25128", CAT25_INFO(2048, 8, 64, 2, SPI_NOR_NO_ERASE | SPI_NOR_NO_FR) },
 
 	{"FM25Q08A", INFO(0xa14014, 0x0, 64 * 1024, 16, SECT_4K) },
+	{"xt25f128b", INFO(0x0b4018, 0, 64 * 1024, 256, SECT_4K) },
 	{ },
 };
 
