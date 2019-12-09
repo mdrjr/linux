@@ -674,11 +674,11 @@
 		aml-audio-card,dai-link@1 {
 			format = "i2s";
 			mclk-fs = <256>;
-			bitclock-master = <&tdma>;
-			frame-master = <&tdma>;
+			bitclock-master = <&tdmb>;
+			frame-master = <&tdmb>;
 			continuous-clock;
 			cpu {
-				sound-dai = <&tdma>;
+				sound-dai = <&tdmb>;
 				dai-tdm-slot-tx-mask = <1 1>;
 				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
@@ -735,17 +735,18 @@
 }; /* end of / */
 
 &audiobus {
-	tdma: tdm@0 {
-		compatible = "amlogic, sm1-snd-tdma";
+	tdmb: tdm@1 {
+		compatible = "amlogic, sm1-snd-tdmb";
 		#sound-dai-cells = <0>;
-		dai-tdm-lane-slot-mask-out = <1 1 1 1>;
+		dai-tdm-lane-slot-mask-out = <1 0 0 0>;
 		dai-tdm-clk-sel = <0>;
 		clocks = <&clkaudio CLKID_AUDIO_MCLK_A
 				&clkc CLKID_MPLL0>;
 		clock-names = "mclk", "clk_srcpll";
 		pinctrl-names = "tdm_pins";
-		pinctrl-0 = <&tdma_mclk &tdmout_a>;
+		pinctrl-0 = <&tdmb_mclk &tdmout_b>;
 		mclk_pad = <0>;  /* 0: mclk_0; 1: mclk_1 */
+		i2s2hdmi = <0>;
 		status = "okay";
 	};
 	spdifa: spdif@0 {
@@ -773,7 +774,6 @@
 &uart_A {
 	status = "okay";
 };
-
 
 &sd_emmc_b {
 	status = "okay";
@@ -805,15 +805,7 @@
 };
 
 &pinctrl_periphs {
-	tdmout_a: tdmout_a {
-		mux { /* GPIOX_9, GPIOX_10, GPIOX_11 */
-			groups = "tdma_sclk",
-				"tdma_fs",
-				"tdma_dout0";
-			function = "tdma_out";
-			drive-strength = <2>;
-		};
-	};
+
 };
 
 &pinctrl_aobus {
@@ -823,12 +815,20 @@
 			function = "spdif_out_ao";
 		};
 	};
-	tdma_mclk: tdma_mclk {
+	tdmb_mclk: tdmb_mclk {
 		mux {
 			groups = "mclk0_ao";
 			function = "mclk0_ao";
 			drive-strength = <2>;
 		};
 	};
-
+	tdmout_b: tdmout_b {
+		mux { /* GPIOAO_8, GPIOAO_7, GPIOAO_4 */
+			groups = "tdmb_sclk_ao",
+				"tdmb_fs_ao",
+				"tdmb_dout0_ao";
+			function = "tdmb_out_ao";
+			drive-strength = <2>;
+		};
+	};
 }; /* end of pinctrl_aobus */
