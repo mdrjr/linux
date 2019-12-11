@@ -15220,3 +15220,8 @@ HARDKERNEL S905X3 odroidc4
 M:      Kevin Kim <ckkim@hardkernel.com>
 F:      arch/arm64/configs/odroidc4_defconfig
 F:      arch/arm64/boot/dts/amlogic/mesong12_odroid_common.dtsi
+
+HARDKERNEL S922D odroidn2
+M: 	Kevin Kim <ckkim@hardkernel.com>
+F:      arch/arm64/boot/dts/amlogic/meson64_odroidn2_plus.dts
+F:      arch/arm64/boot/dts/amlogic/meson64_odroidn2.dtsi
