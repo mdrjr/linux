@@ -141,12 +141,6 @@
 			size = <0x0 0x04000000>;
 			alignment = <0x0 0x400000>;
 		};
-		vm0_cma_reserved:linux,vm0_cma {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x0 0x2000000>;
-			alignment = <0x0 0x400000>;
-		};
 	};
 
 	cvbsout {
