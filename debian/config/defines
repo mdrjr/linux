@@ -1,5 +1,5 @@
 [abi]
-abiname: odroid-stable
+abiname: odroid
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
@@ -133,3 +133,6 @@ docs: false
 installer: false
 libc-dev: false
 tools: true
+tools-unversioned: false
+tools-versioned: true
+source: true
