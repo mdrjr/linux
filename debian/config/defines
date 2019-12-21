@@ -1,5 +1,5 @@
 [abi]
-abiname: trunk
+abiname: odroid-stable
 ignore-changes:
  __cpuhp_*
  bpf_analyzer
