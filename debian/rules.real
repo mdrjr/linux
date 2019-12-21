@@ -216,7 +216,9 @@ $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/setup_$(ARCH
 
 $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR):
 	+$(MAKE_CLEAN) -C '$(DIR)'
+ifeq ($(DO_BUILD_CHECK),True)
 	debian/bin/buildcheck.py $(DIR) $(ARCH) $(FEATURESET) $(FLAVOUR)
+endif
 	@$(stamp)
 
 $(STAMPS_DIR)/build-doc: DIR=$(BUILD_DIR)/build-doc
