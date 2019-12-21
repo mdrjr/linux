@@ -99,7 +99,7 @@ ignore-changes:
 arches:
  arm64
  armhf
-compiler: gcc-9
+compiler: @@gcc@@
 featuresets:
  none
  rt
@@ -122,7 +122,7 @@ recommends: apparmor
 
 [relations]
 # compilers
-gcc-9: gcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
+@@gcc@@: @@gcc@@ <!stage1 !cross !pkg.linux.nokernel>, @@gcc@@-@gnu-type-package@ <!stage1 cross !pkg.linux.nokernel>
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool
