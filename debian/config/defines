@@ -105,7 +105,7 @@ featuresets:
  rt
 
 [build]
-debug-info: true
+debug-info: false
 # Disable code signing by default; this can be overridden per-architecture
 signed-code: false
 
@@ -127,3 +127,9 @@ gcc-9: gcc-9 <!stage1 !cross !pkg.linux.nokernel>, gcc-9-@gnu-type-package@ <!st
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool
 initramfs-tools: initramfs-tools (>= 0.120+deb8u2)
+
+[packages]
+docs: false
+installer: false
+libc-dev: false
+tools: true
