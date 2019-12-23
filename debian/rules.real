@@ -151,11 +151,9 @@ $(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.xz: $(STAMPS_DIR)/source_non
 	(rm -f $@; exit 1)
 
 $(STAMPS_DIR)/source:
-ifeq ($(DO_APPLY_PATCHES),True)
 	test -d .pc
 	set +e; QUILT_PC=.pc quilt unapplied --quiltrc - >/dev/null && echo 'Patch series not fully applied'; test $$? -eq 1
 	@$(stamp)
-endif
 
 $(STAMPS_DIR)/source_%: SOURCE_DIR=$(BUILD_DIR)/source
 $(STAMPS_DIR)/source_%: DIR=$(BUILD_DIR)/source_$*
