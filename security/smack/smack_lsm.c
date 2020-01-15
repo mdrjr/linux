@@ -70,7 +70,7 @@ static struct smack_known *smk_fetch(const char *name, struct inode *ip,
 	if (ip->i_op->getxattr == NULL)
 		return NULL;
 
-	buffer = kzalloc(SMK_LONGLABEL, GFP_KERNEL);
+	buffer = kzalloc(SMK_LONGLABEL, GFP_NOFS);
 	if (buffer == NULL)
 		return NULL;
 
@@ -553,7 +553,8 @@ static int smack_bprm_set_creds(struct linux_binprm *bprm)
 
 		if (rc != 0)
 			return rc;
-	} else if (bprm->unsafe)
+	}
+	if (bprm->unsafe & ~(LSM_UNSAFE_PTRACE | LSM_UNSAFE_PTRACE_CAP))
 		return -EPERM;
 
 	bsp->smk_task = isp->smk_task;
