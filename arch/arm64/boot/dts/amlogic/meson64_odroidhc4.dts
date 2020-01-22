@@ -39,6 +39,17 @@
 	status = "disabled";
 };
 
+&spifc {
+	status = "disabled";
+	spi-nor@0 {
+		compatible = "jedec,spi-nor";
+		spifc-frequency = <40000000>;
+		read-capability = <2>;
+		spifc-io-width = <2>;
+		cs_gpios = <&gpio BOOT_14 GPIO_ACTIVE_LOW>;
+	};
+};
+
 &dwc2_a {
 	port-type = <1>;
 	port-id-mode = <1>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
