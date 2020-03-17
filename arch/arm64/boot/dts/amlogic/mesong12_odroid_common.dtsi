@@ -157,6 +157,14 @@
 	status = "okay";
 };
 
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default","gpio_periphs";
+	pinctrl-0 = <&i2c2_master_pins1>;
+	pinctrl-1 = <&i2c2_to_gpiox>;
+	clock-frequency = <100000>;		/* default 100k */
+};
+
 &i2c3 {
 	status = "okay";
 	pinctrl-names = "default","gpio_periphs";
@@ -210,6 +218,11 @@
 };
 
 &pinctrl_periphs {
+	i2c2_master_pins1:i2c2_pins1 {
+		mux {
+			drive-strength = <3>;
+		};
+	};
 	i2c2_to_gpiox:i2c2_gpiox {
 		mux {
 			groups = "GPIOX_17",
