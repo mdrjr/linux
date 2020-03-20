@@ -103,6 +103,7 @@ static void aml_i2c_set_clk(struct aml_i2c *i2c, unsigned int speed)
 		if (i2c_clock_set > 0xfff)
 			i2c_clock_set = 0xfff;
 		ctrl->clk_delay = i2c_clock_set & 0x3ff;
+		udelay(20);
 		ctrl->unused.b.clk_delay_ext = i2c_clock_set >> 10;
 		i2c->master_regs->i2c_slave_addr &= ~(0xfff<<16);
 		i2c->master_regs->i2c_slave_addr |= (i2c_clock_set>>1)<<16;
