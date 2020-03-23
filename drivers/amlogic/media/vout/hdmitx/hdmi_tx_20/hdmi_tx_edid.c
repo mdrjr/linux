@@ -2631,6 +2631,7 @@ static struct dispmode_vic dispmode_vic_tab[] = {
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 	{"480x320p60hz", HDMI_480x320p60_4x3},
 	{"480x800p60hz", HDMI_480x800p60_4x3},
+	{"custombuilt", HDMI_CUSTOMBUILT},
 #endif
 };
 
