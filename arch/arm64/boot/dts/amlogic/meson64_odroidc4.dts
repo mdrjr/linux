@@ -616,10 +616,15 @@
 	};
 
 	/* Audio Related start */
-	dummy_codec:dummy{
+	spdif_dit:spdif_dit{
+		compatible = "linux,spdif-dit";
 		#sound-dai-cells = <0>;
-		compatible = "amlogic, aml_dummy_codec";
 		status = "okay";
+	};
+	pcm5102a: pcm5102a {
+		compatible = "ti,pcm5102a";
+		#sound-dai-cells = <0>;
+		status = "disabled";
 	};
 	amlogic_codec:t9015{
 		#sound-dai-cells = <0>;
@@ -628,7 +633,7 @@
 		is_auge_used = <1>; /* meson or auge chipset used */
 		tocodec_inout = <0>;
 		tdmout_index = <2>;
-		status = "okay";
+		status = "disabled";
 	};
 	audio_effect:eqdrc{
 		/*eq_enable = <1>;*/
@@ -646,9 +651,10 @@
 		/* max 0xff, each bit for one channel */
 		channel_mask = <0x3>;
 	};
-	auge_sound {
+	odroid_hdmi:odroid_hdmi {
 		compatible = "amlogic, g12a-sound-card";
-		aml-audio-card,name = "AML-AUGESOUND";
+		aml-audio-card,name = "ODROID-HDMI";
+		status = "okay";
 
 		/* ODROID-C4: spdif_out GPIOAO_10(J7.2), HDMI out*/
 		aml-audio-card,dai-link@0 {
@@ -659,12 +665,17 @@
 				system-clock-frequency = <6144000>;
 			};
 			codec {
-				sound-dai = <&dummy_codec>;
+				sound-dai = <&spdif_dit>;
 			};
 		};
+	};
+	odroid_hifi:odroid_hifi {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI";
+		status = "disabled";
 
 		/* ODROID-C4: I2S out(J7)*/
-		aml-audio-card,dai-link@1 {
+		aml-audio-card,dai-link@0 {
 			format = "i2s";
 			mclk-fs = <256>;
 			bitclock-master = <&tdmb>;
@@ -678,7 +689,31 @@
 				system-clock-frequency = <12288000>;
 			};
 			codec {
-				sound-dai = <&dummy_codec>;
+				sound-dai = <&pcm5102a>;
+			};
+		};
+	};
+	odroid_hifi2:odroid_hifi2 {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI2";
+		status = "disabled";
+
+		/* ODROID-C4: I2S out(J7)*/
+		aml-audio-card,dai-link@0 {
+			format = "i2s";
+			mclk-fs = <256>;
+			bitclock-master = <&tdmb>;
+			frame-master = <&tdmb>;
+			continuous-clock;
+			cpu {
+				sound-dai = <&tdmb>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				system-clock-frequency = <12288000>;
+			};
+			codec {
+				sound-dai = <&pcm5242>;
 			};
 		};
 	};
@@ -779,8 +814,8 @@
 		compatible = "amlogic, sm1-snd-tdmb";
 		#sound-dai-cells = <0>;
 		dai-tdm-lane-slot-mask-out = <1 0 0 0>;
-		dai-tdm-clk-sel = <0>;
-		clocks = <&clkaudio CLKID_AUDIO_MCLK_A
+		dai-tdm-clk-sel = <1>;
+		clocks = <&clkaudio CLKID_AUDIO_MCLK_B
 				&clkc CLKID_MPLL0>;
 		clock-names = "mclk", "clk_srcpll";
 		pinctrl-names = "tdm_pins";
@@ -992,6 +1027,19 @@
 		status = "disabled";
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
+	};
+
+	pcm5242: pcm5242@4c {
+		compatible = "ti,pcm5242";
+		reg = <0x4c>;
+		#sound-dai-cells = <0>;
+		status = "disabled";
+
+		/*
+		AVDD-supply = <&reg_3v3_analog>;
+		DVDD-supply = <&reg_1v8>;
+		CPVDD-supply = <&reg_3v3>;
+		*/
 	};
 };
 
