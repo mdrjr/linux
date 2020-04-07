@@ -210,13 +210,14 @@ static void tcp_incr_quickack(struct sock *sk)
 		icsk->icsk_ack.quick = min(quickacks, TCP_MAX_QUICKACKS);
 }
 
-static void tcp_enter_quickack_mode(struct sock *sk)
+void tcp_enter_quickack_mode(struct sock *sk)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	tcp_incr_quickack(sk);
 	icsk->icsk_ack.pingpong = 0;
 	icsk->icsk_ack.ato = TCP_ATO_MIN;
 }
+EXPORT_SYMBOL(tcp_enter_quickack_mode);
 
 /* Send ACKs quickly, if "quick" count is not exhausted
  * and the session is not interactive.
@@ -5054,9 +5055,6 @@ static int tcp_prune_queue(struct sock *sk)
 		tcp_clamp_window(sk);
 	else if (tcp_under_memory_pressure(sk))
 		tp->rcv_ssthresh = min(tp->rcv_ssthresh, 4U * tp->advmss);
-
-	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf)
-		return 0;
 
 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf)
 		return 0;
