@@ -465,9 +465,6 @@ static int set_disp_mode_auto(void)
 	/* vic_ready got from IP */
 	enum hdmi_vic vic_ready = hdev->hwop.getstate(
 		hdev, STAT_VIDEO_VIC, 0);
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	char *now = strstr(hdmitx_device.fmt_attr, "now");
-#endif
 
 	memset(mode, 0, sizeof(mode));
 	hdev->ready = 0;
@@ -555,12 +552,6 @@ static int set_disp_mode_auto(void)
 	else {
 	/* nothing */
 	}
-
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (!now)
-		vic_ready = vic;
-#endif
-
 	if ((vic_ready != HDMI_Unknown) && (vic_ready == vic)) {
 		pr_info(SYS "[%s] ALREADY init VIC = %d\n",
 			__func__, vic);
@@ -597,11 +588,6 @@ static int set_disp_mode_auto(void)
 	}
 
 	hdmitx_pre_display_init();
-
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (now)
-		memset(now, ' ', 3);
-#endif
 
 	hdev->cur_VIC = HDMI_Unknown;
 /* if vic is HDMI_Unknown, hdmitx_set_display will disable HDMI */
@@ -683,12 +669,6 @@ ssize_t store_attr(struct device *dev,
 		hdmitx_device.para->cs = COLORSPACE_YUV420;
 	else
 		hdmitx_device.para->cs = COLORSPACE_YUV444;
-
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (strstr(hdmitx_device.fmt_attr, "now"))
-		set_disp_mode_auto();
-#endif
-
 	return count;
 }
 /*aud_mode attr*/
