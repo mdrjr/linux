@@ -50,7 +50,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 
-		gpio = <&gpio_ao GPIOAO_8 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-always-on;
 	};
@@ -62,7 +62,7 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <3300000>;
 
-		gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio_ao GPIOAO_6 GPIO_ACTIVE_HIGH>;
 		gpios-states = <0>;
 
 		states = <3300000 0>,
@@ -141,7 +141,7 @@
 		vin-supply = <&vcc_5v>;
 
 		/* Connected to the Hub CHIPENABLE, LOW sets low power state */
-		gpio = <&gpio GPIOH_5 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio GPIOH_4 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
@@ -153,7 +153,7 @@
 		vin-supply = <&vcc_5v>;
 
 		/* Connected to the microUSB port power enable */
-		gpio = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio GPIOAO_2 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
