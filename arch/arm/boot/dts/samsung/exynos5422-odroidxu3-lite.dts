@@ -14,7 +14,7 @@
 #include "exynos54xx-odroidxu-leds.dtsi"
 
 / {
-	model = "Hardkernel Odroid XU3 Lite";
+	model = "Hardkernel ODROID XU3 Lite";
 	compatible = "hardkernel,odroid-xu3-lite", "samsung,exynos5800", "samsung,exynos5";
 
 	aliases {
