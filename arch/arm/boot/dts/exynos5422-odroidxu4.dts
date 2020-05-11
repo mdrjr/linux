@@ -136,7 +136,7 @@
 
 	spidev: spidev@0 {
 		reg = <0>;
-		compatible = "spidev";
+		compatible = "odroid,spidev";
 		spi-max-frequency = <1000000>;
 
 		controller-data {
