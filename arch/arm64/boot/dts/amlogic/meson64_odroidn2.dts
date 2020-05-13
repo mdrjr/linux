@@ -17,7 +17,7 @@
 
 /dts-v1/;
 
-#include "mesong12b.dtsi"
+#include "mesong12b_a.dtsi"
 #include "mesong12_odroid_common.dtsi"
 
 / {
