@@ -128,7 +128,7 @@
 
 	assigned-clocks = <&clock CLK_MOUT_SPI1>, <&clock CLK_DOUT_SPI1>;
 	assigned-clock-parents = <&clock CLK_MOUT_DPLL>;
-	assigned-clock-rates = <0>, <80000000>;
+	assigned-clock-rates = <0>, <100000000>;
 
 	samsung,spi-src-clk = <0>;
 	num-cs = <2>;
