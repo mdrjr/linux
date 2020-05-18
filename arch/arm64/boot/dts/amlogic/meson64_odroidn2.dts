@@ -776,6 +776,25 @@
 &i2c3 {
 	/* default i2c clock-frequency is 100Khz */
 	status = "disabled";
+
+	/* Hardkernel I2C 3.5" Touchscreen */
+	/* drivers/input/sx8650.c */
+	sx865x: sx865x@49	{
+		status = "disabled";
+		compatible = "semtech,sx8650";
+		reg = <0x49>;
+		#clock-cells = <0>;
+
+		/* H/W Pin control setup */
+		/* ODROID-N2 */
+		gpio-pendown = <&gpio GPIOX_19 GPIO_ACTIVE_LOW>;
+		gpio-reset   = <&gpio GPIOA_12 GPIO_ACTIVE_LOW>;
+
+		/* platform data setup */
+		invert-x = <0>;
+		invert-y = <1>;
+		swap-xy = <1>;
+	};
 };
 
 &spicc0 {
