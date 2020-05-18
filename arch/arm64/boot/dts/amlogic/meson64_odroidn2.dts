@@ -482,7 +482,7 @@
 		cooling-levels = <0 120 170 220>;
 	};
 
-	hktft35 {
+	hktft35: hktft35 {
 		status = "disabled";
 		compatible = "odroid,hktft35";
 		pinctrl-names = "hktft35";
@@ -830,7 +830,7 @@
 	};
 
 	/* SPI 3.2" Touch Screen Define */
-	ads7846@1 {
+	ads7846: ads7846@1 {
 		status = "disabled";
 
 		spi-max-frequency = <1000000>;
@@ -853,7 +853,7 @@
 		linux,wakeup;
 	};
 
-	hktft32@0 {
+	hktft32: hktft32@0 {
 		status = "disabled";
 		compatible = "odroid,hktft32";
 		reg = <0>;
