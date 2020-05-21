@@ -2414,6 +2414,7 @@ static int check_force_interlace(struct vdec_h264_hw_s *hw,
 	}
 
 	if ((dec_control & DEC_CONTROL_FLAG_FORCE_2997_1080P_INTERLACE)
+		&& hw->bitstream_restriction_flag
 		&& (hw->frame_width == 1920)
 		&& (hw->frame_height >= 1080)
 		&& (hw->frame_dur == 3203 || hw->frame_dur == 3840)) {
@@ -2711,20 +2712,9 @@ int prepare_display_buf(struct vdec_s *vdec, struct FrameStore *frame)
 				VIDTYPE_VIU_NV21;
 
 			if (bForceInterlace) {
-				if (frame->frame != NULL && frame->frame->pic_struct == PIC_TOP_BOT) {
 				vf->type |= (i == 0 ?
 					VIDTYPE_INTERLACE_TOP :
 					VIDTYPE_INTERLACE_BOTTOM);
-				} else if (frame->frame != NULL && frame->frame->pic_struct == PIC_BOT_TOP) {
-					vf->type |= (i == 0 ?
-					VIDTYPE_INTERLACE_BOTTOM :
-					VIDTYPE_INTERLACE_TOP);
-				} else {
-					vf->type |= (i == 0 ?
-					VIDTYPE_INTERLACE_TOP :
-					VIDTYPE_INTERLACE_BOTTOM);
-				}
-
 				if (i == 1) {
 					vf->pts = 0;
 					vf->pts_us64 = 0;
@@ -6551,7 +6541,6 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->frame_rate = -1;
 	vstatus->error_count = 0;
 	vstatus->status = hw->stat;
-	vstatus->frame_dur = hw->frame_dur;
 	if (hw->h264_ar == 0x3ff)
 		hw->h264_ar = (0x100 *
 			hw->frame_height * hw->height_aspect_ratio) /
@@ -8409,7 +8398,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			}
 			vdec->mc_type = ((1 << 16) | VFORMAT_H264);
 		}
-		vdec->mc_loaded = 0;
+		vdec->mc_loaded = 1;
 	}
 	vmh264_reset_udr_mgr(hw);
 
@@ -8655,6 +8644,8 @@ static void h264_reset_bufmgr(struct vdec_s *vdec)
 	for (i = 0; i < VF_POOL_SIZE; i++)
 		hw->vfpool[hw->cur_pool][i].index = -1; /* VF_BUF_NUM; */
 
+
+	vf_notify_receiver(vdec->vf_provider_name, VFRAME_EVENT_PROVIDER_RESET, NULL);
 
 	buf_spec_init(hw);
 

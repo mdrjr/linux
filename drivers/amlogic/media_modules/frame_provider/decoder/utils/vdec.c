@@ -2143,7 +2143,6 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 			goto error;
 		}
 		if (p->frame_base_video_path == FRAME_BASE_PATH_IONVIDEO) {
-#ifdef CONFIG_AMLOGIC_IONVIDEO
 #if 1
 			r = ionvideo_assign_map(&vdec->vf_receiver_name,
 					&vdec->vf_receiver_inst);
@@ -2169,7 +2168,6 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 				goto error;
 			}
 
-#endif
 			snprintf(vdec->vfm_map_chain, VDEC_MAP_NAME_SIZE,
 				"%s %s", vdec->vf_provider_name,
 				vdec->vf_receiver_name);
@@ -3746,7 +3744,7 @@ void vdec_reset_core(struct vdec_s *vdec)
 	 */
 	if ((get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_SM1) &&
 		(get_cpu_major_id() != AM_MESON_CPU_MAJOR_ID_TL1)) {
-		WRITE_VREG(DOS_SW_RESET0, (1<<3)|(1<<4)|(1<<5)|(1<<7)|(1<<8)|(1<<9));
+		WRITE_VREG(DOS_SW_RESET0, (1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7)|(1<<8)|(1<<9));
 	} else {
 		WRITE_VREG(DOS_SW_RESET0,
 			(1<<3)|(1<<4)|(1<<5));

@@ -213,16 +213,9 @@ struct aml_dmx {
 	unsigned long        pes_pages;
 	unsigned long        pes_pages_map;
 	int                  pes_buf_len;
-	union {
-		unsigned long       sub_pages;
-		unsigned long       sub_buf_base;
-	};
-	union {
-		unsigned long       sub_pages_map;
-		u8                  *sub_buf_base_virt;
-	};
+	unsigned long        sub_pages;
+	unsigned long        sub_pages_map;
 	int                  sub_buf_len;
-
 	struct aml_channel   channel[CHANNEL_COUNT+1];
 	struct aml_filter    filter[FILTER_COUNT+1];
 	irq_handler_t        irq_handler;
@@ -365,8 +358,6 @@ extern int  dmx_alloc_chan(struct aml_dmx *dmx, int type,
 extern void dmx_free_chan(struct aml_dmx *dmx, int cid);
 
 extern int dmx_get_ts_serial(enum aml_ts_source_t src);
-
-extern int dmx_init_sub_buffer(struct aml_dmx *dmx, unsigned long base, unsigned long virt);
 
 /*AMLogic dsc interface*/
 extern int dsc_set_pid(struct aml_dsc_channel *ch, int pid);
