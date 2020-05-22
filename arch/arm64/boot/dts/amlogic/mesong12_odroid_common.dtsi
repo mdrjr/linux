@@ -157,6 +157,10 @@
 	status = "okay";
 };
 
+&irblaster {
+	status = "disabled";
+};
+
 &i2c2 {
 	status = "okay";
 	pinctrl-names = "default","gpio_periphs";

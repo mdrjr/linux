@@ -1086,6 +1086,9 @@ static int aml_dai_spdif_probe(struct snd_soc_dai *cpu_dai)
 				__func__);
 	}
 
+	/* config ddr arb */
+	aml_spdif_arb_config(p_spdif->actrl);
+
 	return 0;
 }
 
