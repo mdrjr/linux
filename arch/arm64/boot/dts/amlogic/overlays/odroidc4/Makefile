@@ -12,7 +12,9 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					sx865x-i2c1.dtbo	\
 					pcf8563.dtbo		\
 					onewire.dtbo		\
-					can0.dtbo
+					can0.dtbo		\
+					hifishield.dtbo		\
+					hifishield2.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
