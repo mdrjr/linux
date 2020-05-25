@@ -10,7 +10,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDN2) += spi0.dtbo		\
 					ads7846.dtbo		\
 					sx865x-i2c1.dtbo	\
 					saradc.dtbo		\
-					irblaster.dtbo
+					irblaster.dtbo		\
+					onewire.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
