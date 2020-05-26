@@ -9,11 +9,11 @@
 		// i2c3 aliased with i2c1.
 		target = <&i2c3>;
 
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		__overlay__ {
 			status = "okay";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
 
 			sx865x: sx865x@49 {
 				status = "okay";
