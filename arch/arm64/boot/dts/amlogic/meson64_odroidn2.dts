@@ -757,12 +757,11 @@
 
 	spidev: spidev@0 {
 		status = "disabled";
-		compatible = "linux, spidev";
+		compatible = "linux,spidev";
 		reg = <0>;
 		/* spi default max clock 100Mhz */
 		spi-max-frequency = <100000000>;
 	};
-
 };
 
 &spifc {
