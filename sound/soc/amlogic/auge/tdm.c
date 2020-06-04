@@ -921,10 +921,17 @@ static int aml_tdm_set_clk_pad(struct aml_tdm *p_tdm)
 					p_tdm->clk_sel);
 	}
 
+#ifdef CONFIG_ARCH_MESON64_ODROID_COMMON
+	aml_tdm_sclk_pad_select(p_tdm->actrl,
+				mpad_offset,
+				p_tdm->id,
+				p_tdm->clk_sel);
+#else
 	aml_tdm_sclk_pad_select(p_tdm->actrl,
 				mpad_offset,
 				p_tdm->id,
 				p_tdm->id);
+#endif
 
 	return 0;
 }
