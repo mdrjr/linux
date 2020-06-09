@@ -19,6 +19,15 @@
 
 / {
 	model = "Hardkernel ODROID-HC4";
+
+	usb_host_pwren: usb_host_pwren {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio_ao GPIOAO_2 GPIO_ACTIVE_HIGH>;
+		regulator-name = "usb_host_pwren";
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
 
 &pcie_A {
@@ -34,4 +43,8 @@
 	port-type = <1>;
 	port-id-mode = <1>; /** 0: hardware, 1: sw_host, 2: sw_slave*/
 	controller-type = <1>;
+};
+
+&usb3_phy_v2 {
+	status = "disabled";
 };
