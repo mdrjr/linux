@@ -15,10 +15,21 @@
  *
  */
 
+#include <include/dt-bindings/thermal/thermal.h>
 #include "meson64_odroidc4.dts"
 
 / {
 	model = "Hardkernel ODROID-HC4";
+
+	fan0: pwm-fan {
+		compatible = "pwm-fan";
+		status = "okay";
+		#cooling-cells = <2>;
+		cooling-min-state = <0>;
+		cooling-max-state = <3>;
+		cooling-levels = <0 128 180 240>;
+		pwms = <&pwm_cd MESON_PWM_1 40000 0>;
+	};
 
 	usb_host_pwren: usb_host_pwren {
 		compatible = "regulator-fixed";
@@ -58,4 +69,52 @@
 
 &usb3_phy_v2 {
 	status = "disabled";
+};
+
+&soc_thermal {
+	trips {
+		pcontrol: trip-point@1 {
+			temperature = <80000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+		phot: trip-point@2 {
+			temperature = <90000>;
+			hysteresis = <5000>;
+			type = "hot";
+		};
+		fan_low: trip-point@4 {
+			temperature = <65000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+		fan_mid: trip-point@5 {
+			temperature = <75000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+		fan_high: trip-point@6 {
+			temperature = <90000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+	};
+
+	cooling-maps {
+		fan_cooling_map0 {
+			trip = <&fan_low>;
+			cooling-device = <&fan0 THERMAL_NO_LIMIT 1>;
+			contribution = <1024>;
+		};
+		fan_cooling_map1 {
+			trip = <&fan_mid>;
+			cooling-device = <&fan0 THERMAL_NO_LIMIT 2>;
+			contribution = <1024>;
+		};
+		fan_cooling_map2 {
+			trip = <&fan_high>;
+			cooling-device = <&fan0 3 THERMAL_NO_LIMIT>;
+			contribution = <1024>;
+		};
+	};
 };
