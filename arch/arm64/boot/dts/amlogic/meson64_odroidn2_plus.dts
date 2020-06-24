@@ -17,6 +17,7 @@
 
 /dts-v1/;
 
+#include <include/dt-bindings/thermal/thermal.h>
 #include "mesong12b.dtsi"
 #include "meson64_odroidn2.dtsi"
 
@@ -154,5 +155,30 @@
 &sd_emmc_b {
 	sd {
 		/delete-property/ gpio_power;
+	};
+};
+
+&soc_thermal {
+	trips {
+		fan_0: trip-point@4 {
+			temperature = <65000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+		fan_1: trip-point@5 {
+			temperature = <75000>;
+			hysteresis = <5000>;
+			type = "active";
+		};
+	};
+	cooling-maps {
+		fan_cooling_map0 {
+			trip = <&fan_0>;
+			cooling-device = <&pwmfan THERMAL_NO_LIMIT 2>;
+		};
+		fan_cooling_map1 {
+			trip = <&fan_1>;
+			cooling-device = <&pwmfan 2 THERMAL_NO_LIMIT>;
+		};
 	};
 };
