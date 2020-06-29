@@ -84,6 +84,12 @@ static int nft_cmp_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
 	if (desc.len > U8_MAX)
 		return -ERANGE;
 
+	if (desc.type != NFT_DATA_VALUE) {
+		err = -EINVAL;
+		nft_data_uninit(&priv->data, desc.type);
+		return err;
+	}
+
 	priv->len = desc.len;
 	return 0;
 }
@@ -201,10 +207,18 @@ nft_cmp_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
 	if (err < 0)
 		return ERR_PTR(err);
 
+	if (desc.type != NFT_DATA_VALUE) {
+		err = -EINVAL;
+		goto err1;
+	}
+
 	if (desc.len <= sizeof(u32) && op == NFT_CMP_EQ)
 		return &nft_cmp_fast_ops;
-	else
-		return &nft_cmp_ops;
+
+	return &nft_cmp_ops;
+err1:
+	nft_data_uninit(&data, desc.type);
+	return ERR_PTR(-EINVAL);
 }
 
 static struct nft_expr_type nft_cmp_type __read_mostly = {

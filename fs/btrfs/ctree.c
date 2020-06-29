@@ -418,7 +418,7 @@ void btrfs_put_tree_mod_seq(struct btrfs_fs_info *fs_info,
 	for (node = rb_first(tm_root); node; node = next) {
 		next = rb_next(node);
 		tm = container_of(node, struct tree_mod_elem, node);
-		if (tm->seq > min_seq)
+		if (tm->seq >= min_seq)
 			continue;
 		rb_erase(node, tm_root);
 		kfree(tm);
@@ -1719,20 +1719,6 @@ int btrfs_realloc_node(struct btrfs_trans_handle *trans,
 		free_extent_buffer(cur);
 	}
 	return err;
-}
-
-/*
- * The leaf data grows from end-to-front in the node.
- * this returns the address of the start of the last item,
- * which is the stop of the leaf data stack
- */
-static inline unsigned int leaf_data_end(struct btrfs_root *root,
-					 struct extent_buffer *leaf)
-{
-	u32 nr = btrfs_header_nritems(leaf);
-	if (nr == 0)
-		return BTRFS_LEAF_DATA_SIZE(root);
-	return btrfs_item_offset_nr(leaf, nr - 1);
 }
 
 
@@ -4609,8 +4595,7 @@ void btrfs_truncate_item(struct btrfs_root *root, struct btrfs_path *path,
 				ptr = btrfs_item_ptr_offset(leaf, slot);
 				memmove_extent_buffer(leaf, ptr,
 				      (unsigned long)fi,
-				      offsetof(struct btrfs_file_extent_item,
-						 disk_bytenr));
+				      BTRFS_FILE_EXTENT_INLINE_DATA_START);
 			}
 		}
 

@@ -1904,7 +1904,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 			return;
 		}
 
-		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
+		tos = ip_tunnel_ecn_encap(RT_TOS(tos), old_iph, skb);
 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
 
 		err = vxlan_xmit_skb(vxlan->vn_sock, rt, skb,
@@ -1929,7 +1929,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 		fl6.saddr = vxlan->saddr.sin6.sin6_addr;
 		fl6.flowi6_proto = IPPROTO_UDP;
 
-		if (ipv6_stub->ipv6_dst_lookup(sk, &ndst, &fl6)) {
+		ndst = ipv6_stub->ipv6_dst_lookup_flow(sk, &fl6, NULL);
+		if (unlikely(IS_ERR(ndst))) {
 			netdev_dbg(dev, "no route to %pI6\n",
 				   &dst->sin6.sin6_addr);
 			dev->stats.tx_carrier_errors++;
