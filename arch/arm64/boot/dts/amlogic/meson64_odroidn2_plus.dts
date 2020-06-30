@@ -150,3 +150,9 @@
 		status = "okay";
 	};
 }; /* end of / */
+
+&sd_emmc_b {
+	sd {
+		/delete-property/ gpio_power;
+	};
+};
