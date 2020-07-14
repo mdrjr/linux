@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.9.218 Kernel Configuration
+# Linux/arm64 4.9.229 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -1739,7 +1739,7 @@ CONFIG_AMLOGIC_MEDIA_GDC=y
 #
 # Amlogic DTV driver
 #
-CONFIG_AMLOGIC_DTV_DEMOD=y
+# CONFIG_AMLOGIC_DTV_DEMOD is not set
 
 #
 # MMC/SD/SDIO Host Controller Drivers
@@ -1754,7 +1754,7 @@ CONFIG_AMLOGIC_MMC=y
 #
 # Meson NAND Device Support
 #
-CONFIG_AMLOGIC_NAND=y
+# CONFIG_AMLOGIC_NAND is not set
 
 #
 # Meson8B NAND Device Support
