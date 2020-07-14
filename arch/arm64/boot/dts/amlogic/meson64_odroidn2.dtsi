@@ -594,7 +594,12 @@
 
 &i2c3 {
 	/* default i2c clock-frequency is 100Khz */
-	status = "disabled";
+	status = "okay";
+
+	pcf8563: rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
 };
 
 &spicc0 {
