@@ -514,7 +514,7 @@
 };
 
 &pwm_ab {
-	status = "disabled";
+	status = "okay";
 };
 
 &reboot {
