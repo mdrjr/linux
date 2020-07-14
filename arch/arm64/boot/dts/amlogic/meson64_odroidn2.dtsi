@@ -368,6 +368,9 @@
 		};
 	};
 	cooling-maps {
+		cpucore_cooling_map {
+			trip = <&phot>;
+		};
 		fan_cooling_map0 {
 			trip = <&fan_0>;
 			cooling-device = <&pwmfan 0 1>;
