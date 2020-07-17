@@ -39,7 +39,6 @@ static void __iomem *reboot_reason_vaddr;
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <linux/platform_data/board_odroid.h>
 
 int sd_volsw_gpio;
 int sd_power_gpio;
@@ -127,75 +126,69 @@ void meson_common_restart(char mode, const char *cmd)
 }
 
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-void odroidn2_card_reset(void)
+void odroid_card_reset(void)
 {
 	int ret = 0;
 
 	if ((sd_volsw_gpio == 0) && (sd_power_gpio == 0))
 		return;
 
-	gpio_free(sd_volsw_gpio);
-	gpio_free(sd_power_gpio);
-	ret = gpio_request_one(sd_volsw_gpio,
-			GPIOF_OUT_INIT_LOW, "REBOOT");
-	CHECK_RET(ret);
-	mdelay(10);
-	ret = gpio_direction_output(sd_volsw_gpio, 1);
-	CHECK_RET(ret);
-	ret = gpio_request_one(sd_power_gpio,
-			GPIOF_OUT_INIT_LOW, "REBOOT");
-	CHECK_RET(ret);
-	mdelay(10);
-	ret = gpio_direction_output(sd_volsw_gpio, 0);
-	CHECK_RET(ret);
-	ret = gpio_direction_output(sd_power_gpio, 1);
-	CHECK_RET(ret);
-	mdelay(5);
-	gpio_free(sd_volsw_gpio);
-	gpio_free(sd_power_gpio);
-}
-void odroidc4_card_reset(void)
-{
-	int ret = 0;
+	if (is_meson_g12b_cpu() && is_meson_rev_a()) {
+		gpio_free(sd_volsw_gpio);
+		gpio_free(sd_power_gpio);
+		ret = gpio_request_one(sd_volsw_gpio,
+				GPIOF_OUT_INIT_LOW, "REBOOT");
+		CHECK_RET(ret);
+		mdelay(10);
+		ret = gpio_direction_output(sd_volsw_gpio, 1);
+		CHECK_RET(ret);
+		ret = gpio_request_one(sd_power_gpio,
+				GPIOF_OUT_INIT_LOW, "REBOOT");
+		CHECK_RET(ret);
+		mdelay(10);
+		ret = gpio_direction_output(sd_volsw_gpio, 0);
+		CHECK_RET(ret);
+		ret = gpio_direction_output(sd_power_gpio, 1);
+		CHECK_RET(ret);
+		mdelay(5);
+		gpio_free(sd_volsw_gpio);
+		gpio_free(sd_power_gpio);
+	} else {
+		if (sd_vddio_gpio == 0)
+			return;
 
-	if ((sd_vddio_gpio == 0) && (sd_power_gpio == 0) &&
-		(sd_power_gpio == 0))
-		return;
+		gpio_free(sd_volsw_gpio);
+		gpio_free(sd_vddio_gpio);
+		gpio_free(sd_power_gpio);
 
-	gpio_free(sd_volsw_gpio);
-	gpio_free(sd_vddio_gpio);
-	gpio_free(sd_power_gpio);
-
-	ret = gpio_request_one(sd_volsw_gpio,
-			GPIOF_OUT_INIT_LOW, "REBOOT");
-	CHECK_RET(ret);
-	ret = gpio_request_one(sd_vddio_gpio,
-			GPIOF_OUT_INIT_LOW, "REBOOT");
-	CHECK_RET(ret);
-	ret = gpio_request_one(sd_power_gpio,
-			GPIOF_OUT_INIT_LOW, "REBOOT");
-	CHECK_RET(ret);
-	mdelay(100);
-	ret = gpio_direction_input(sd_vddio_gpio);
-	CHECK_RET(ret);
-	ret = gpio_direction_input(sd_power_gpio);
-	CHECK_RET(ret);
-	ret = gpio_direction_input(sd_volsw_gpio);
-	CHECK_RET(ret);
-	mdelay(5);
-	gpio_free(sd_vddio_gpio);
-	gpio_free(sd_power_gpio);
-	gpio_free(sd_volsw_gpio);
+		ret = gpio_request_one(sd_volsw_gpio,
+				GPIOF_OUT_INIT_LOW, "REBOOT");
+		CHECK_RET(ret);
+		ret = gpio_request_one(sd_vddio_gpio,
+				GPIOF_OUT_INIT_LOW, "REBOOT");
+		CHECK_RET(ret);
+		ret = gpio_request_one(sd_power_gpio,
+				GPIOF_OUT_INIT_LOW, "REBOOT");
+		CHECK_RET(ret);
+		mdelay(100);
+		ret = gpio_direction_input(sd_vddio_gpio);
+		CHECK_RET(ret);
+		ret = gpio_direction_input(sd_power_gpio);
+		CHECK_RET(ret);
+		ret = gpio_direction_input(sd_volsw_gpio);
+		CHECK_RET(ret);
+		mdelay(5);
+		gpio_free(sd_vddio_gpio);
+		gpio_free(sd_power_gpio);
+		gpio_free(sd_volsw_gpio);
+	}
 }
 #endif // CONFIG_ARCH_MESON64_ODROID_COMMON
 
 static void do_aml_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (!board_is_odroidn2())
-		odroidc4_card_reset();
-	else
-		odroidn2_card_reset();
+	odroid_card_reset();
 #endif
 	meson_common_restart(reboot_mode, cmd);
 }
@@ -203,10 +196,7 @@ static void do_aml_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_aml_poweroff(void)
 {
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (!board_is_odroidn2())
-		odroidc4_card_reset();
-	else
-		odroidn2_card_reset();
+	odroid_card_reset();
 #endif
 	/* TODO: Add poweroff capability */
 	__invoke_psci_fn_smc(0x82000042, 1, 0, 0);
@@ -272,13 +262,11 @@ static int aml_restart_probe(struct platform_device *pdev)
 	of_node = pdev->dev.of_node;
 	sd_volsw_gpio = 0;
 	sd_power_gpio = 0;
+	sd_vddio_gpio = 0;
 
 	sd_volsw_gpio = of_get_named_gpio(of_node, "sd_volsw_gpio", 0);
 	sd_power_gpio = of_get_named_gpio(of_node, "sd_power_gpio", 0);
-	if (!board_is_odroidn2()) {
-		sd_vddio_gpio = 0;
-		sd_vddio_gpio = of_get_named_gpio(of_node, "sd_vddio_gpio", 0);
-	}
+	sd_vddio_gpio = of_get_named_gpio(of_node, "sd_vddio_gpio", 0);
 #endif
 
 	ret = register_die_notifier(&panic_notifier);

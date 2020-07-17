@@ -152,10 +152,8 @@
 	};
 }; /* end of / */
 
-&sd_emmc_b {
-	sd {
-		/delete-property/ gpio_power;
-	};
+&reboot {
+	sd_vddio_gpio = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_HIGH>;
 };
 
 &soc_thermal {
