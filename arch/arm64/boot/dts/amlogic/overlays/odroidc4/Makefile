@@ -18,7 +18,10 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					lineout.dtbo		\
 					esp8089.dtbo		\
 					sdio.dtbo		\
-					fanspeed-full.dtbo
+					fanspeed-full.dtbo	\
+					pwm_ab.dtbo		\
+					pwm_cd.dtbo		\
+					pwm_ef.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
