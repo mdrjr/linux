@@ -499,6 +499,20 @@ static int aml_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 	bool idle_clk = false;
 	int ret, i;
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+	struct snd_soc_card *card = rtd->card;
+	struct device *dev = aml_priv_to_dev(priv);
+
+	/* Hifi-shield2 : Digital volume is limited to 0dB */
+	ret = snd_soc_limit_volume(card, "Digital Playback Volume", 207);
+	if (ret < 0)
+		dev_dbg(dev, "Not found mixer : 'Digital Playback Volume'\n");
+
+	/* line-out : Digital volume is limited to 0dB */
+	ret = snd_soc_limit_volume(card, "DAC Digital Playback Volume", 254);
+	if (ret < 0)
+		dev_dbg(dev, "Not found mixer : 'DAC Digital Playback Volume'\n");
+#endif
 	/* enable dai-link mclk when CONTINUOUS clk setted */
 	idle_clk = !!(rtd->dai_link->dai_fmt & SND_SOC_DAIFMT_CONT);
 
