@@ -15225,3 +15225,7 @@ HARDKERNEL S922D odroidn2
 M: 	Kevin Kim <ckkim@hardkernel.com>
 F:      arch/arm64/boot/dts/amlogic/meson64_odroidn2_plus.dts
 F:      arch/arm64/boot/dts/amlogic/meson64_odroidn2.dtsi
+
+HARDKERNEL odroidc4 DTS
+M:      Kevin Kim <ckkim@hardkernel.com>
+F:      arch/arm64/boot/dts/amlogic/overlays/odroidc4/lineout.dts
