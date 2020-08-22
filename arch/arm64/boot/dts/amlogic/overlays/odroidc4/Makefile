@@ -14,7 +14,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					onewire.dtbo		\
 					can0.dtbo		\
 					hifishield.dtbo		\
-					hifishield2.dtbo
+					hifishield2.dtbo	\
+					lineout.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)

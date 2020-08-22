@@ -636,8 +636,10 @@
 		reg = <0x0 0xFF632000 0x0 0x2000>;
 		is_auge_used = <1>; /* meson or auge chipset used */
 		tocodec_inout = <1>;
-		tdmout_index = <0>;
-		status = "okay";
+		tdmout_index = <2>;
+		ch0_sel = <0>;
+		ch1_sel = <1>;
+		status = "disabled";
 	};
 	audio_effect:eqdrc{
 		/*eq_enable = <1>;*/
@@ -672,6 +674,7 @@
 			};
 		};
 	};
+
 	audiolocker: locker {
 		compatible = "amlogic, audiolocker";
 		clocks = <&clkaudio CLKID_AUDIO_LOCKER_OUT
@@ -730,6 +733,19 @@
 		start_clk_enable = <1>;
 		/*tdm clk tuning enable*/
 		clk_tuning_enable = <1>;
+		status = "disabled";
+	};
+
+	tdmc: tdm@2 {
+		compatible = "amlogic, sm1-snd-tdmc";
+		#sound-dai-cells = <0>;
+		dai-tdm-lane-slot-mask-in = <0 1 0 0>;
+		dai-tdm-lane-slot-mask-out = <1 0 0 0>;
+		dai-tdm-clk-sel = <2>;
+		clocks = <&clkaudio CLKID_AUDIO_MCLK_C
+				&clkc CLKID_MPLL2>;
+		clock-names = "mclk", "clk_srcpll";
+		i2s2hdmi = <0>;
 		status = "disabled";
 	};
 
