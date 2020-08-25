@@ -35,32 +35,30 @@
 	};
 
 	fragment@2 {
-		target-path = "/";
+		target = <&odroid_hifi2>;
 
 		__overlay__ {
-			odroid_hifi2: odroid_hifi2 {
-				compatible = "amlogic, g12a-sound-card";
-				aml-audio-card,name = "ODROID-HIFI2";
-				status = "okay";
+			compatible = "amlogic, g12a-sound-card";
+			aml-audio-card,name = "ODROID-HIFI2";
+			status = "okay";
 
-				/* ODROID-C4: I2S out(J7)*/
-				aml-audio-card,dai-link@0 {
-					format = "i2s";
-					mclk-fs = <256>;
-					continuous-clock;
-					bitclock-master = <&tdmb>;
-					frame-master = <&tdmb>;
-					cpu {
-						sound-dai = <&tdmb>;
-						dai-tdm-slot-tx-mask = <1 1>;
-						dai-tdm-slot-rx-mask = <1 1>;
-						dai-tdm-slot-num = <2>;
-						dai-tdm-slot-width = <32>;
-						system-clock-frequency = <12288000>;
-					};
-					codec {
-						sound-dai = <&pcm5242 &dummy_codec>;
-					};
+			/* ODROID-C4: I2S out(J7)*/
+			aml-audio-card,dai-link@0 {
+				format = "i2s";
+				mclk-fs = <256>;
+				continuous-clock;
+				bitclock-master = <&tdmb>;
+				frame-master = <&tdmb>;
+				cpu {
+					sound-dai = <&tdmb>;
+					dai-tdm-slot-tx-mask = <1 1>;
+					dai-tdm-slot-rx-mask = <1 1>;
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+					system-clock-frequency = <12288000>;
+				};
+				codec {
+					sound-dai = <&pcm5242 &dummy_codec>;
 				};
 			};
 		};

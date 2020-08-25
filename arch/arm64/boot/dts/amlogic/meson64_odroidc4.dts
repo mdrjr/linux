@@ -630,6 +630,11 @@
 		compatible = "linux,spdif-dit";
 		status = "okay";
 	};
+	pcm5102a: pcm5102a {
+		compatible = "ti,pcm5102a";
+		#sound-dai-cells = <0>;
+		status = "disabled";
+	};
 	amlogic_codec:t9015{
 		#sound-dai-cells = <0>;
 		compatible = "amlogic, aml_codec_T9015";
@@ -673,6 +678,21 @@
 				sound-dai = <&spdif_dit>;
 			};
 		};
+	};
+	odroid_lineout: odroid_lineout {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-LINEOUT";
+		status = "disabled";
+	};
+	odroid_hifi: odroid_hifi {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI";
+		status = "disabled";
+	};
+	odroid_hifi2: odroid_hifi2 {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI2";
+		status = "disabled";
 	};
 
 	audiolocker: locker {
