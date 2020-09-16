@@ -1651,7 +1651,7 @@ EXPORT_SYMBOL(cvbs_cable_connected);
 
 static int __init get_cvbs_cable(char *str)
 {
-	cvbs_cable = (str[0] == '0') ? 0 : 1;
+	cvbs_cable = (str[0] == '1') ? 1 : 0;
 
 	return 0;
 }
