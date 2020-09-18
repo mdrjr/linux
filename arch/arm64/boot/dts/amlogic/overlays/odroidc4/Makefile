@@ -15,7 +15,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					can0.dtbo		\
 					hifishield.dtbo		\
 					hifishield2.dtbo	\
-					lineout.dtbo
+					lineout.dtbo		\
+					esp8089.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
