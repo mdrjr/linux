@@ -2835,6 +2835,55 @@ static struct hdmi_format_para fmt_para_vesa_2160x1200p90_9x5 = {
 	},
 };
 
+#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
+static struct hdmi_format_para fmt_para_vesa_2560x1600p60_8x5 = {
+	.vic = HDMIV_2560x1600p60hz,
+	.name = "2560x1600p60hz",
+	.pixel_repetition_factor = 0,
+	.progress_mode = 1,
+	.scrambler_en = 0,
+	.tmds_clk_div40 = 0,
+	.tmds_clk = 268000,
+	.timing = {
+		.pixel_freq = 268000,
+		.h_freq = 98529,
+		.v_freq = 59859,
+		.vsync = 60,
+		.vsync_polarity = 1,
+		.hsync_polarity = 0,
+		.h_active = 2560,
+		.h_total = 2720,
+		.h_blank = 160,
+		.h_front = 48,
+		.h_sync = 32,
+		.h_back = 80,
+		.v_active = 1600,
+		.v_total = 1646,
+		.v_blank = 46,
+		.v_front = 2,
+		.v_sync = 6,
+		.v_back = 38,
+		.v_sync_ln = 1,
+	},
+	.hdmitx_vinfo = {
+		.name              = "2560x1600p60hz",
+		.mode              = VMODE_HDMI,
+		.width             = 2560,
+		.height            = 1600,
+		.field_height      = 1600,
+		.aspect_ratio_num  = 8,
+		.aspect_ratio_den  = 5,
+		.sync_duration_num = 60,
+		.sync_duration_den = 1,
+		.video_clk         = 268000000,
+		.htotal            = 2720,
+		.vtotal            = 1646,
+		.fr_adj_type       = VOUT_FR_ADJ_HDMI,
+		.viu_color_fmt     = COLOR_FMT_YUV444,
+		.viu_mux           = VIU_MUX_ENCP,
+	},
+};
+#else
 static struct hdmi_format_para fmt_para_vesa_2560x1600p60_8x5 = {
 	.vic = HDMIV_2560x1600p60hz,
 	.name = "2560x1600p60hz",
@@ -2882,6 +2931,7 @@ static struct hdmi_format_para fmt_para_vesa_2560x1600p60_8x5 = {
 		.viu_mux           = VIU_MUX_ENCP,
 	},
 };
+#endif /* CONFIG_ARCH_MESON64_ODROID_COMMON */
 
 static struct hdmi_format_para *all_fmt_paras[] = {
 	&fmt_para_3840x2160p60_16x9,

@@ -943,7 +943,7 @@ static struct hw_enc_clk_val_group setting_enc_clk_val_24[] = {
 	{{HDMIV_2560x1600p60hz,
 	  HDMI_VIC_END},
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-		3450000, 1, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
+		5370000, 2, 1, 2, VID_PLL_DIV_5, 1, 1, 1, -1},
 #else
 		3485000, 1, 1, 1, VID_PLL_DIV_5, 2, 1, 1, -1},
 #endif
