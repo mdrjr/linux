@@ -55,7 +55,7 @@
 #define N2PLUS_A73_DEFAULT	2208000	/* N2 Plus Core A73 */
 #endif
 
-#ifdef CONFIG_ARCH_MESON64_ODROIDN2
+#ifdef CONFIG_ARCH_MESON64_ODROIDC4
 #define C4_A55_DEFAULT		1800000	/* C4 Core A55 */
 #endif
 
