@@ -6,7 +6,7 @@
 		target = <&fan0>;
 
 		__overlay__ {
-			cooling-levels = <255 255 255 255>;
+			cooling-levels = <240 240 240 240>;
 		};
 	};
 };
