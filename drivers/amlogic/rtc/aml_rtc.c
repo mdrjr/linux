@@ -709,7 +709,7 @@ static ssize_t show_rtc_reg(struct class *class,
 static const struct rtc_class_ops aml_rtc_ops ={
 	.read_time = aml_rtc_read_time,
 	.set_time = aml_rtc_write_time,
-	.set_alarm = aml_rtc_set_alarm,
+//	.set_alarm = aml_rtc_set_alarm,
 };
 
 static struct class_attribute rtc_class_attrs[] = {
