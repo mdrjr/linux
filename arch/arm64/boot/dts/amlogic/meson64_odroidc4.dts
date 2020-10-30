@@ -733,6 +733,16 @@
 	gpio-reset {
 		/delete-node/ usb_hub_en;
 	};
+
+	parport0: parport@0 {
+		  compatible = "parport,odroid";
+		  status = "disabled";
+	};
+
+	parport1: parport@1 {
+		  compatible = "parport,odroid";
+		  status = "disabled";
+	};
 }; /* end of / */
 
 &audiobus {
