@@ -59,10 +59,6 @@
 #include <linux/amlogic/media/amdolbyvision/dolby_vision.h>
 #endif
 
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-#include <linux/platform_data/board_odroid.h>
-#endif
-
 /* Local Headers */
 #include "osd_canvas.h"
 #include "osd_prot.h"
@@ -2806,9 +2802,8 @@ void osd_setup_hw(u32 index,
 	int update_geometry = 0;
 	u32 w = (color->bpp * xres_virtual + 7) >> 3;
 	u32 i;
-
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	if (board_is_odroidn2() && (index == 0)) {
+	if (index == 0) {
 		xres_virtual = xres;
 		yres_virtual = yres;
 	}
@@ -2898,8 +2893,7 @@ void osd_setup_hw(u32 index,
 			index, osd_hw.osd_afbcd[index].out_addr_id);
 
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-		if (board_is_odroidn2())
-			set_osd_logo_freescaler();
+		set_osd_logo_freescaler();
 #endif
 		if (osd_hw.osd_meson_dev.osd_ver == OSD_SIMPLE)
 			osd_update_phy_addr(0);
