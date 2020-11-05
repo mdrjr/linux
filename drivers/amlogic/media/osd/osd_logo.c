@@ -32,9 +32,6 @@
 #include "osd_log.h"
 #include "osd.h"
 
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-#include "osd_fb.h"
-#endif
 
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -193,16 +190,6 @@ int set_osd_logo_freescaler(void)
 	s32 dst_x_start = 0, dst_x_end = 0;
 	s32 dst_y_start = 0, dst_y_end = 0;
 	s32 target_x_end = 0, target_y_end = 0;
-
-#if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-	struct osd_fb_dev_s *fb_dev;
-
-	fb_dev = gp_fbdev_list[0];
-	if (fb_dev) {
-		logo_info.fb_width = fb_dev->fb_info->var.xres;
-		logo_info.fb_height = fb_dev->fb_info->var.yres;
-	}
-#endif
 
 	if (logo_info.loaded == 0)
 		return 0;
