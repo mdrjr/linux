@@ -44,7 +44,7 @@
 &pwm_cd {
 	status = "okay";
 	pinctrl-names = "pwm_pins";
-	pinctrl-0 = <&pwm_c_pins1 &pwm_d_pins2>;
+	pinctrl-0 = <&pwm_d_pins2>;
 };
 
 &pcie_A {
