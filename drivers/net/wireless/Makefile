@@ -30,3 +30,4 @@ obj-$(CONFIG_ESP8089)	+= esp8089/
 obj-$(CONFIG_88XXAU) += rtl8812au/
 obj-$(CONFIG_RTL8188EU) += rtl8188eu/
 obj-$(CONFIG_RTL8192CU) += rtl8192cu/
+obj-$(CONFIG_RTL8821CU) += rtl8821CU/
