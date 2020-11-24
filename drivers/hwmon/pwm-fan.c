@@ -36,6 +36,7 @@ struct pwm_fan_ctx {
 	unsigned int pwm_fan_max_state;
 	unsigned int *pwm_fan_cooling_levels;
 	struct thermal_cooling_device *cdev;
+	int enable;
 };
 
 static int  __set_pwm(struct pwm_fan_ctx *ctx, unsigned long pwm)
@@ -47,6 +48,10 @@ static int  __set_pwm(struct pwm_fan_ctx *ctx, unsigned long pwm)
 	pwm_get_args(ctx->pwm, &pargs);
 
 	mutex_lock(&ctx->lock);
+
+	if (ctx->enable == 0)
+		pwm = MAX_PWM;
+
 	if (ctx->pwm_value == pwm)
 		goto exit_set_pwm_err;
 
@@ -150,11 +155,42 @@ static ssize_t show_cooll(struct device *dev,
 	return lenght;
 }
 
+static ssize_t show_enable(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct pwm_fan_ctx *ctx = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", ctx->enable);
+}
+
+static ssize_t set_enable(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct pwm_fan_ctx *ctx = dev_get_drvdata(dev);
+	int err;
+	unsigned long val;
+
+	err = kstrtoul(buf, 10, &val);
+	if (err)
+		return err;
+
+	mutex_lock(&ctx->lock);
+	ctx->enable = val;
+	mutex_unlock(&ctx->lock);
+
+	err = __set_pwm(ctx, ctx->pwm_fan_cooling_levels[ctx->pwm_fan_state]);
+
+	return err ? err : count;
+}
+
 static SENSOR_DEVICE_ATTR(pwm1, S_IRUGO | S_IWUSR, show_pwm, set_pwm, 0);
+static SENSOR_DEVICE_ATTR(pwm1_enable, S_IRUGO | S_IWUSR, show_enable, set_enable, 0);
 static SENSOR_DEVICE_ATTR(fan_speed, S_IRUGO | S_IWUSR, show_cooll, set_cooll, 0);
 
 static struct attribute *pwm_fan_attrs[] = {
 	&sensor_dev_attr_pwm1.dev_attr.attr,
+	&sensor_dev_attr_pwm1_enable.dev_attr.attr,
 	&sensor_dev_attr_fan_speed.dev_attr.attr,
 	NULL,
 };
@@ -192,7 +228,7 @@ static int
 pwm_fan_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	struct pwm_fan_ctx *ctx = cdev->devdata;
-	int ret;
+	int ret = 0;
 
 	if (!ctx || (state > ctx->pwm_fan_max_state))
 		return -EINVAL;
@@ -200,10 +236,12 @@ pwm_fan_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 	if (state == ctx->pwm_fan_state)
 		return 0;
 
-	ret = __set_pwm(ctx, ctx->pwm_fan_cooling_levels[state]);
-	if (ret) {
-		dev_err(&cdev->device, "Cannot set pwm!\n");
-		return ret;
+	if (ctx->enable >= 2) {
+		ret = __set_pwm(ctx, ctx->pwm_fan_cooling_levels[state]);
+		if (ret) {
+			dev_err(&cdev->device, "Cannot set pwm!\n");
+			return ret;
+		}
 	}
 
 	ctx->pwm_fan_state = state;
@@ -282,6 +320,8 @@ static int pwm_fan_probe(struct platform_device *pdev)
 
 		return ret;
 	}
+
+	ctx->enable = 2;
 
 	platform_set_drvdata(pdev, ctx);
 
