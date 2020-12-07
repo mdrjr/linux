@@ -1048,7 +1048,7 @@ static int rk817_reboot_notifier_handler(struct notifier_block *nb,
 	struct rk817_reboot_data_t *data;
 	int ret;
 	struct device *dev;
-#ifndef CONFIG_ARCH_ROCKCHIP_ODROIDGO2
+#ifndef CONFIG_ARCH_ROCKCHIP_ODROIDGOA
 	int value, power_en_active0, power_en_active1;
 
 	regmap_read(data->rk808->regmap, RK817_POWER_EN_SAVE0,
