@@ -39,11 +39,11 @@
 
 	joypad: odroidgo3-joypad {
                 compatible = "odroidgo3-joypad";
-                
-                joypad-name = "odroidgo3_joypad";
-                joypad-product = <0x0003>;
-                joypad-revision = <0x0111>;
-               
+
+                joypad-name = "GO-Super Gamepad";
+                joypad-product = <0x1100>;
+                joypad-revision = <0x0100>;
+
 		status = "okay";
                 /*
                   - odroidgo3-joypad sysfs list -

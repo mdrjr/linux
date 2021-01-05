@@ -22,11 +22,11 @@
 
 	joypad: odroidgo2-joypad {
                 compatible = "odroidgo2-joypad";
-                
-                joypad-name = "odroidgo2_joypad_v11";
-                joypad-product = <0x0002>;
-                joypad-revision = <0x0011>;
-				
+
+                joypad-name = "GO-Advance Gamepad (rev 1.1)";
+                joypad-product = <0x1000>;
+                joypad-revision = <0x0101>;
+
                 /*
                   - odroidgo2-joypad sysfs list -
 		   * for poll device interval(ms)
