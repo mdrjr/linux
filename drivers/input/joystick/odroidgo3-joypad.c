@@ -860,6 +860,8 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 	struct input_polled_dev *poll_dev;
 	struct input_dev *input;
 	int nbtn, error;
+	u32 joypad_revision = 0;
+	u32 joypad_product = 0;
 
 	poll_dev = devm_input_allocate_polled_device(dev);
 	if (!poll_dev) {
@@ -875,13 +877,15 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 
 	input = poll_dev->input;
 
-	input->name = DRV_NAME;
+	device_property_read_string(dev, "joypad-name", &input->name);
 	input->phys = DRV_NAME"/input0";
 
+	device_property_read_u32(dev, "joypad-revision", &joypad_revision);
+	device_property_read_u32(dev, "joypad-product", &joypad_product);
 	input->id.bustype = BUS_HOST;
 	input->id.vendor  = 0x0001;
-	input->id.product = 0x0001;
-	input->id.version = 0x0101;
+	input->id.product = (u16)joypad_product;
+	input->id.version = (u16)joypad_revision;
 
 	/* IIO ADC key setup (0 mv ~ 1800 mv) * adc->scale */
 	__set_bit(EV_ABS, input->evbit);
