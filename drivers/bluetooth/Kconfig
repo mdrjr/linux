@@ -2,6 +2,11 @@
 menu "Bluetooth device drivers"
 	depends on BT
 
+config BT_RTL
+        tristate "Realtek Bluetooth Support"
+	default y
+        select FW_LOADER
+
 config BT_HCIBTUSB
 	tristate "HCI USB driver"
 	depends on USB
