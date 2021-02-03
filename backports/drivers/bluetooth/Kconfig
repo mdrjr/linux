@@ -264,4 +264,10 @@ config BACKPORT_BT_WILINK
 	  Say Y here to compile support for Texas Instrument's WiLink7 driver
 	  into the kernel or say M to compile it as module (btwilink).
 
+
+config BACKPORT_BT_RTL
+	tristate "Realtek Bluetooth Driver
+	default y
+	select FW_LOADER
+
 endmenu
