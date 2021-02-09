@@ -858,7 +858,9 @@ void pwm_put(struct pwm_device *pwm)
 	if (pwm->chip->ops->free)
 		pwm->chip->ops->free(pwm->chip, pwm);
 
+#if !defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
 	pwm_set_chip_data(pwm, NULL);
+#endif
 	pwm->label = NULL;
 
 	module_put(pwm->chip->ops->owner);
