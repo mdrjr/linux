@@ -1023,6 +1023,7 @@ static const struct flash_info spi_nor_ids[] = {
 
 	{"FM25Q08A", INFO(0xa14014, 0x0, 64 * 1024, 16, SECT_4K) },
 	{"xt25f128b", INFO(0x0b4018, 0, 64 * 1024, 256, SECT_4K) },
+	{"xt25q64", INFO(0x0b6017, 0, 64 * 1024, 128, SECT_4K) },
 	{ },
 };
 
