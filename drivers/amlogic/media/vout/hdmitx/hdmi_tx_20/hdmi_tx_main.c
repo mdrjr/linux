@@ -550,7 +550,8 @@ static int set_disp_mode_auto(void)
 	else {
 	/* nothing */
 	}
-	if ((vic_ready != HDMI_Unknown) && (vic_ready == vic)) {
+	if ((vic_ready != HDMI_Unknown) && (vic_ready == vic)
+		&& (!hdmi_output_rgb)) {
 		pr_info(SYS "[%s] ALREADY init VIC = %d\n",
 			__func__, vic);
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
@@ -5377,7 +5378,11 @@ static  int __init hdmitx_boot_para_setup(char *s)
 					hdmitx_device.cec_func_config = list;
 				pr_info("HDMI hdmi_cec_func_config:0x%x\n",
 					hdmitx_device.cec_func_config);
+			} else if (strcmp(token, "forcergb") == 0) {
+				hdmitx_output_rgb();
+				pr_info("HDMI Forced RGB colorspace output\n");
 			}
+
 			check_hdmiuboot_attr(token);
 		}
 		offset = token_offset;

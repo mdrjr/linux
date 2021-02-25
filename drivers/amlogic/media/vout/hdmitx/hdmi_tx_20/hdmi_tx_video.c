@@ -34,6 +34,7 @@
 #include <linux/amlogic/media/vout/hdmi_tx/hdmi_tx_compliance.h>
 #include "hw/common.h"
 
+unsigned char hdmi_output_rgb = 0;
 static void hdmitx_set_spd_info(struct hdmitx_dev *hdmitx_device);
 static void hdmi_set_vend_spec_infofram(struct hdmitx_dev *hdev,
 	enum hdmi_vic VideoCode);
@@ -939,6 +940,11 @@ static int is_dvi_device(struct rx_cap *prxcap)
 		return 0;
 }
 
+void hdmitx_output_rgb(void)
+{
+	hdmi_output_rgb = 1;
+}
+
 int hdmitx_set_display(struct hdmitx_dev *hdev, enum hdmi_vic VideoCode)
 {
 	struct hdmitx_vidpara *param = NULL;
@@ -963,20 +969,26 @@ int hdmitx_set_display(struct hdmitx_dev *hdev, enum hdmi_vic VideoCode)
 	hdev->cur_video_param = param;
 	if (param) {
 		param->color = param->color_prefer;
-		/* HDMI CT 7-24 Pixel Encoding
-		 * YCbCr to YCbCr Sink
-		 */
-		switch (hdev->rxcap.native_Mode & 0x30) {
-		case 0x20:/*bit5==1, then support YCBCR444 + RGB*/
-		case 0x30:
-			param->color = COLORSPACE_YUV444;
-			break;
-		case 0x10:/*bit4==1, then support YCBCR422 + RGB*/
-			param->color = COLORSPACE_YUV422;
-			break;
-		default:
+		if (hdmi_output_rgb) {
 			param->color = COLORSPACE_RGB444;
+		} else {
+			/* HDMI CT 7-24 Pixel Encoding
+			 * YCbCr to YCbCr Sink
+			 */
+			switch (hdev->rxcap.native_Mode & 0x30) {
+			case 0x20:/*bit5==1, then support YCBCR444 + RGB*/
+			case 0x30:
+				param->color = COLORSPACE_YUV444;
+				break;
+			case 0x10:/*bit4==1, then support YCBCR422 + RGB*/
+				param->color = COLORSPACE_YUV422;
+				break;
+			default:
+				param->color = COLORSPACE_RGB444;
+			}
 		}
+		pr_info("[%s] output_rgb %d, cs %d\n", __func__,
+				hdmi_output_rgb, param->color);
 		/* For Y420 modes */
 		switch (VideoCode) {
 		case HDMI_3840x2160p50_16x9_Y420:

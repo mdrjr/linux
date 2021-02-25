@@ -775,6 +775,9 @@ extern void phy_pll_off(void);
 extern int get_hpd_state(void);
 extern void hdmitx_hdcp_do_work(struct hdmitx_dev *hdev);
 
+extern void hdmitx_output_rgb(void);
+extern unsigned char hdmi_output_rgb;
+
 /***********************************************************************
  *    hdmitx hardware level interface
  ***********************************************************************/
