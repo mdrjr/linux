@@ -13,6 +13,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDN2) += spi0.dtbo		\
 					irblaster.dtbo		\
 					onewire.dtbo		\
 					can0.dtbo		\
+					hifishield.dtbo		\
+					hifishield2.dtbo	\
 					fanspeed-full.dtbo	\
 					gpio_spdif.dtbo		\
 					pwm_cd.dtbo		\

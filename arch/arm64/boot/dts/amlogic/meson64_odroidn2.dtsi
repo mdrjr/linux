@@ -217,8 +217,18 @@
 	/* Audio Related start */
 	dummy_codec:dummy{
 		#sound-dai-cells = <0>;
+		compatible = "amlogic, aml_dummy_codec";
+		status = "okay";
+	};
+	spdif_dit:spdif{
+		#sound-dai-cells = <0>;
 		compatible = "linux,spdif-dit";
 		status = "okay";
+	};
+	pcm5102a: pcm5102a {
+		compatible = "ti,pcm5102a";
+		#sound-dai-cells = <0>;
+		status = "disabled";
 	};
 	amlogic_codec:t9015{
 		#sound-dai-cells = <0>;
@@ -261,7 +271,7 @@
 				system-clock-frequency = <6144000>;
 			};
 			codec {
-				sound-dai = <&dummy_codec>;
+				sound-dai = <&spdif_dit>;
 			};
 		};
 
@@ -293,10 +303,21 @@
 				system-clock-frequency = <6144000>;
 			};
 			codec {
-				sound-dai = <&dummy_codec>;
+				sound-dai = <&spdif_dit>;
 			};
 		};
 	};
+	odroid_hifi: odroid_hifi {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI";
+		status = "disabled";
+	};
+	odroid_hifi2: odroid_hifi2 {
+		compatible = "amlogic, g12a-sound-card";
+		aml-audio-card,name = "ODROID-HIFI2";
+		status = "disabled";
+	};
+
 	audiolocker: locker {
 		compatible = "amlogic, audiolocker";
 		clocks = <&clkaudio CLKID_AUDIO_LOCKER_OUT
@@ -398,6 +419,25 @@
 
 &audiobus {
 	/* tdmc to internal DAC output, no pinmux */
+	aml_tdmb: tdmb {
+		compatible = "amlogic, g12a-snd-tdmb";
+		#sound-dai-cells = <0>;
+		dai-tdm-lane-slot-mask-in = <0 1 0 0>;
+		dai-tdm-lane-slot-mask-out = <1 0 0 0>;
+		dai-tdm-clk-sel = <1>;
+		clocks = <&clkaudio CLKID_AUDIO_MCLK_B
+				&clkc CLKID_MPLL1>;
+		clock-names = "mclk", "clk_srcpll";
+		pinctrl-names = "tdm_pins";
+		pinctrl-0 = <&tdmb_mclk &tdmout_b /*&tdmin_b*/>;
+		mclk_pad = <0>;  /* 0: mclk_0; 1: mclk_1 */
+		i2s2hdmi = <0>;
+		/*enable default mclk(12.288M), before extern codec start*/
+		start_clk_enable = <1>;
+		/*tdm clk tuning enable*/
+		clk_tuning_enable = <1>;
+		status = "disabled";
+	};
 	aml_tdmc: tdmc {
 		compatible = "amlogic, g12a-snd-tdmc";
 		#sound-dai-cells = <0>;
@@ -410,7 +450,6 @@
 		i2s2hdmi = <0>;
 		status = "okay";
 	};
-
 	aml_spdif: spdif {
 		compatible = "amlogic, g12a-snd-spdif-a";
 		#sound-dai-cells = <0>;
@@ -576,6 +615,22 @@
 };
 
 &pinctrl_periphs {
+	tdmb_mclk: tdmb_mclk {
+		mux {
+			groups = "mclk0_a";
+			function = "mclk0";
+			drive-strength = <2>;
+		};
+	};
+	tdmout_b: tdmout_b {
+		mux { /* GPIOA_1, GPIOA_2, GPIOA_3 */
+			groups = "tdmb_sclk",
+				"tdmb_fs",
+				"tdmb_dout0";
+			function = "tdmb_out";
+			drive-strength = <2>;
+		};
+	};
 	spdifout: spdifout {
 		mux {/* GPIOA_11 */
 			groups = "spdif_out_a11";

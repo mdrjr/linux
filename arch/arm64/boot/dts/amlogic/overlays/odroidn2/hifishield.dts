@@ -1,0 +1,64 @@
+/*
+ * arch/arm64/boot/dts/amlogic/overlays/odroidn2/hifishield.dts
+ *
+ * Copyright (C) 2021 Hardkernel, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&aml_tdmb>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&pcm5102a>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&odroid_hifi>;
+
+		__overlay__ {
+			compatible = "amlogic, g12a-sound-card";
+			aml-audio-card,name = "ODROID-HIFI";
+			status = "okay";
+
+			/* ODROID-C4: I2S out(J7)*/
+			aml-audio-card,dai-link@0 {
+				format = "i2s";
+				mclk-fs = <256>;
+				continuous-clock;
+				bitclock-master = <&aml_tdmb>;
+				frame-master = <&aml_tdmb>;
+				cpu {
+					sound-dai = <&aml_tdmb>;
+					dai-tdm-slot-tx-mask = <1 1>;
+					dai-tdm-slot-rx-mask = <1 1>;
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+					system-clock-frequency = <12288000>;
+				};
+				codec {
+					sound-dai = <&pcm5102a>;
+				};
+			};
+		};
+	};
+};
