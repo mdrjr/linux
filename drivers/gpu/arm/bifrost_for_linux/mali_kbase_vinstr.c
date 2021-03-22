@@ -1,24 +1,19 @@
 /*
  *
- * (C) COPYRIGHT 2011-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 #include <linux/anon_inodes.h>
 #include <linux/atomic.h>
@@ -38,9 +33,6 @@
 #include <mali_kbase_hwcnt_reader.h>
 #include <mali_kbase_mem_linux.h>
 #include <mali_kbase_tlstream.h>
-#ifdef CONFIG_MALI_BIFROST_NO_MALI
-#include <backend/gpu/mali_kbase_model_dummy.h>
-#endif
 
 /*****************************************************************************/
 
@@ -82,9 +74,7 @@ enum vinstr_state {
 
 /**
  * struct kbase_vinstr_context - vinstr context per device
- * @lock:              protects the entire vinstr context, but the list of
- *                     vinstr clients can be updated outside the lock using
- *                     @state_lock.
+ * @lock:              protects the entire vinstr context
  * @kbdev:             pointer to kbase device
  * @kctx:              pointer to kbase context
  * @vmap:              vinstr vmap for mapping hwcnt dump buffer
@@ -96,14 +86,12 @@ enum vinstr_state {
  * @reprogram:         when true, reprogram hwcnt block with the new set of
  *                     counters
  * @state:             vinstr state
- * @state_lock:        protects information about vinstr state and list of
- *                     clients.
+ * @state_lock:        protects information about vinstr state
  * @suspend_waitq:     notification queue to trigger state re-validation
  * @suspend_cnt:       reference counter of vinstr's suspend state
  * @suspend_work:      worker to execute on entering suspended state
  * @resume_work:       worker to execute on leaving suspended state
- * @nclients:          number of attached clients, pending or idle
- * @nclients_suspended: number of attached but suspended clients
+ * @nclients:          number of attached clients, pending or otherwise
  * @waiting_clients:   head of list of clients being periodically sampled
  * @idle_clients:      head of list of clients being idle
  * @suspended_clients: head of list of clients being suspended
@@ -113,10 +101,6 @@ enum vinstr_state {
  * @clients_present:   when true, we have at least one client
  *                     Note: this variable is in sync. with nclients and is
  *                     present to preserve simplicity. Protected by state_lock.
- * @need_suspend:      when true, a suspend has been requested while a resume is
- *                     in progress. Resume worker should queue a suspend.
- * @need_resume:       when true, a resume has been requested while a suspend is
- *                     in progress. Suspend worker should queue a resume.
  */
 struct kbase_vinstr_context {
 	struct mutex             lock;
@@ -138,7 +122,6 @@ struct kbase_vinstr_context {
 	struct work_struct       resume_work;
 
 	u32                      nclients;
-	u32                      nclients_suspended;
 	struct list_head         waiting_clients;
 	struct list_head         idle_clients;
 	struct list_head         suspended_clients;
@@ -148,9 +131,6 @@ struct kbase_vinstr_context {
 	atomic_t                 request_pending;
 
 	bool                     clients_present;
-
-	bool                     need_suspend;
-	bool                     need_resume;
 };
 
 /**
@@ -173,7 +153,6 @@ struct kbase_vinstr_context {
  * @write_idx:     index of buffer being written by dumping service
  * @waitq:         client's notification queue
  * @pending:       when true, client has attached but hwcnt not yet updated
- * @suspended:     when true, client is suspended
  */
 struct kbase_vinstr_client {
 	struct kbase_vinstr_context        *vinstr_ctx;
@@ -194,7 +173,6 @@ struct kbase_vinstr_client {
 	atomic_t                           write_idx;
 	wait_queue_head_t                  waitq;
 	bool                               pending;
-	bool                               suspended;
 };
 
 /**
@@ -208,9 +186,6 @@ struct kbasep_vinstr_wake_up_timer {
 };
 
 /*****************************************************************************/
-
-static void kbase_vinstr_update_suspend(
-		struct kbase_vinstr_context *vinstr_ctx);
 
 static int kbasep_vinstr_service_task(void *data);
 
@@ -243,14 +218,14 @@ static int enable_hwcnt(struct kbase_vinstr_context *vinstr_ctx)
 {
 	struct kbase_context *kctx = vinstr_ctx->kctx;
 	struct kbase_device *kbdev = kctx->kbdev;
-	struct kbase_ioctl_hwcnt_enable enable;
+	struct kbase_uk_hwcnt_setup setup;
 	int err;
 
-	enable.dump_buffer = vinstr_ctx->gpu_va;
-	enable.jm_bm       = vinstr_ctx->bitmap[JM_HWCNT_BM];
-	enable.tiler_bm    = vinstr_ctx->bitmap[TILER_HWCNT_BM];
-	enable.shader_bm   = vinstr_ctx->bitmap[SHADER_HWCNT_BM];
-	enable.mmu_l2_bm   = vinstr_ctx->bitmap[MMU_L2_HWCNT_BM];
+	setup.dump_buffer = vinstr_ctx->gpu_va;
+	setup.jm_bm       = vinstr_ctx->bitmap[JM_HWCNT_BM];
+	setup.tiler_bm    = vinstr_ctx->bitmap[TILER_HWCNT_BM];
+	setup.shader_bm   = vinstr_ctx->bitmap[SHADER_HWCNT_BM];
+	setup.mmu_l2_bm   = vinstr_ctx->bitmap[MMU_L2_HWCNT_BM];
 
 	/* Mark the context as active so the GPU is kept turned on */
 	/* A suspend won't happen here, because we're in a syscall from a
@@ -259,7 +234,7 @@ static int enable_hwcnt(struct kbase_vinstr_context *vinstr_ctx)
 
 	/* Schedule the context in */
 	kbasep_js_schedule_privileged_ctx(kbdev, kctx);
-	err = kbase_instr_hwcnt_enable_internal(kbdev, kctx, &enable);
+	err = kbase_instr_hwcnt_enable_internal(kbdev, kctx, &setup);
 	if (err) {
 		/* Release the context. This had its own Power Manager Active
 		 * reference */
@@ -489,23 +464,17 @@ static void kbasep_vinstr_destroy_kctx(struct kbase_vinstr_context *vinstr_ctx)
 	struct kbasep_kctx_list_element *element;
 	struct kbasep_kctx_list_element *tmp;
 	bool                            found = false;
-	bool                            hwcnt_disabled = false;
 	unsigned long                   flags;
 
 	/* Release hw counters dumping resources. */
 	vinstr_ctx->thread = NULL;
+	disable_hwcnt(vinstr_ctx);
+	kbasep_vinstr_unmap_kernel_dump_buffer(vinstr_ctx);
 
 	/* Simplify state transitions by specifying that we have no clients. */
 	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 	vinstr_ctx->clients_present = false;
-	if ((VINSTR_SUSPENDED == vinstr_ctx->state) || (VINSTR_RESUMING == vinstr_ctx->state))
-		hwcnt_disabled = true;
 	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-	if (!hwcnt_disabled)
-		disable_hwcnt(vinstr_ctx);
-
-	kbasep_vinstr_unmap_kernel_dump_buffer(vinstr_ctx);
 
 	/* Remove kernel context from the device's contexts list. */
 	mutex_lock(&kbdev->kctx_list_lock);
@@ -546,8 +515,6 @@ static struct kbase_vinstr_client *kbasep_vinstr_attach_client(
 {
 	struct task_struct         *thread = NULL;
 	struct kbase_vinstr_client *cli;
-	unsigned long flags;
-	bool clients_present = false;
 
 	KBASE_DEBUG_ASSERT(vinstr_ctx);
 
@@ -573,14 +540,10 @@ static struct kbase_vinstr_client *kbasep_vinstr_attach_client(
 	hwcnt_bitmap_union(vinstr_ctx->bitmap, cli->bitmap);
 	vinstr_ctx->reprogram = true;
 
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-	clients_present = (vinstr_ctx->nclients || vinstr_ctx->nclients_suspended);
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
 	/* If this is the first client, create the vinstr kbase
 	 * context. This context is permanently resident until the
 	 * last client exits. */
-	if (!clients_present) {
+	if (!vinstr_ctx->nclients) {
 		hwcnt_bitmap_set(vinstr_ctx->bitmap, cli->bitmap);
 		if (kbasep_vinstr_create_kctx(vinstr_ctx) < 0)
 			goto error;
@@ -635,11 +598,8 @@ static struct kbase_vinstr_client *kbasep_vinstr_attach_client(
 	atomic_set(&cli->write_idx, 0);
 	init_waitqueue_head(&cli->waitq);
 
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 	vinstr_ctx->nclients++;
 	list_add(&cli->list, &vinstr_ctx->idle_clients);
-	kbase_vinstr_update_suspend(vinstr_ctx);
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
 	mutex_unlock(&vinstr_ctx->lock);
 
@@ -652,7 +612,7 @@ error:
 				(unsigned long)cli->dump_buffers,
 				get_order(cli->dump_size * cli->buffer_count));
 	kfree(cli->accum_buffer);
-	if (!clients_present && vinstr_ctx->kctx) {
+	if (!vinstr_ctx->nclients && vinstr_ctx->kctx) {
 		thread = vinstr_ctx->thread;
 		kbasep_vinstr_destroy_kctx(vinstr_ctx);
 	}
@@ -674,19 +634,18 @@ void kbase_vinstr_detach_client(struct kbase_vinstr_client *cli)
 	struct task_struct          *thread = NULL;
 	u32 zerobitmap[4] = { 0 };
 	int cli_found = 0;
-	unsigned long flags;
-	bool clients_present;
 
 	KBASE_DEBUG_ASSERT(cli);
 	vinstr_ctx = cli->vinstr_ctx;
 	KBASE_DEBUG_ASSERT(vinstr_ctx);
 
 	mutex_lock(&vinstr_ctx->lock);
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 
 	list_for_each_entry_safe(iter, tmp, &vinstr_ctx->idle_clients, list) {
 		if (iter == cli) {
+			vinstr_ctx->reprogram = true;
 			cli_found = 1;
+			list_del(&iter->list);
 			break;
 		}
 	}
@@ -694,46 +653,14 @@ void kbase_vinstr_detach_client(struct kbase_vinstr_client *cli)
 		list_for_each_entry_safe(
 				iter, tmp, &vinstr_ctx->waiting_clients, list) {
 			if (iter == cli) {
+				vinstr_ctx->reprogram = true;
 				cli_found = 1;
-				break;
-			}
-		}
-	}
-	if (!cli_found) {
-		list_for_each_entry_safe(
-				iter, tmp, &vinstr_ctx->suspended_clients, list) {
-			if (iter == cli) {
-				cli_found = 1;
+				list_del(&iter->list);
 				break;
 			}
 		}
 	}
 	KBASE_DEBUG_ASSERT(cli_found);
-
-	if (cli_found) {
-		vinstr_ctx->reprogram = true;
-		list_del(&iter->list);
-	}
-
-	if (!cli->suspended)
-		vinstr_ctx->nclients--;
-	else
-		vinstr_ctx->nclients_suspended--;
-
-	kbase_vinstr_update_suspend(vinstr_ctx);
-
-	clients_present = (vinstr_ctx->nclients || vinstr_ctx->nclients_suspended);
-
-	/* Rebuild context bitmap now that the client has detached */
-	hwcnt_bitmap_set(vinstr_ctx->bitmap, zerobitmap);
-	list_for_each_entry(iter, &vinstr_ctx->idle_clients, list)
-		hwcnt_bitmap_union(vinstr_ctx->bitmap, iter->bitmap);
-	list_for_each_entry(iter, &vinstr_ctx->waiting_clients, list)
-		hwcnt_bitmap_union(vinstr_ctx->bitmap, iter->bitmap);
-	list_for_each_entry(iter, &vinstr_ctx->suspended_clients, list)
-		hwcnt_bitmap_union(vinstr_ctx->bitmap, iter->bitmap);
-
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
 	kfree(cli->dump_buffers_meta);
 	free_pages(
@@ -742,10 +669,18 @@ void kbase_vinstr_detach_client(struct kbase_vinstr_client *cli)
 	kfree(cli->accum_buffer);
 	kfree(cli);
 
-	if (!clients_present) {
+	vinstr_ctx->nclients--;
+	if (!vinstr_ctx->nclients) {
 		thread = vinstr_ctx->thread;
 		kbasep_vinstr_destroy_kctx(vinstr_ctx);
 	}
+
+	/* Rebuild context bitmap now that the client has detached */
+	hwcnt_bitmap_set(vinstr_ctx->bitmap, zerobitmap);
+	list_for_each_entry(iter, &vinstr_ctx->idle_clients, list)
+		hwcnt_bitmap_union(vinstr_ctx->bitmap, iter->bitmap);
+	list_for_each_entry(iter, &vinstr_ctx->waiting_clients, list)
+		hwcnt_bitmap_union(vinstr_ctx->bitmap, iter->bitmap);
 
 	mutex_unlock(&vinstr_ctx->lock);
 
@@ -1035,7 +970,8 @@ static int kbasep_vinstr_collect_and_accumulate(
 	WARN_ON(rcode);
 
 	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-	switch (vinstr_ctx->state) {
+	switch (vinstr_ctx->state)
+	{
 	case VINSTR_SUSPENDING:
 		schedule_work(&vinstr_ctx->suspend_work);
 		break;
@@ -1046,12 +982,11 @@ static int kbasep_vinstr_collect_and_accumulate(
 	default:
 		break;
 	}
+	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
 	/* Accumulate values of collected counters. */
 	if (!rcode)
 		accum_clients(vinstr_ctx);
-
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
 	return rcode;
 }
@@ -1157,7 +1092,6 @@ static void kbasep_vinstr_reprogram(
 
 		if (!reprogram_hwcnt(vinstr_ctx)) {
 			vinstr_ctx->reprogram = false;
-			spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 			list_for_each_entry(
 					iter,
 					&vinstr_ctx->idle_clients,
@@ -1168,7 +1102,6 @@ static void kbasep_vinstr_reprogram(
 					&vinstr_ctx->waiting_clients,
 					list)
 				iter->pending = false;
-			spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 		}
 	}
 }
@@ -1187,7 +1120,6 @@ static int kbasep_vinstr_update_client(
 		enum base_hwcnt_reader_event event_id)
 {
 	int rcode = 0;
-	unsigned long flags;
 
 	/* Copy collected counters to user readable buffer. */
 	if (cli->buffer_count)
@@ -1198,22 +1130,17 @@ static int kbasep_vinstr_update_client(
 	else
 		rcode = kbasep_vinstr_fill_dump_buffer_legacy(cli);
 
-	/* Prepare for next request. */
-	memset(cli->accum_buffer, 0, cli->dump_size);
-
-	spin_lock_irqsave(&cli->vinstr_ctx->state_lock, flags);
-	/* Check if client was put to suspend state while it was being updated */
-	if (cli->suspended)
-		rcode = -EINVAL;
-	spin_unlock_irqrestore(&cli->vinstr_ctx->state_lock, flags);
-
 	if (rcode)
 		goto exit;
+
 
 	/* Notify client. Make sure all changes to memory are visible. */
 	wmb();
 	atomic_inc(&cli->write_idx);
 	wake_up_interruptible(&cli->waitq);
+
+	/* Prepare for next request. */
+	memset(cli->accum_buffer, 0, cli->dump_size);
 
 exit:
 	return rcode;
@@ -1273,7 +1200,6 @@ static int kbasep_vinstr_service_task(void *data)
 		struct kbase_vinstr_client *cli = NULL;
 		struct kbase_vinstr_client *tmp;
 		int                        rcode;
-		unsigned long              flags;
 
 		u64              timestamp = kbasep_vinstr_get_timestamp();
 		u64              dump_time = 0;
@@ -1286,7 +1212,6 @@ static int kbasep_vinstr_service_task(void *data)
 		if (current == vinstr_ctx->thread) {
 			atomic_set(&vinstr_ctx->request_pending, 0);
 
-			spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 			if (!list_empty(&vinstr_ctx->waiting_clients)) {
 				cli = list_first_entry(
 						&vinstr_ctx->waiting_clients,
@@ -1294,7 +1219,6 @@ static int kbasep_vinstr_service_task(void *data)
 						list);
 				dump_time = cli->dump_time;
 			}
-			spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 		}
 
 		if (!cli || ((s64)timestamp - (s64)dump_time < 0ll)) {
@@ -1323,7 +1247,6 @@ static int kbasep_vinstr_service_task(void *data)
 
 		INIT_LIST_HEAD(&expired_requests);
 
-		spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 		/* Find all expired requests. */
 		list_for_each_entry_safe(
 				cli,
@@ -1342,29 +1265,18 @@ static int kbasep_vinstr_service_task(void *data)
 		}
 
 		/* Fill data for each request found. */
-		while (!list_empty(&expired_requests)) {
-			cli = list_first_entry(&expired_requests,
-					struct kbase_vinstr_client, list);
-
+		list_for_each_entry_safe(cli, tmp, &expired_requests, list) {
 			/* Ensure that legacy buffer will not be used from
 			 * this kthread context. */
 			BUG_ON(0 == cli->buffer_count);
 			/* Expect only periodically sampled clients. */
 			BUG_ON(0 == cli->dump_interval);
 
-			/* Release the spinlock, as filling the data in client's
-			 * userspace buffer could result in page faults. */
-			spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 			if (!rcode)
 				kbasep_vinstr_update_client(
 						cli,
 						timestamp,
 						BASE_HWCNT_READER_EVENT_PERIODIC);
-			spin_lock_irqsave(&cli->vinstr_ctx->state_lock, flags);
-
-			/* This client got suspended, move to the next one. */
-			if (cli->suspended)
-				continue;
 
 			/* Set new dumping time. Drop missed probing times. */
 			do {
@@ -1376,7 +1288,6 @@ static int kbasep_vinstr_service_task(void *data)
 					cli,
 					&vinstr_ctx->waiting_clients);
 		}
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
 		/* Reprogram counters set if required. */
 		kbasep_vinstr_reprogram(vinstr_ctx);
@@ -1491,18 +1402,10 @@ static long kbasep_vinstr_hwcnt_reader_ioctl_set_interval(
 		struct kbase_vinstr_client *cli, u32 interval)
 {
 	struct kbase_vinstr_context *vinstr_ctx = cli->vinstr_ctx;
-	unsigned long flags;
 
 	KBASE_DEBUG_ASSERT(vinstr_ctx);
 
 	mutex_lock(&vinstr_ctx->lock);
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-
-	if (cli->suspended) {
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-		mutex_unlock(&vinstr_ctx->lock);
-		return -ENOMEM;
-	}
 
 	list_del(&cli->list);
 
@@ -1524,7 +1427,6 @@ static long kbasep_vinstr_hwcnt_reader_ioctl_set_interval(
 		list_add(&cli->list, &vinstr_ctx->idle_clients);
 	}
 
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 	mutex_unlock(&vinstr_ctx->lock);
 
 	return 0;
@@ -1829,29 +1731,17 @@ static void kbasep_vinstr_suspend_worker(struct work_struct *data)
 	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 	vinstr_ctx->state = VINSTR_SUSPENDED;
 	wake_up_all(&vinstr_ctx->suspend_waitq);
+	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
-	if (vinstr_ctx->need_resume) {
-		vinstr_ctx->need_resume = false;
-		vinstr_ctx->state = VINSTR_RESUMING;
-		schedule_work(&vinstr_ctx->resume_work);
+	mutex_unlock(&vinstr_ctx->lock);
 
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-		mutex_unlock(&vinstr_ctx->lock);
-	} else {
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-		mutex_unlock(&vinstr_ctx->lock);
-
-		/* Kick GPU scheduler to allow entering protected mode.
-		 * This must happen after vinstr was suspended.
-		 */
-		kbasep_vinstr_kick_scheduler(vinstr_ctx->kbdev);
-	}
+	/* Kick GPU scheduler to allow entering protected mode.
+	 * This must happen after vinstr was suspended. */
+	kbasep_vinstr_kick_scheduler(vinstr_ctx->kbdev);
 }
 
 /**
- * kbasep_vinstr_resume_worker - worker resuming vinstr module
+ * kbasep_vinstr_suspend_worker - worker resuming vinstr module
  * @data: pointer to work structure
  */
 static void kbasep_vinstr_resume_worker(struct work_struct *data)
@@ -1870,27 +1760,15 @@ static void kbasep_vinstr_resume_worker(struct work_struct *data)
 	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
 	vinstr_ctx->state = VINSTR_IDLE;
 	wake_up_all(&vinstr_ctx->suspend_waitq);
+	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 
-	if (vinstr_ctx->need_suspend) {
-		vinstr_ctx->need_suspend = false;
-		vinstr_ctx->state = VINSTR_SUSPENDING;
-		schedule_work(&vinstr_ctx->suspend_work);
+	mutex_unlock(&vinstr_ctx->lock);
 
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-		mutex_unlock(&vinstr_ctx->lock);
-	} else {
-		spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-		mutex_unlock(&vinstr_ctx->lock);
-
-		/* Kick GPU scheduler to allow entering protected mode.
-		 * Note that scheduler state machine might requested re-entry to
-		 * protected mode before vinstr was resumed.
-		 * This must happen after vinstr was release.
-		 */
-		kbasep_vinstr_kick_scheduler(vinstr_ctx->kbdev);
-	}
+	/* Kick GPU scheduler to allow entering protected mode.
+	 * Note that scheduler state machine might requested re-entry to
+	 * protected mode before vinstr was resumed.
+	 * This must happen after vinstr was release. */
+	kbasep_vinstr_kick_scheduler(vinstr_ctx->kbdev);
 }
 
 /*****************************************************************************/
@@ -1905,7 +1783,6 @@ struct kbase_vinstr_context *kbase_vinstr_init(struct kbase_device *kbdev)
 
 	INIT_LIST_HEAD(&vinstr_ctx->idle_clients);
 	INIT_LIST_HEAD(&vinstr_ctx->waiting_clients);
-	INIT_LIST_HEAD(&vinstr_ctx->suspended_clients);
 	mutex_init(&vinstr_ctx->lock);
 	spin_lock_init(&vinstr_ctx->state_lock);
 	vinstr_ctx->kbdev = kbdev;
@@ -1939,35 +1816,27 @@ void kbase_vinstr_term(struct kbase_vinstr_context *vinstr_ctx)
 
 		if (list_empty(list)) {
 			list = &vinstr_ctx->waiting_clients;
-			if (list_empty(list)) {
-				list = &vinstr_ctx->suspended_clients;
-				if (list_empty(list))
-					break;
-			}
+			if (list_empty(list))
+				break;
 		}
 
 		cli = list_first_entry(list, struct kbase_vinstr_client, list);
 		list_del(&cli->list);
-		if (!cli->suspended)
-			vinstr_ctx->nclients--;
-		else
-			vinstr_ctx->nclients_suspended--;
 		kfree(cli->accum_buffer);
 		kfree(cli);
+		vinstr_ctx->nclients--;
 	}
 	KBASE_DEBUG_ASSERT(!vinstr_ctx->nclients);
-	KBASE_DEBUG_ASSERT(!vinstr_ctx->nclients_suspended);
 	if (vinstr_ctx->kctx)
 		kbasep_vinstr_destroy_kctx(vinstr_ctx);
 	kfree(vinstr_ctx);
 }
 
 int kbase_vinstr_hwcnt_reader_setup(struct kbase_vinstr_context *vinstr_ctx,
-		struct kbase_ioctl_hwcnt_reader_setup *setup)
+		struct kbase_uk_hwcnt_reader_setup *setup)
 {
 	struct kbase_vinstr_client  *cli;
 	u32                         bitmap[4];
-	int                         fd;
 
 	KBASE_DEBUG_ASSERT(vinstr_ctx);
 	KBASE_DEBUG_ASSERT(setup);
@@ -1982,32 +1851,31 @@ int kbase_vinstr_hwcnt_reader_setup(struct kbase_vinstr_context *vinstr_ctx,
 			vinstr_ctx,
 			setup->buffer_count,
 			bitmap,
-			&fd,
+			&setup->fd,
 			NULL);
 
 	if (!cli)
 		return -ENOMEM;
 
-	kbase_vinstr_wait_for_ready(vinstr_ctx);
-	return fd;
+	return 0;
 }
 
 int kbase_vinstr_legacy_hwc_setup(
 		struct kbase_vinstr_context *vinstr_ctx,
 		struct kbase_vinstr_client  **cli,
-		struct kbase_ioctl_hwcnt_enable *enable)
+		struct kbase_uk_hwcnt_setup *setup)
 {
 	KBASE_DEBUG_ASSERT(vinstr_ctx);
-	KBASE_DEBUG_ASSERT(enable);
+	KBASE_DEBUG_ASSERT(setup);
 	KBASE_DEBUG_ASSERT(cli);
 
-	if (enable->dump_buffer) {
+	if (setup->dump_buffer) {
 		u32 bitmap[4];
 
-		bitmap[SHADER_HWCNT_BM] = enable->shader_bm;
-		bitmap[TILER_HWCNT_BM]  = enable->tiler_bm;
-		bitmap[MMU_L2_HWCNT_BM] = enable->mmu_l2_bm;
-		bitmap[JM_HWCNT_BM]     = enable->jm_bm;
+		bitmap[SHADER_HWCNT_BM] = setup->shader_bm;
+		bitmap[TILER_HWCNT_BM]  = setup->tiler_bm;
+		bitmap[MMU_L2_HWCNT_BM] = setup->mmu_l2_bm;
+		bitmap[JM_HWCNT_BM]     = setup->jm_bm;
 
 		if (*cli)
 			return -EBUSY;
@@ -2016,13 +1884,11 @@ int kbase_vinstr_legacy_hwc_setup(
 				vinstr_ctx,
 				0,
 				bitmap,
-				(void *)(uintptr_t)enable->dump_buffer,
+				(void *)(long)setup->dump_buffer,
 				NULL);
 
 		if (!(*cli))
 			return -ENOMEM;
-
-		kbase_vinstr_wait_for_ready(vinstr_ctx);
 	} else {
 		if (!*cli)
 			return -EINVAL;
@@ -2036,10 +1902,9 @@ int kbase_vinstr_legacy_hwc_setup(
 
 struct kbase_vinstr_client *kbase_vinstr_hwcnt_kernel_setup(
 		struct kbase_vinstr_context *vinstr_ctx,
-		struct kbase_ioctl_hwcnt_reader_setup *setup,
+		struct kbase_uk_hwcnt_reader_setup *setup,
 		void *kernel_buffer)
 {
-	struct kbase_vinstr_client *kernel_client;
 	u32 bitmap[4];
 
 	if (!vinstr_ctx || !setup || !kernel_buffer)
@@ -2050,17 +1915,12 @@ struct kbase_vinstr_client *kbase_vinstr_hwcnt_kernel_setup(
 	bitmap[MMU_L2_HWCNT_BM] = setup->mmu_l2_bm;
 	bitmap[JM_HWCNT_BM]     = setup->jm_bm;
 
-	kernel_client = kbasep_vinstr_attach_client(
-				vinstr_ctx,
-				0,
-				bitmap,
-				NULL,
-				kernel_buffer);
-
-	if (kernel_client)
-		kbase_vinstr_wait_for_ready(vinstr_ctx);
-
-	return kernel_client;
+	return kbasep_vinstr_attach_client(
+			vinstr_ctx,
+			0,
+			bitmap,
+			NULL,
+			kernel_buffer);
 }
 KBASE_EXPORT_TEST_API(kbase_vinstr_hwcnt_kernel_setup);
 
@@ -2168,42 +2028,13 @@ int kbase_vinstr_try_suspend(struct kbase_vinstr_context *vinstr_ctx)
 		vinstr_ctx->state = VINSTR_SUSPENDING;
 		break;
 
-	case VINSTR_RESUMING:
-		vinstr_ctx->need_suspend = true;
-		break;
-
 	case VINSTR_SUSPENDING:
+		/* fall through */
+	case VINSTR_RESUMING:
 		break;
 
 	default:
-		KBASE_DEBUG_ASSERT(0);
-		break;
-	}
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-
-	return ret;
-}
-
-static int kbase_vinstr_is_ready(struct kbase_vinstr_context *vinstr_ctx)
-{
-	unsigned long flags;
-	int ret = -EAGAIN;
-
-	KBASE_DEBUG_ASSERT(vinstr_ctx);
-
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-	switch (vinstr_ctx->state) {
-	case VINSTR_SUSPENDED:
-	case VINSTR_RESUMING:
-	case VINSTR_SUSPENDING:
-		break;
-
-	case VINSTR_IDLE:
-	case VINSTR_DUMPING:
-		ret = 0;
-		break;
-	default:
-		KBASE_DEBUG_ASSERT(0);
+		BUG();
 		break;
 	}
 	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
@@ -2215,58 +2046,6 @@ void kbase_vinstr_suspend(struct kbase_vinstr_context *vinstr_ctx)
 {
 	wait_event(vinstr_ctx->suspend_waitq,
 			(0 == kbase_vinstr_try_suspend(vinstr_ctx)));
-}
-
-void kbase_vinstr_wait_for_ready(struct kbase_vinstr_context *vinstr_ctx)
-{
-	wait_event(vinstr_ctx->suspend_waitq,
-			(0 == kbase_vinstr_is_ready(vinstr_ctx)));
-}
-KBASE_EXPORT_TEST_API(kbase_vinstr_wait_for_ready);
-
-/**
- * kbase_vinstr_update_suspend - Update vinstr suspend/resume status depending
- *                               on nclients
- * @vinstr_ctx: vinstr context pointer
- *
- * This function should be called whenever vinstr_ctx->nclients changes. This
- * may cause vinstr to be suspended or resumed, depending on the number of
- * clients and whether IPA is suspended or not.
- */
-static void kbase_vinstr_update_suspend(struct kbase_vinstr_context *vinstr_ctx)
-{
-	lockdep_assert_held(&vinstr_ctx->state_lock);
-
-	switch (vinstr_ctx->state) {
-	case VINSTR_SUSPENDED:
-		if ((vinstr_ctx->nclients) && (0 == vinstr_ctx->suspend_cnt)) {
-			vinstr_ctx->state = VINSTR_RESUMING;
-			schedule_work(&vinstr_ctx->resume_work);
-		}
-		break;
-
-	case VINSTR_SUSPENDING:
-		if (vinstr_ctx->nclients)
-			vinstr_ctx->need_resume = true;
-		break;
-
-	case VINSTR_IDLE:
-		if (!vinstr_ctx->nclients) {
-			vinstr_ctx->state = VINSTR_SUSPENDING;
-			schedule_work(&vinstr_ctx->suspend_work);
-		}
-		break;
-
-	case VINSTR_DUMPING:
-		if (!vinstr_ctx->nclients)
-			vinstr_ctx->state = VINSTR_SUSPENDING;
-		break;
-
-	case VINSTR_RESUMING:
-		if (!vinstr_ctx->nclients)
-			vinstr_ctx->need_suspend = true;
-		break;
-	}
 }
 
 void kbase_vinstr_resume(struct kbase_vinstr_context *vinstr_ctx)
@@ -2289,47 +2068,5 @@ void kbase_vinstr_resume(struct kbase_vinstr_context *vinstr_ctx)
 			}
 		}
 	}
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-}
-
-void kbase_vinstr_suspend_client(struct kbase_vinstr_client *client)
-{
-	struct kbase_vinstr_context *vinstr_ctx = client->vinstr_ctx;
-	unsigned long flags;
-
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-
-	if (!client->suspended) {
-		list_del(&client->list);
-		list_add(&client->list, &vinstr_ctx->suspended_clients);
-
-		vinstr_ctx->nclients--;
-		vinstr_ctx->nclients_suspended++;
-		kbase_vinstr_update_suspend(vinstr_ctx);
-
-		client->suspended = true;
-	}
-
-	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
-}
-
-void kbase_vinstr_resume_client(struct kbase_vinstr_client *client)
-{
-	struct kbase_vinstr_context *vinstr_ctx = client->vinstr_ctx;
-	unsigned long flags;
-
-	spin_lock_irqsave(&vinstr_ctx->state_lock, flags);
-
-	if (client->suspended) {
-		list_del(&client->list);
-		list_add(&client->list, &vinstr_ctx->idle_clients);
-
-		vinstr_ctx->nclients++;
-		vinstr_ctx->nclients_suspended--;
-		kbase_vinstr_update_suspend(vinstr_ctx);
-
-		client->suspended = false;
-	}
-
 	spin_unlock_irqrestore(&vinstr_ctx->state_lock, flags);
 }

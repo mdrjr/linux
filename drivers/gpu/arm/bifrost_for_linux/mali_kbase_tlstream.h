@@ -7,18 +7,13 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 #if !defined(_KBASE_TLSTREAM_H)
 #define _KBASE_TLSTREAM_H
@@ -139,7 +134,7 @@ void __kbase_tlstream_tl_attrib_atom_config(
 		void *atom, u64 jd, u64 affinity, u32 config);
 void __kbase_tlstream_tl_attrib_atom_priority(void *atom, u32 prio);
 void __kbase_tlstream_tl_attrib_atom_state(void *atom, u32 state);
-void __kbase_tlstream_tl_attrib_atom_prioritized(void *atom);
+void __kbase_tlstream_tl_attrib_atom_priority_change(void *atom);
 void __kbase_tlstream_tl_attrib_atom_jit(
 		void *atom, u64 edit_addr, u64 new_addr);
 void __kbase_tlstream_tl_attrib_as_config(
@@ -147,8 +142,6 @@ void __kbase_tlstream_tl_attrib_as_config(
 void __kbase_tlstream_tl_event_atom_softstop_ex(void *atom);
 void __kbase_tlstream_tl_event_lpu_softstop(void *lpu);
 void __kbase_tlstream_tl_event_atom_softstop_issue(void *atom);
-void __kbase_tlstream_tl_event_atom_softjob_start(void *atom);
-void __kbase_tlstream_tl_event_atom_softjob_end(void *atom);
 void __kbase_tlstream_jd_gpu_soft_reset(void *gpu);
 void __kbase_tlstream_aux_pm_state(u32 core_type, u64 state);
 void __kbase_tlstream_aux_pagefault(u32 ctx_nr, u64 page_count_change);
@@ -487,13 +480,13 @@ extern atomic_t kbase_tlstream_enabled;
 	__TRACE_IF_ENABLED_LATENCY(tl_attrib_atom_state, atom, state)
 
 /**
- * KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITIZED - atom was prioritized
+ * KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITY_CHANGE - atom caused priority change
  * @atom:  name of the atom object
  *
  * Function emits a timeline message signalling priority change
  */
-#define KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITIZED(atom) \
-	__TRACE_IF_ENABLED_LATENCY(tl_attrib_atom_prioritized, atom)
+#define KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITY_CHANGE(atom) \
+	__TRACE_IF_ENABLED_LATENCY(tl_attrib_atom_priority_change, atom)
 
 /**
  * KBASE_TLSTREAM_TL_ATTRIB_ATOM_JIT - jit happened on atom
@@ -517,39 +510,25 @@ extern atomic_t kbase_tlstream_enabled;
 	__TRACE_IF_ENABLED(tl_attrib_as_config, as, transtab, memattr, transcfg)
 
 /**
- * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_EX
+ * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_ex
  * @atom:       atom identifier
  */
 #define KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_EX(atom) \
 	__TRACE_IF_ENABLED(tl_event_atom_softstop_ex, atom)
 
 /**
- * KBASE_TLSTREAM_TL_EVENT_LPU_SOFTSTOP
+ * KBASE_TLSTREAM_TL_EVENT_LPU_softstop
  * @lpu:        name of the LPU object
  */
 #define KBASE_TLSTREAM_TL_EVENT_LPU_SOFTSTOP(lpu) \
 	__TRACE_IF_ENABLED(tl_event_lpu_softstop, lpu)
 
 /**
- * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_ISSUE
+ * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_issue
  * @atom:       atom identifier
  */
 #define KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTSTOP_ISSUE(atom) \
 	__TRACE_IF_ENABLED(tl_event_atom_softstop_issue, atom)
-
-/**
- * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_START
- * @atom:       atom identifier
- */
-#define KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_START(atom) \
-	__TRACE_IF_ENABLED(tl_event_atom_softjob_start, atom)
-
-/**
- * KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_END
- * @atom:       atom identifier
- */
-#define KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_END(atom) \
-	__TRACE_IF_ENABLED(tl_event_atom_softjob_end, atom)
 
 /**
  * KBASE_TLSTREAM_JD_GPU_SOFT_RESET - The GPU is being soft reset

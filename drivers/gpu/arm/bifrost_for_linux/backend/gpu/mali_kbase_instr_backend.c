@@ -1,24 +1,19 @@
 /*
  *
- * (C) COPYRIGHT 2014-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 
 
@@ -68,7 +63,7 @@ static void kbasep_instr_hwcnt_cacheclean(struct kbase_device *kbdev)
 
 int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 					struct kbase_context *kctx,
-					struct kbase_ioctl_hwcnt_enable *enable)
+					struct kbase_uk_hwcnt_setup *setup)
 {
 	unsigned long flags, pm_flags;
 	int err = -EINVAL;
@@ -81,7 +76,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 							KBASE_PM_CORE_SHADER);
 
 	/* alignment failure */
-	if ((enable->dump_buffer == 0ULL) || (enable->dump_buffer & (2048 - 1)))
+	if ((setup->dump_buffer == 0ULL) || (setup->dump_buffer & (2048 - 1)))
 		goto out_err;
 
 	/* Override core availability policy to ensure all cores are available
@@ -110,7 +105,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 	/* In use, this context is the owner */
 	kbdev->hwcnt.kctx = kctx;
 	/* Remember the dump address so we can reprogram it later */
-	kbdev->hwcnt.addr = enable->dump_buffer;
+	kbdev->hwcnt.addr = setup->dump_buffer;
 
 	/* Request the clean */
 	kbdev->hwcnt.backend.state = KBASE_INSTR_STATE_REQUEST_CLEAN;
@@ -150,15 +145,15 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 			prfcnt_config | PRFCNT_CONFIG_MODE_OFF, kctx);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_BASE_LO),
-					enable->dump_buffer & 0xFFFFFFFF, kctx);
+					setup->dump_buffer & 0xFFFFFFFF, kctx);
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_BASE_HI),
-					enable->dump_buffer >> 32,        kctx);
+					setup->dump_buffer >> 32,        kctx);
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_JM_EN),
-					enable->jm_bm,                    kctx);
+					setup->jm_bm,                    kctx);
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_SHADER_EN),
-					enable->shader_bm,                kctx);
+					setup->shader_bm,                kctx);
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_MMU_L2_EN),
-					enable->mmu_l2_bm,                kctx);
+					setup->mmu_l2_bm,                kctx);
 	/* Due to PRLAM-8186 we need to disable the Tiler before we enable the
 	 * HW counter dump. */
 	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8186))
@@ -166,7 +161,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 									kctx);
 	else
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_TILER_EN),
-							enable->tiler_bm, kctx);
+							setup->tiler_bm, kctx);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_CONFIG),
 			prfcnt_config | PRFCNT_CONFIG_MODE_MANUAL, kctx);
@@ -175,7 +170,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 	 */
 	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8186))
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_TILER_EN),
-							enable->tiler_bm, kctx);
+							setup->tiler_bm, kctx);
 
 	spin_lock_irqsave(&kbdev->hwcnt.lock, flags);
 
