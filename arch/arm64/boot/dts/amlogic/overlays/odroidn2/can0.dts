@@ -6,15 +6,29 @@
 
 / {
 	fragment@0 {
-		target = <&spicc0>;
+		target-path = "/";
+		__overlay__ {
+			can0_clk: can0-clk {
+				compatible = "fixed-clock";
+				clock-frequency = <16000000>;
+				clock-output-names = "can0_clk";
+				#clock-cells = <0>;
+			};
+		};
+	};
 
+	fragment@1 {
+		target = <&spicc0>;
 		__overlay__ {
 			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
 
 			can0: can@0 {
 				compatible = "microchip,mcp2515";
-				gpio-irq = <&gpio GPIOX_3 GPIO_ACTIVE_LOW>;
 				reg = <1>;
+				clocks = <&can0_clk>;
+				gpio-irq = <&gpio GPIOX_3 GPIO_ACTIVE_LOW>;
 				spi-max-frequency = <10000000>;
 				status = "okay";
 			};
