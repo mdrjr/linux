@@ -350,7 +350,7 @@ typedef struct {
 	uByte		bDescriptorType;
 	uWord		bString[127];
 } UPACKED usb_string_descriptor_t;
-#define USB_MAX_STRING_LEN 128
+
 #define USB_LANGUAGE_TABLE 0	/* # of the string language id table */
 
 /* Hub specific request */
@@ -682,8 +682,8 @@ struct usb_device_info {
 	u_int8_t	udi_bus;
 	u_int8_t	udi_addr;	/* device address */
 	usb_event_cookie_t udi_cookie;
-	char		udi_product[USB_MAX_STRING_LEN];
-	char		udi_vendor[USB_MAX_STRING_LEN];
+	char		udi_product[128];
+	char		udi_vendor[128];
 	char		udi_release[8];
 	u_int16_t	udi_productNo;
 	u_int16_t	udi_vendorNo;
