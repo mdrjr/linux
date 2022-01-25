@@ -254,7 +254,7 @@
 		/* max 0xff, each bit for one channel */
 		channel_mask = <0x3>;
 	};
-	auge_sound {
+	auge_sound: auge_sound {
 		compatible = "amlogic, g12a-sound-card";
 		aml-audio-card,name = "AML-AUGESOUND";
 		/*line-out mute gpio*/

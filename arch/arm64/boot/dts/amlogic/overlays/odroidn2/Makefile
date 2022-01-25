@@ -22,7 +22,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDN2) += spi0.dtbo		\
 					pwm_c-pwmfan.dtbo	\
 					pwm_d-backlight.dtbo	\
 					gpio-joystick0.dtbo	\
-					gpio-joystick1.dtbo
+					gpio-joystick1.dtbo	\
+					display_vu7c.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
