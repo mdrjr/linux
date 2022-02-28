@@ -1876,15 +1876,15 @@ static struct hdmi_format_para fmt_para_vesa_800x600p60_4x3 = {
 	.progress_mode = 1,
 	.scrambler_en = 0,
 	.tmds_clk_div40 = 0,
-	.tmds_clk = 40000,
+	.tmds_clk = 39895,
 	.timing = {
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-		.pixel_freq = 40000,
+		.pixel_freq = 39895,
 #else
 		.pixel_freq = 66666,
 #endif
-		.h_freq = 37879,
-		.v_freq = 60317,
+		.h_freq = 37780,
+		.v_freq = 60000,
 		.vsync = 60,
 		.vsync_polarity = 1,
 		.hsync_polarity = 1,
@@ -1913,7 +1913,7 @@ static struct hdmi_format_para fmt_para_vesa_800x600p60_4x3 = {
 		.sync_duration_num = 60,
 		.sync_duration_den = 1,
 #if defined(CONFIG_ARCH_MESON64_ODROID_COMMON)
-		.video_clk         = 40000000,
+		.video_clk         = 39895000,
 #else
 		.video_clk         = 66666000,
 #endif
