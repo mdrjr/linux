@@ -228,7 +228,8 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 
 #ifdef CONFIG_ARCH_MESON64_ODROID_COMMON
 	if (!strcmp(machine_name, "Hardkernel ODROID-N2") ||
-		!strcmp(machine_name, "Hardkernel ODROID-N2Plus")) {
+		!strcmp(machine_name, "Hardkernel ODROID-N2Plus") ||
+		!strcmp(machine_name, "Hardkernel ODROID-N2L")) {
 		system_rev = 0x0400;
 		__odroid_model = BOARD_ODROIDN2;
 		__odroid_amlogic_usb3 = true;

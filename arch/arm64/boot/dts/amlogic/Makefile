@@ -12,6 +12,7 @@ dtb-$(CONFIG_ARCH_MESON64_ODROIDC4) += meson64_odroidhc4.dtb
 dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2.dtb
 dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2_plus.dtb
 dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2_drm.dtb
+dtb-$(CONFIG_ARCH_MESON64_ODROIDN2) += meson64_odroidn2l.dtb
 
 subdir-$(CONFIG_ARCH_MESON64_ODROIDC4) += overlays/odroidc4
 subdir-$(CONFIG_ARCH_MESON64_ODROIDN2) += overlays/odroidn2
