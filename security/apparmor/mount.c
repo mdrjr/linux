@@ -233,7 +233,7 @@ static struct file_perms compute_mnt_perms(struct aa_dfa *dfa,
 	return perms;
 }
 
-static const char const *mnt_info_table[] = {
+static const char *mnt_info_table[] = {
 	"match succeeded",
 	"failed mntpnt match",
 	"failed srcname match",
