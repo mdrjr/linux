@@ -155,25 +155,16 @@
 
 }; /* end of / */
 
+&auge_sound {
+	/delete-node/ mute_gpio;
+};
+
 &ethmac {
 	status = "disabled";
 };
 
-&dwc2_a {
-	status = "okay";
-	port-type = <1>;	/** 0: otg, 1: host, 2: slave */
-	port-id-mode = <1>;	/** 0: hardware, 1: sw_host, 2: sw_slave*/
-
-	/* 0: normal, 1: host only, 2: device only 3: otg*/
-	controller-type = <3>;
-};
-
-&usb3_phy_v2 {
-	status = "okay";
-	portnum = <1>;
-	otg = <1>;
-	gpio-vbus-power = "GPIOH_6";
-	gpios = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
+&i2c3 {
+	status = "disabled";
 };
 
 &reboot {
