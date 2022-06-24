@@ -703,7 +703,7 @@ static void validate_memory_flags(struct vb2_queue *q,
 		*flags = 0;
 	} else {
 		/* Clear all unknown flags. */
-		*flags &= V4L2_MEMORY_FLAG_NON_COHERENT;
+		*flags |= V4L2_MEMORY_FLAG_NON_COHERENT;
 	}
 }
 
