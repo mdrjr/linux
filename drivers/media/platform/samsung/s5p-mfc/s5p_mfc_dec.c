@@ -632,7 +632,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 
 	if (ctx->state == MFCINST_ERROR) {
 		mfc_err("Call on QBUF after unrecoverable error\n");
-		return -EIO;
+		return -EAGAIN;
 	}
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return vb2_qbuf(&ctx->vq_src, NULL, buf);
@@ -652,7 +652,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 
 	if (ctx->state == MFCINST_ERROR) {
 		mfc_err_limited("Call on DQBUF after unrecoverable error\n");
-		return -EIO;
+		return -EAGAIN;
 	}
 
 	switch (buf->type) {
