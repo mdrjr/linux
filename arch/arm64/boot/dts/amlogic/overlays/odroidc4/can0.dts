@@ -10,7 +10,7 @@
 		__overlay__ {
 			can0_clk: can0-clk {
 				compatible = "fixed-clock";
-				clock-frequency = <16000000>;
+				clock-frequency = <8000000>;
 				clock-output-names = "can0_clk";
 				#clock-cells = <0>;
 			};
