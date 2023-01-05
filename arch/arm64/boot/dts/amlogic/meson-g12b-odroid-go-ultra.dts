@@ -789,6 +789,11 @@
 			output-disable;
 		};
 	};
+	lcd_reset_gpio: lcd-reset-gpio {
+		pins = "GPIOH_4";
+		bias-pull-up;
+		output-enable;
+	};
 };
 
 &pwm_ef {
