@@ -451,12 +451,12 @@
 				regulator-name = "vdd_ee";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <875000>;
+				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <1250000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <875000>;
+					regulator-suspend-microvolt = <1000000>;
 				};
 			};
 
@@ -472,12 +472,10 @@
 			vddao_3v3: DCDC_REG4 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
 				regulator-name = "vddao_3v3";
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <3300000>;
+					regulator-suspend-microvolt = <3000000>;
 				};
 			};
 
@@ -580,8 +578,6 @@
 				regulator-name = "vcc_sd";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
 				};
@@ -636,8 +632,8 @@
 			vddcpu_b: DCDC_REG2 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <737500>;
-				regulator-max-microvolt = <1012500>;
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1450000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vddcpu_b";
@@ -727,8 +723,10 @@
 			};
 
 			vcc_lcd: LDO_REG8 {
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-name = "vcc_lcd";
 				regulator-state-mem {
 					regulator-off-in-suspend;
