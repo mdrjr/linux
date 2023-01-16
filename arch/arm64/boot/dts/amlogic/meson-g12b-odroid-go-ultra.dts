@@ -100,6 +100,26 @@
 		default-brightness-level = <255>;
 	};
 
+	bat: battery {
+		compatible = "simple-battery";
+		voltage-max-design-microvolt = <4200000>;
+		voltage-min-design-microvolt = <3500000>;
+		charge-full-design-microamp-hours = <4000000>;
+		charge-term-current-microamp = <200000>;
+		constant-charge-current-max-microamp = <1500000>;
+		constant-charge-voltage-max-microvolt = <4200000>;
+		factory-internal-resistance-micro-ohms = <180000>;
+
+
+		ocv-capacity-celsius = <20>;
+		ocv-capacity-table-0 =	<4146950 100>, <4001920 95>, <3967900 90>, <3919950 85>,
+					<3888450 80>, <3861850 75>, <3831540 70>, <3799130 65>,
+					<3768190 60>, <3745650 55>, <3726610 50>, <3711630 45>,
+					<3696720 40>, <3685660 35>, <3674950 30>, <3663050 25>,
+					<3649470 20>, <3635260 15>, <3616920 10>, <3592440 5>,
+					<3574170 0>;
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
@@ -583,13 +603,46 @@
 				};
 			};
 
-			OTG_SWITCH {
+			rk818_otg_switch: OTG_SWITCH {
 				regulator-name = "otg_switch";
 				regulator-state-mem {
 					regulator-off-in-suspend;
 				};
 			};
 		};
+
+		battery {
+			compatible = "rockchip,rk818-battery";
+
+			ocv_table = <
+				3470 3599 3671 3701 3728 3746 3762
+				3772 3781 3792 3816 3836 3866 3910
+				3942 3971 4002 4050 4088 4132 4200>;
+			design_capacity = <4000>;
+			design_qmax = <4100>;
+			bat_res = <180>;
+			max_input_current = <2000>;
+			max_chrg_current = <1500>;
+			max_chrg_voltage = <4250>;
+			sleep_enter_current = <300>;
+			sleep_exit_current = <300>;
+			power_off_thresd = <3450>;
+			zero_algorithm_vol = <3700>;
+			fb_temperature = <105>;
+			sample_res = <10>;
+			max_soc_offset = <60>;
+			energy_mode = <0>;
+			monitor_sec = <5>;
+			virtual_power = <0>;
+			power_dc2otg = <0>;
+			otg5v_suspend_enable = <0>;
+		};
+
+		charger { 
+			compatible = "rockchip,rk818-charger";
+			monitored-battery = <&bat>;
+		};
+
 	};
 };
 
@@ -760,6 +813,10 @@
 					regulator-off-in-suspend;
 				};
 			};
+		};
+
+		rk817_codec: codec {
+			rockchip,mic-in-differential;
 		};
 	};
 };
