@@ -399,7 +399,11 @@
 		opp-microvolt = <987500>;
 	};
 	opp-1992000000 {
-		opp-microvolt = <1012500>;
+		opp-microvolt = <1050000>;
+	};
+	opp-2016000000 {
+        opp-hz = /bits/ 64 <2016000000>;
+		opp-microvolt = <1050000>;
 	};
 };
 
@@ -428,6 +432,26 @@
 	};
 	opp-1908000000 {
 		opp-microvolt = <1025000>;
+	};
+	opp-2016000000 {
+		opp-hz = /bits/ 64 <2016000000>;
+		opp-microvolt = <1025000>;
+	};
+	opp-2100000000 {
+		opp-hz = /bits/ 64 <2100000000>;
+		opp-microvolt = <1025000>;
+	};
+	opp-2208000000 {
+		opp-hz = /bits/ 64 <2208000000>;
+		opp-microvolt = <1050000>;
+	};
+	opp-2304000000 {
+		opp-hz = /bits/ 64 <2304000000>;
+		opp-microvolt = <1050000>;
+	};
+	opp-2400000000 {
+		opp-hz = /bits/ 64 <2400000000>;
+		opp-microvolt = <1050000>;
 	};
 };
 
@@ -458,8 +482,8 @@
 				regulator-name = "vddcpu_a";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <775000>;
-				regulator-max-microvolt = <1025000>;
+				regulator-min-microvolt = <737500>;
+				regulator-max-microvolt = <1450000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
@@ -685,7 +709,7 @@
 			vddcpu_b: DCDC_REG2 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <750000>;
+				regulator-min-microvolt = <737500>;
 				regulator-max-microvolt = <1450000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
