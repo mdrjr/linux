@@ -276,8 +276,8 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "Odroid GO Ultra";
-		audio-widgets = "Microphone", "Mic Jack",
-				"Headphone", "Headphones",
+		/*audio-widgets = "Microphone", "Mic Jack",
+				"Headphone", "Headphone Jack",
 				"Speaker", "Internal Speakers";
 		audio-aux-devs = <&tdmout_b>, <&tdmin_b>, <&speaker_amp>;
 		audio-routing =	"TDMOUT_B IN 0", "FRDDR_A OUT 1",
@@ -285,13 +285,13 @@
 				"TDMIN_B IN 1", "TDM_B Capture",
 				"TDMIN_B IN 4", "TDM_B Loopback",
 				"TODDR_A IN 1", "TDMIN_B OUT",
-				"MICL", "Mic Jack",
+				"MIC_IN", "Mic Jack",
 				"Headphones", "HPOL",
 				"Headphones", "HPOR",
-				"Speaker Amplifier INL", "HPOL",
-				"Speaker Amplifier INR", "HPOR",
-				"Internal Speakers", "Speaker Amplifier OUTL",
-				"Internal Speakers", "Speaker Amplifier OUTR";
+				"Speaker Amplifier INL", "SPK",
+				"Speaker Amplifier INR", "SPK",
+				"Internal Speakers", "SPK",
+				"Internal Speakers", "SPK"; */
 
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
@@ -314,6 +314,9 @@
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-0 = <1 1>;
+			dai-tdm-slot-rx-mask-0 = <1 1>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
 			mclk-fs = <256>;
 
 			codec-0 {
@@ -840,7 +843,13 @@
 		};
 
 		rk817_codec: codec {
-			rockchip,mic-in-differential;
+			#sound-dai-cells = <0>;
+			compatible = "rockchip,rk817-codec";
+			clocks = <&codec_clk>;
+			clock-names = "mclk";
+			hp-volume = <20>;
+			spk-volume = <3>;
+			status = "okay";
 		};
 	};
 };
