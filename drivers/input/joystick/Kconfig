@@ -412,4 +412,10 @@ config JOYSTICK_SENSEHAT
 	  To compile this driver as a module, choose M here: the
 	  module will be called sensehat_joystick.
 
+config JOYSTICK_ODROID_GOU
+       tristate "ODROID-Go-Ultra joypad driver"
+       depends on INPUT_POLLDEV
+       help
+         Made for ODROID-GO-Ultra.
+
 endif

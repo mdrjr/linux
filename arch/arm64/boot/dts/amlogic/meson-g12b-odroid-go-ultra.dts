@@ -46,52 +46,6 @@
 		  <&clkc CLKID_MIPI_DSI_PHY>;
 	};
 
-	adc-joystick-left {
-		compatible = "adc-joystick";
-		io-channels = <&saradc 2>, <&saradc 3>;
-		poll-interval = <10>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		axis@0 {
-			reg = <0>;
-			linux,code = <ABS_Y>;
-			abs-range = <3150 950>;
-			abs-fuzz = <32>;
-			abs-flat = <64>;
-		};
-		axis@1 {
-			reg = <1>;
-			linux,code = <ABS_X>;
-			abs-range = <700 2900>;
-			abs-fuzz = <32>;
-			abs-flat = <64>;
-		};
-	};
-
-	adc-joystick-right {
-		compatible = "adc-joystick";
-		io-channels = <&saradc 0>, <&saradc 1>;
-		poll-interval = <10>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		axis@0 {
-			reg = <0>;
-			linux,code = <ABS_RY>;
-			abs-range = <3150 950>;
-			abs-fuzz = <32>;
-			abs-flat = <64>;
-		};
-		axis@1 {
-			reg = <1>;
-			linux,code = <ABS_RX>;
-			abs-range = <800 3000>;
-			abs-fuzz = <32>;
-			abs-flat = <64>;
-		};
-	};
-	
 	panel_backlight: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_ef 1 40000 0>;
@@ -131,11 +85,10 @@
 		#clock-cells = <0>;
 	};
 
-	gpio-keys-polled {
+	gpio_keys: volume-keys {
 		compatible = "gpio-keys-polled";
-		poll-interval = <10>;
-		pinctrl-0 = <&keypad_gpio_pins>;
-		pinctrl-names = "default";
+		poll-interval = <200>;
+		autorepeat;
 
 		volume-up-button {
 			label = "VOLUME-UP";
@@ -147,6 +100,37 @@
 			linux,code = <KEY_VOLUMEDOWN>;
 			gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
 		};
+	};
+
+    joypad: gou_joypad {
+       compatible = "odroidgou-joypad";
+		poll-interval = <10>;
+		pinctrl-0 = <&keypad_gpio_pins>;
+		pinctrl-names = "default";
+        status = "okay";
+		
+		joypad-name = "Microsoft X-Box 360 pad";
+		joypad-vendor = <0x045e>;
+		joypad-product = <0x028e>;
+		joypad-revision = <0x0000>;
+
+		/* Analog sticks */
+		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>, <&saradc 3>;
+		io-channel-names = "key-RY", "key-RX", "key-LY", "key-LX";
+		button-adc-scale = <4>;
+		button-adc-deadzone = <64>;
+		button-adc-fuzz = <32>;
+		button-adc-flat = <32>;
+		abs_x-p-tuning = <350>;
+		abs_x-n-tuning = <350>;
+		abs_y-p-tuning = <350>;
+		abs_y-n-tuning = <350>;
+		abs_rx-p-tuning = <350>;
+		abs_rx-n-tuning = <350>;
+		abs_ry-p-tuning = <350>;
+		abs_ry-n-tuning = <350>;
+
+		/* Buttons */
 		dpad-up-button {
 			label = "DPAD-UP";
 			linux,code = <BTN_DPAD_UP>;
@@ -187,24 +171,29 @@
 			linux,code = <BTN_NORTH>;
 			gpios = <&gpio GPIOX_7 GPIO_ACTIVE_LOW>;
 		};
-		f1-button {
-			label = "F1";
-			linux,code = <BTN_TRIGGER_HAPPY1>;
+		start-button {
+			label = "Start";
+			linux,code = <BTN_START>;
+			gpios = <&gpio GPIOX_16 GPIO_ACTIVE_LOW>;
+		};
+		select-button {
+			label = "Select";
+			linux,code = <BTN_SELECT>;
 			gpios = <&gpio GPIOX_17 GPIO_ACTIVE_LOW>;
+		};
+		thumb-left-button {
+			label = "Thumb Left";
+			linux,code = <BTN_THUMBL>;
+			gpios = <&gpio GPIOX_11 GPIO_ACTIVE_LOW>;
 		};
 		f2-button {
 			label = "F2";
 			linux,code = <BTN_TRIGGER_HAPPY2>;
 			gpios = <&gpio GPIOX_10 GPIO_ACTIVE_LOW>;
 		};
-		f3-button {
-			label = "F3";
-			linux,code = <BTN_TRIGGER_HAPPY3>;
-			gpios = <&gpio GPIOX_11 GPIO_ACTIVE_LOW>;
-		};
-		f4-button {
-			label = "F4";
-			linux,code = <BTN_TRIGGER_HAPPY4>;
+		thumb-right-button {
+			label = "Thumb Right";
+			linux,code = <BTN_THUMBR>;
 			gpios = <&gpio GPIOX_12 GPIO_ACTIVE_LOW>;
 		};
 		f5-button {
@@ -212,28 +201,23 @@
 			linux,code = <BTN_TRIGGER_HAPPY5>;
 			gpios = <&gpio GPIOX_13 GPIO_ACTIVE_LOW>;
 		};
-		f6-button {
-			label = "F6";
-			linux,code = <BTN_TRIGGER_HAPPY6>;
-			gpios = <&gpio GPIOX_16 GPIO_ACTIVE_LOW>;
-		};
 		top-left-button {
-			label = "TOP Left";
+			label = "Top Left";
 			linux,code = <BTN_TL>;
 			gpios = <&gpio GPIOX_14 GPIO_ACTIVE_LOW>;
 		};
 		top-left2-button {
-			label = "TOP Left 2";
+			label = "Top Left 2";
 			linux,code = <BTN_TL2>;
 			gpios = <&gpio GPIOX_19 GPIO_ACTIVE_LOW>;
 		};
 		top-right-button {
-			label = "TOP Right";
+			label = "Top Right";
 			linux,code = <BTN_TR>;
 			gpios = <&gpio GPIOX_15 GPIO_ACTIVE_LOW>;
 		};
 		top-right2-button {
-			label = "TOP Right 2";
+			label = "Top Right 2";
 			linux,code = <BTN_TR2>;
 			gpios = <&gpio GPIOX_18 GPIO_ACTIVE_LOW>;
 		};
