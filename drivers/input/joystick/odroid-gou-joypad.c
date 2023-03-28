@@ -22,32 +22,6 @@
 
 /*----------------------------------------------------------------------------*/
 
-/* buttons shared with xbox and xbox360 */
-static const signed short xpad_btn[] = {
-	BTN_A, BTN_B, BTN_X, BTN_Y,			           /* "analog" buttons */
-	BTN_THUMBL, BTN_THUMBR, BTN_SELECT, BTN_START, /* start/back/sticks */
-	BTN_MODE,		                               /* The big X button */
-	BTN_TL, BTN_TR,		                           /* Button LB/RB */
-	// BTN_C, BTN_Z,		                       /* "analog" buttons */
-	BTN_TRIGGER_HAPPY1, BTN_TRIGGER_HAPPY2,		   /* d-pad left, right */
-	BTN_TRIGGER_HAPPY3, BTN_TRIGGER_HAPPY4,		   /* d-pad up, down */
-	// BTN_TL2, BTN_TR2,                           /* triggers left/right */
-	-1
-};
-
-/* xbox analog axes */
-static const signed short xpad_abs[] = {
-	ABS_X, ABS_Y,		  /* left stick */
-	ABS_RX, ABS_RY,		  /* right stick */
-	ABS_Z, ABS_RZ,		  /* triggers left/right */
-	-1
-};
-
-/* xbox dpad */
-static const signed short xpad_hat[] = {
-	ABS_HAT0X, ABS_HAT0Y, /* d-pad axes */
-	-1
-};
 
 /*----------------------------------------------------------------------------*/
 #define	ADC_MAX_VOLTAGE		1800
@@ -385,60 +359,27 @@ static struct attribute_group joypad_attr_group = {
 /*----------------------------------------------------------------------------*/
 static void joypad_gpio_check(struct input_polled_dev *poll_dev)
 {
-	#define UPDATE_ABS(x, y) \
-		if (value != gpio->old_value) { \
-			gpio->old_value = value; \
-			changed |= 1 << (x); \
-			y; \
-		}
+        struct joypad *joypad = poll_dev->private;
+        int nbtn, value;
 
-	#define CHECK_ABS(x) (changed & (1 << (x)))
-	struct joypad *joypad = poll_dev->private;
-	unsigned long long int changed = 0;
-	int hat0x = 0, hat0y = 0, z = 0, rz = 0;
-	int nbtn, value, active;
+        for (nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
+                struct bt_gpio *gpio = &joypad->gpios[nbtn];
 
-	for (nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
-		struct bt_gpio *gpio = &joypad->gpios[nbtn];
+                if (gpio_get_value_cansleep(gpio->num) < 0) {
+                        dev_err(joypad->dev, "failed to get gpio state\n");
+                        continue;
+                }
+                value = gpio_get_value(gpio->num);
+                if (value != gpio->old_value) {
+                        input_event(poll_dev->input,
+                                gpio->report_type,
+                                gpio->linux_code,
+                                (value == gpio->active_level) ? 1 : 0);
+                        gpio->old_value = value;
+                }
+        }
+        input_sync(poll_dev->input);
 
-		if (gpio_get_value_cansleep(gpio->num) < 0) {
-			dev_err(joypad->dev, "failed to get gpio state\n");
-			continue;
-		}
-		value = gpio_get_value(gpio->num);
-		active = (value == gpio->active_level);
-
-		switch (gpio->linux_code) {
-			// dpad emulation
-			case BTN_DPAD_UP:    UPDATE_ABS(ABS_HAT0Y, hat0y -= active); break;
-			case BTN_DPAD_DOWN:  UPDATE_ABS(ABS_HAT0Y, hat0y += active); break;
-			case BTN_DPAD_LEFT:  UPDATE_ABS(ABS_HAT0X, hat0x -= active); break;
-			case BTN_DPAD_RIGHT: UPDATE_ABS(ABS_HAT0X, hat0x += active); break;
-
-			// trigger emulation
-			case BTN_TL2: UPDATE_ABS(ABS_Z,  z  = active * 255); break;
-			case BTN_TR2: UPDATE_ABS(ABS_RZ, rz = active * 255); break;
-			
-			// default button behavior
-			default:
-			if (value != gpio->old_value) {
-				input_event(poll_dev->input,
-					gpio->report_type,
-					gpio->linux_code,
-					active);
-				gpio->old_value = value;
-			}
-			break;
-		}
-	}
-
-	if (CHECK_ABS(ABS_HAT0X)) input_report_abs(poll_dev->input, ABS_HAT0X, hat0x);
-	if (CHECK_ABS(ABS_HAT0Y)) input_report_abs(poll_dev->input, ABS_HAT0Y, hat0y);
-	if (CHECK_ABS(ABS_Z))  input_report_abs(poll_dev->input, ABS_Z, z);
-	if (CHECK_ABS(ABS_RZ)) input_report_abs(poll_dev->input, ABS_RZ, rz);
-	#undef UPDATE_ABS
-	#undef CHECK_ABS
-	input_sync(poll_dev->input);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -708,14 +649,15 @@ static int joypad_gpio_setup(struct device *dev, struct joypad *joypad)
 					gpio->num, error);
 				return error;
 			}
-			//error = gpiod_set_pull(gpio_to_desc(gpio->num),
-			//	GPIOD_PULL_UP);
-			//if (error < 0) {
-			//	dev_err(dev,
-			//		"Failed to set pull-up GPIO %d, error %d\n",
-			//		gpio->num, error);
-			//	return error;
-			//}
+			#if 0
+			error = gpiod_set_pull(gpio_to_desc(gpio->num), GPIOD_PULL_UP);
+			if (error < 0) {
+				dev_err(dev,
+					"Failed to set pull-up GPIO %d, error %d\n",
+					gpio->num, error);
+				return error;
+			}
+			#endif
 		}
 		if (of_property_read_u32(pp, "linux,code", &gpio->linux_code)) {
 			dev_err(dev, "Button without keycode: 0x%x\n",
@@ -773,16 +715,6 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 	/* IIO ADC key setup (0 mv ~ 1800 mv) * adc->scale */
 	__set_bit(EV_ABS, input->evbit);
 
-	// Set dummy values in order to report all possible axes
-	for(nbtn = 0; xpad_abs[nbtn] != -1; nbtn++) {
-		input_set_abs_params(input, xpad_abs[nbtn], 0, 255, 0, 0);
-	}
-
-	// Set the dpad values
-	for(nbtn = 0; xpad_hat[nbtn] != -1; nbtn++) {
-		input_set_abs_params(input, xpad_hat[nbtn], -1, 1, 0, 0);
-	}
-
 	// Set mapped ones on dt
 	for(nbtn = 0; nbtn < joypad->chan_count; nbtn++) {
 		struct bt_adc *adc = &joypad->adcs[nbtn];
@@ -801,7 +733,6 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 			__func__, adc->tuning_p, adc->tuning_n);
 	}
 
-#if 0
 	/* GPIO key setup */
 	__set_bit(EV_KEY, input->evbit);
 	for(nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
@@ -809,13 +740,9 @@ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
 		input_set_capability(input, gpio->report_type,
 				gpio->linux_code);
 	}
-#endif
 
 	if (joypad->auto_repeat)
 		__set_bit(EV_REP, input->evbit);
-	for (nbtn = 0; xpad_btn[nbtn] != -1; nbtn++) {
-		input_set_capability(input, EV_KEY, xpad_btn[nbtn]);
-	}
 
 	joypad->dev = dev;
 
