@@ -5839,7 +5839,7 @@ CONFIG_IIO_KFIFO_BUF=y
 # Humidity sensors
 #
 # CONFIG_AM2315 is not set
-# CONFIG_DHT11 is not set
+CONFIG_DHT11=m
 # CONFIG_HDC100X is not set
 # CONFIG_HTU21 is not set
 # CONFIG_SI7005 is not set
