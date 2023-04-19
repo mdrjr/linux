@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2012-2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -41,11 +41,31 @@ config MALI_PLATFORM_NAME
 	  When PLATFORM_CUSTOM is set, this needs to be set manually to
 	  pick up the desired platform files.
 
-config MALI_REAL_HW
-	bool
+choice
+	prompt "Mali HW backend"
 	depends on MALI_MIDGARD
-	default y
-	default n if NO_MALI
+	default MALI_NO_MALI if NO_MALI
+	default MALI_REAL_HW
+
+config MALI_REAL_HW
+	bool "Enable build of Mali kernel driver for real HW"
+	depends on MALI_MIDGARD
+	help
+	  This is the default HW backend.
+
+config MALI_NO_MALI
+	bool "Enable build of Mali kernel driver for No Mali"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	help
+	  This can be used to test the driver in a simulated environment
+	  whereby the hardware is not physically present. If the hardware is physically
+	  present it will not be used. This can be used to test the majority of the
+	  driver without needing actual hardware or for software benchmarking.
+	  All calls to the simulated hardware will complete immediately as if the hardware
+	  completed the task.
+
+
+endchoice
 
 config MALI_PLATFORM_DT_PIN_RST
 	bool "Enable Juno GPU Pin reset"
@@ -139,6 +159,12 @@ config MALI_DMA_BUF_LEGACY_COMPAT
 	  flushes in other drivers. This only has an effect for clients using
 	  UK 11.18 or older. For later UK versions it is not possible.
 
+config MALI_CORESIGHT
+	depends on MALI_MIDGARD && MALI_CSF_SUPPORT && !NO_MALI
+	select CSFFW_DEBUG_FW_AS_RW
+	bool "Enable Kbase CoreSight tracing support"
+	default n
+
 menuconfig MALI_EXPERT
 	depends on MALI_MIDGARD
 	bool "Enable Expert Settings"
@@ -169,20 +195,6 @@ config MALI_CORESTACK
 	  This feature is currently only supported on t-Six and t-HEx GPUs.
 
 	  If unsure, say N.
-
-config MALI_FW_CORE_DUMP
-	bool "Enable support for FW core dump"
-	depends on MALI_MIDGARD && MALI_EXPERT && MALI_CSF_SUPPORT
-	default n
-	help
-	  Adds ability to request firmware core dump
-
-	  Example:
-	  * To explicitly request core dump:
-	  echo 1 >/sys/kernel/debug/mali0/fw_core_dump
-	  * To output current core dump (after explicitly requesting a core dump,
-	  or kernel driver reported an internal firmware error):
-	  cat /sys/kernel/debug/mali0/fw_core_dump
 
 choice
 	prompt "Error injection level"
@@ -223,14 +235,6 @@ config MALI_ERROR_INJECT
 	depends on MALI_MIDGARD && MALI_EXPERT
 	default y if !MALI_ERROR_INJECT_NONE
 
-config MALI_GEM5_BUILD
-	bool "Enable build of Mali kernel driver for GEM5"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  This option is to do a Mali GEM5 build.
-	  If unsure, say N.
-
 config MALI_DEBUG
 	bool "Enable debug build"
 	depends on MALI_MIDGARD && MALI_EXPERT
@@ -238,6 +242,23 @@ config MALI_DEBUG
 	default n
 	help
 	  Select this option for increased checking and reporting of errors.
+
+config MALI_GCOV_KERNEL
+	bool "Enable branch coverage via gcov"
+	depends on MALI_MIDGARD && MALI_DEBUG
+	default n
+	help
+	  Choose this option to enable building kbase with branch
+	  coverage information. When built against a supporting kernel,
+	  the coverage information will be available via debugfs.
+
+config MALI_KCOV
+	bool "Enable kcov coverage to support fuzzers"
+	depends on MALI_MIDGARD && MALI_DEBUG
+	default n
+	help
+	  Choose this option to enable building with fuzzing-oriented
+	  coverage, to improve the random test cases that are generated.
 
 config MALI_FENCE_DEBUG
 	bool "Enable debug sync fence usage"
