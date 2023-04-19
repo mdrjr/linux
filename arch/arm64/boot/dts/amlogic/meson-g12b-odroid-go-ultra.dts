@@ -260,8 +260,8 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "Odroid GO Ultra";
-		/*audio-widgets = "Microphone", "Mic Jack",
-				"Headphone", "Headphone Jack",
+		audio-widgets = "Microphone", "Mic Jack",
+				"Headphone", "Headphones",
 				"Speaker", "Internal Speakers";
 		audio-aux-devs = <&tdmout_b>, <&tdmin_b>, <&speaker_amp>;
 		audio-routing =	"TDMOUT_B IN 0", "FRDDR_A OUT 1",
@@ -269,13 +269,14 @@
 				"TDMIN_B IN 1", "TDM_B Capture",
 				"TDMIN_B IN 4", "TDM_B Loopback",
 				"TODDR_A IN 1", "TDMIN_B OUT",
-				"MIC_IN", "Mic Jack",
+				"MICL", "Mic Jack",
 				"Headphones", "HPOL",
 				"Headphones", "HPOR",
-				"Speaker Amplifier INL", "SPK",
-				"Speaker Amplifier INR", "SPK",
-				"Internal Speakers", "SPK",
-				"Internal Speakers", "SPK"; */
+                "Speaker Amplifier INL", "HPOL",
+				"Speaker Amplifier INR", "HPOR",
+				"Internal Speakers", "Speaker Amplifier OUTL",
+				"Internal Speakers", "Speaker Amplifier OUTR";
+
 
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
