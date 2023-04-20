@@ -277,6 +277,7 @@
 			sound-dai = <&frddr_a>;
 		};
 
+		/* 8ch hdmi interface */
 		dai-link-1 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
@@ -444,8 +445,8 @@
 				regulator-name = "vddcpu_a";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <737500>;
-				regulator-max-microvolt = <1450000>;
+				regulator-min-microvolt = <775000>;
+				regulator-max-microvolt = <1050000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
@@ -457,12 +458,12 @@
 				regulator-name = "vdd_ee";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <1250000>;
+				regulator-min-microvolt = <875000>;
+				regulator-max-microvolt = <900000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <1000000>;
+					regulator-suspend-microvolt = <875000>;
 				};
 			};
 
@@ -478,6 +479,8 @@
 			vddao_3v3: DCDC_REG4 {
 				regulator-always-on;
 				regulator-boot-on;
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-name = "vddao_3v3";
 				regulator-state-mem {
 					regulator-on-in-suspend;
@@ -671,7 +674,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <737500>;
-				regulator-max-microvolt = <1450000>;
+				regulator-max-microvolt = <1050000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vddcpu_b";
