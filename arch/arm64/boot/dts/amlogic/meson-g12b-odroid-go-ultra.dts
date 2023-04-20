@@ -272,11 +272,10 @@
 				"MICL", "Mic Jack",
 				"Headphones", "HPOL",
 				"Headphones", "HPOR",
-                "Speaker Amplifier INL", "HPOL",
+		                "Speaker Amplifier INL", "HPOL",
 				"Speaker Amplifier INR", "HPOR",
 				"Internal Speakers", "Speaker Amplifier OUTL",
 				"Internal Speakers", "Speaker Amplifier OUTR";
-
 
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
@@ -299,9 +298,6 @@
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-0 = <1 1>;
-			dai-tdm-slot-rx-mask-0 = <1 1>;
-			dai-tdm-slot-num = <2>;
-			dai-tdm-slot-width = <32>;
 			mclk-fs = <256>;
 
 			codec-0 {
@@ -828,13 +824,7 @@
 		};
 
 		rk817_codec: codec {
-			#sound-dai-cells = <0>;
-			compatible = "rockchip,rk817-codec";
-			clocks = <&codec_clk>;
-			clock-names = "mclk";
-			hp-volume = <20>;
-			spk-volume = <3>;
-			status = "okay";
+			rockchip,mic-in-differential;
 		};
 	};
 };
