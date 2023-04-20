@@ -59,6 +59,13 @@ static int axg_card_tdm_dai_init(struct snd_soc_pcm_runtime *rtd)
 		(struct axg_dai_link_tdm_data *)priv->link_data[rtd->num];
 	struct snd_soc_dai *codec_dai;
 	int ret, i;
+	struct snd_soc_card *card = rtd->card;
+
+	/* Go-Ultra : Digital volume is limited to -2dB */
+	ret = snd_soc_limit_volume(card, "Master Playback Volume", 252);
+	if (ret < 0)
+		dev_dbg(codec_dai->dev,
+			"Not found mixer : 'Master Playback Volume'\n");
 
 	for_each_rtd_codec_dais(rtd, i, codec_dai) {
 		ret = snd_soc_dai_set_tdm_slot(codec_dai,
