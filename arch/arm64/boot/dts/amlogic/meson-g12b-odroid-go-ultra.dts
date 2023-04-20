@@ -260,23 +260,9 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "Odroid GO Ultra";
-		audio-widgets = "Microphone", "Mic Jack",
-				"Headphone", "Headphones",
-				"Speaker", "Internal Speakers";
-		audio-aux-devs = <&tdmout_b>, <&tdmin_b>, <&speaker_amp>;
+		audio-aux-devs = <&tdmout_b>;
 		audio-routing =	"TDMOUT_B IN 0", "FRDDR_A OUT 1",
-				"TDM_B Playback", "TDMOUT_B OUT",
-				"TDMIN_B IN 1", "TDM_B Capture",
-				"TDMIN_B IN 4", "TDM_B Loopback",
-				"TODDR_A IN 1", "TDMIN_B OUT",
-				"MICL", "Mic Jack",
-				"Headphones", "HPOL",
-				"Headphones", "HPOR",
-                "Speaker Amplifier INL", "HPOL",
-				"Speaker Amplifier INR", "HPOR",
-				"Internal Speakers", "Speaker Amplifier OUTL",
-				"Internal Speakers", "Speaker Amplifier OUTR";
-
+				"TDM_B Playback", "TDMOUT_B OUT";
 
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
@@ -291,29 +277,18 @@
 			sound-dai = <&frddr_a>;
 		};
 
+		/* 8ch hdmi interface */
 		dai-link-1 {
-			sound-dai = <&toddr_a>;
-		};
-
-		dai-link-2 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-0 = <1 1>;
-			dai-tdm-slot-rx-mask-0 = <1 1>;
-			dai-tdm-slot-num = <2>;
-			dai-tdm-slot-width = <32>;
+			dai-tdm-slot-tx-mask-1 = <1 1>;
 			mclk-fs = <256>;
 
 			codec-0 {
 				sound-dai = <&rk817>;
 			};
 		};
-	};
-
-	speaker_amp: speaker-amplifier {
-		compatible = "simple-audio-amplifier";
-		sound-name-prefix = "Speaker Amplifier";
-		VCC-supply = <&hp_5v>;
 	};
 };
 
@@ -470,8 +445,8 @@
 				regulator-name = "vddcpu_a";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <737500>;
-				regulator-max-microvolt = <1450000>;
+				regulator-min-microvolt = <775000>;
+				regulator-max-microvolt = <1050000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
@@ -483,12 +458,12 @@
 				regulator-name = "vdd_ee";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <1250000>;
+				regulator-min-microvolt = <875000>;
+				regulator-max-microvolt = <900000>;
 				regulator-ramp-delay = <6001>;
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <1000000>;
+					regulator-suspend-microvolt = <875000>;
 				};
 			};
 
@@ -504,6 +479,8 @@
 			vddao_3v3: DCDC_REG4 {
 				regulator-always-on;
 				regulator-boot-on;
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-name = "vddao_3v3";
 				regulator-state-mem {
 					regulator-on-in-suspend;
@@ -668,7 +645,6 @@
 		reg = <0x20>;
 		status = "okay";
 		interrupt-parent = <&gpio_intc>;
-
 		interrupts = <5 IRQ_TYPE_LEVEL_LOW>; /* GPIOAO_5 */
 
 		vcc1-supply = <&vdd_sys>;
@@ -698,7 +674,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <737500>;
-				regulator-max-microvolt = <1450000>;
+				regulator-max-microvolt = <1050000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vddcpu_b";
@@ -828,13 +804,7 @@
 		};
 
 		rk817_codec: codec {
-			#sound-dai-cells = <0>;
-			compatible = "rockchip,rk817-codec";
-			clocks = <&codec_clk>;
-			clock-names = "mclk";
-			hp-volume = <20>;
-			spk-volume = <3>;
-			status = "okay";
+			rockchip,mic-in-differential;
 		};
 	};
 };
@@ -921,26 +891,21 @@
 
 
 &tdmif_b {
-	pinctrl-0 = <&tdm_b_dout0_pins>, <&tdm_b_fs_pins>, <&tdm_b_sclk_pins>, <&tdm_b_din1_pins>;
+	pinctrl-0 = <&mclk0_a_pins>, <&tdm_b_fs_pins>, <&tdm_b_sclk_pins>,
+		    <&tdm_b_dout0_pins>;
 	pinctrl-names = "default";
 	status = "okay";
 
-	assigned-clocks = <&clkc_audio AUD_CLKID_TDM_SCLK_PAD1>,
+	assigned-clocks = <&clkc_audio AUD_CLKID_TDM_MCLK_PAD0>,
+			  <&clkc_audio AUD_CLKID_TDM_SCLK_PAD1>,
 			  <&clkc_audio AUD_CLKID_TDM_LRCLK_PAD1>;
-	assigned-clock-parents = <&clkc_audio AUD_CLKID_MST_B_SCLK>,
+	assigned-clock-parents = <&clkc_audio AUD_CLKID_MST_B_MCLK>,
+				 <&clkc_audio AUD_CLKID_MST_B_SCLK>,
 				 <&clkc_audio AUD_CLKID_MST_B_LRCLK>;
-	assigned-clock-rates = <0>, <0>;
-};
-
-&tdmin_b {
-	status = "okay";
+	assigned-clock-rates = <0>, <0>, <0>;
 };
 
 &tdmout_b {
-	status = "okay";
-};
-
-&toddr_a {
 	status = "okay";
 };
 
