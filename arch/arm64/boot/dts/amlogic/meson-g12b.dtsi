@@ -137,5 +137,6 @@
 };
 
 &mali {
-	system-coherency=<0>;
+	system-coherency = <0>;
+	power_policy = "always_on";
 };

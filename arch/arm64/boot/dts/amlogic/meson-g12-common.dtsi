@@ -61,14 +61,6 @@
 	gpu_opp_table: opp-table-gpu {
 		compatible = "operating-points-v2";
 
-		opp-124999998 {
-			opp-hz = /bits/ 64 <124999998>;
-			opp-microvolt = <800000>;
-		};
-		opp-249999996 {
-			opp-hz = /bits/ 64 <249999996>;
-			opp-microvolt = <800000>;
-		};
 		opp-285714281 {
 			opp-hz = /bits/ 64 <285714281>;
 			opp-microvolt = <800000>;
@@ -2405,13 +2397,19 @@
 
 		mali: gpu@ffe40000 {
 			compatible = "arm,mali-midgard";
-			reg = <0x0 0xffe40000 0x0 0x40000>;
+			reg = <0x0 0xffe40000 0x0 0x40000>,
+                    <0 0xFFD01000 0 0x01000>,
+                    <0 0xFF800000 0 0x01000>,
+                    <0 0xFF63c000 0 0x01000>,
+                    <0 0xFFD01000 0 0x01000>;
+
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "GPU", "MMU", "JOB";
 			clocks = <&clkc CLKID_MALI>;
+			clock-names = "clk_mali";
 			resets = <&reset RESET_DVALIN_CAPB3>, <&reset RESET_DVALIN>;
 			operating-points-v2 = <&gpu_opp_table>;
 			#cooling-cells = <2>;
