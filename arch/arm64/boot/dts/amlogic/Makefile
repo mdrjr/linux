@@ -79,3 +79,4 @@ dtb-$(CONFIG_ARCH_MESON) += meson64_odroidn2_plus.dtb
 
 subdir-y += overlays/odroidc4
 subdir-y += overlays/odroidn2
+subdir-y += overlays/mali
