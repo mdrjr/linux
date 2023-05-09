@@ -4,6 +4,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/utsname.h>
+#include <linux/module.h>
 
 static int version_signature_proc_show(struct seq_file *m, void *v)
 {
