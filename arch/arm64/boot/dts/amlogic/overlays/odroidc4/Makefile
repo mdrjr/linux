@@ -20,6 +20,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					esp8089.dtbo		\
 					sdio.dtbo		\
 					fanspeed-full.dtbo	\
+					pps-gpio_p11.dtbo	\
+					pps-gpio_p12.dtbo	\
 					pwm_ab.dtbo		\
 					pwm_cd.dtbo		\
 					pwm_ef.dtbo		\
