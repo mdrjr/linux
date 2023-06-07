@@ -2039,6 +2039,8 @@ struct hevc_state_s {
 	bool check_suffix_data;
 	enum FenceModeBufStatus fence_mode_buf_status;
 	bool time_bandwidth_flag;
+	u32 last_slice_offset;
+	u32 stream_multi_frame_flag;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -12858,6 +12860,20 @@ force_output:
 				max_decoding_time = process_time;
 		}
 
+		if (input_stream_based(vdec) && (hevc->slice_count != 0) && (hevc->param.p.slice_segment_address == 0)) {
+			if (hevc->cur_pic)
+				hevc->cur_pic->error_mark = 1;
+			hevc->stream_multi_frame_flag = 1;
+			hevc->dec_result = DEC_RESULT_AGAIN;
+
+			hevc_print(hevc, H265_DEBUG_BUFMGR, "%s: one run muti-slice offset 0x%x/0x%x\n",
+					__func__, hevc->last_slice_offset, READ_VREG(HEVC_SHIFT_BYTE_COUNT));
+			vh265_buf_ref_process_for_exception(hevc);
+			vdec_schedule_work(&hevc->work);
+			return IRQ_HANDLED;
+		}
+		hevc->last_slice_offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);//Record the last slice offset
+
 		hevc->error_watchdog_count = 0;
 		if (hevc->pic_list_init_flag == 2) {
 			hevc->pic_list_init_flag = 3;
@@ -16067,8 +16083,15 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			hevc->data_offset = hevc->chunk->offset;
 			hevc->data_size = r;
 		}
+
+		if (hevc->stream_multi_frame_flag)
+			WRITE_VREG(HEVC_WAIT_FLAG, hevc->last_slice_offset);
+		else
+			WRITE_VREG(HEVC_WAIT_FLAG, 0);
+
 		hevc->multi_frame_flag = 0;
-		WRITE_VREG(HEVC_WAIT_FLAG, 0);
+		hevc->last_slice_offset = 0;
+		hevc->stream_multi_frame_flag = 0;
 	}
 
 	vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_0, r);
