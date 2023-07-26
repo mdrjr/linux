@@ -1,23 +1,19 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 #ifndef _KERNEL_UTF_HELPERS_USER_H_
 #define _KERNEL_UTF_HELPERS_USER_H_
@@ -62,8 +58,7 @@ struct kutf_helper_named_val {
  * unrecoverable)
  *
  * Positive values indicate correct access but invalid parsing (can be
- * recovered from assuming data in the future is correct)
- */
+ * recovered from assuming data in the future is correct) */
 enum kutf_helper_err {
 	/* No error - must be zero */
 	KUTF_HELPER_ERR_NONE = 0,
@@ -71,16 +66,14 @@ enum kutf_helper_err {
 	KUTF_HELPER_ERR_INVALID_NAME,
 	/* Named value parsing of string or u64 type encountered extra
 	 * characters after the value (after the last digit for a u64 type or
-	 * after the string end delimiter for string type)
-	 */
+	 * after the string end delimiter for string type) */
 	KUTF_HELPER_ERR_CHARS_AFTER_VAL,
 	/* Named value parsing of string type couldn't find the string end
 	 * delimiter.
 	 *
 	 * This cannot be encountered when the NAME="value" message exceeds the
 	 * textbuf's maximum line length, because such messages are not checked
-	 * for an end string delimiter
-	 */
+	 * for an end string delimiter */
 	KUTF_HELPER_ERR_NO_END_DELIMITER,
 	/* Named value didn't parse as any of the known types */
 	KUTF_HELPER_ERR_INVALID_VALUE,
@@ -124,8 +117,7 @@ int kutf_helper_max_str_len_for_kern(const char *val_name, int kern_buf_sz);
  *
  * Any failure will be logged on the suite's current test fixture
  *
- * Returns 0 on success, non-zero on failure
- */
+ * Returns 0 on success, non-zero on failure */
 int kutf_helper_send_named_str(struct kutf_context *context,
 		const char *val_name, const char *val_str);
 
@@ -141,8 +133,7 @@ int kutf_helper_send_named_str(struct kutf_context *context,
  *
  * Returns 0 on success. Negative value on failure to receive from the 'run'
  * file, positive value indicates an enum kutf_helper_err value for correct
- * reception of data but invalid parsing
- */
+ * reception of data but invalid parsing */
 int kutf_helper_receive_named_val(
 		struct kutf_context *context,
 		struct kutf_helper_named_val *named_val);
@@ -169,8 +160,7 @@ int kutf_helper_receive_named_val(
  * - return value will be 0 to indicate success
  *
  * The rationale behind this is that we'd prefer to continue the rest of the
- * test with failures propagated, rather than hitting a timeout
- */
+ * test with failures propagated, rather than hitting a timeout */
 int kutf_helper_receive_check_val(
 		struct kutf_helper_named_val *named_val,
 		struct kutf_context *context,

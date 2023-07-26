@@ -1,23 +1,20 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
+
 
 /*
  * Register backend context / address space management
@@ -56,10 +53,8 @@ static void assign_and_activate_kctx_addr_space(struct kbase_device *kbdev,
 	lockdep_assert_held(&js_devdata->runpool_mutex);
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-#if !MALI_USE_CSF
 	/* Attribute handling */
 	kbasep_js_ctx_attr_runpool_retain_ctx(kbdev, kctx);
-#endif
 
 	/* Allow it to run jobs */
 	kbasep_js_set_submit_allowed(js_devdata, kctx);
@@ -67,12 +62,12 @@ static void assign_and_activate_kctx_addr_space(struct kbase_device *kbdev,
 	kbase_js_runpool_inc_context_count(kbdev, kctx);
 }
 
-bool kbase_backend_use_ctx_sched(struct kbase_device *kbdev, struct kbase_context *kctx,
-				 unsigned int js)
+bool kbase_backend_use_ctx_sched(struct kbase_device *kbdev,
+						struct kbase_context *kctx)
 {
 	int i;
 
-	if (kbdev->hwaccess.active_kctx[js] == kctx) {
+	if (kbdev->hwaccess.active_kctx == kctx) {
 		/* Context is already active */
 		return true;
 	}
@@ -147,7 +142,8 @@ int kbase_backend_find_and_release_free_address_space(
 		 */
 		if (as_kctx && !kbase_ctx_flag(as_kctx, KCTX_PRIVILEGED) &&
 			atomic_read(&as_kctx->refcount) == 1) {
-			if (!kbase_ctx_sched_inc_refcount_nolock(as_kctx)) {
+			if (!kbasep_js_runpool_retain_ctx_nolock(kbdev,
+								as_kctx)) {
 				WARN(1, "Failed to retain active context\n");
 
 				spin_unlock_irqrestore(&kbdev->hwaccess_lock,
@@ -187,8 +183,8 @@ int kbase_backend_find_and_release_free_address_space(
 			}
 
 			/* Context was retained while locks were dropped,
-			 * continue looking for free AS
-			 */
+			 * continue looking for free AS */
+
 			mutex_unlock(&js_devdata->runpool_mutex);
 			mutex_unlock(&as_js_kctx_info->ctx.jsctx_mutex);
 
@@ -212,15 +208,12 @@ bool kbase_backend_use_ctx(struct kbase_device *kbdev,
 {
 	struct kbasep_js_device_data *js_devdata;
 	struct kbase_as *new_address_space = NULL;
-	int js;
 
 	js_devdata = &kbdev->js_data;
 
-	for (js = 0; js < BASE_JM_MAX_NR_SLOTS; js++) {
-		if (kbdev->hwaccess.active_kctx[js] == kctx) {
-			WARN(1, "Context is already scheduled in\n");
-			return false;
-		}
+	if (kbdev->hwaccess.active_kctx == kctx) {
+		WARN(1, "Context is already scheduled in\n");
+		return false;
 	}
 
 	new_address_space = &kbdev->as[as_nr];
@@ -234,8 +227,9 @@ bool kbase_backend_use_ctx(struct kbase_device *kbdev,
 	if (kbase_ctx_flag(kctx, KCTX_PRIVILEGED)) {
 		/* We need to retain it to keep the corresponding address space
 		 */
-		kbase_ctx_sched_retain_ctx_refcount(kctx);
+		kbasep_js_runpool_retain_ctx_nolock(kbdev, kctx);
 	}
 
 	return true;
 }
+

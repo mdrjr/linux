@@ -1,26 +1,25 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
 
+
+
+
+
 /**
- * DOC: Run-time work-arounds helpers
+ * @file
+ * Run-time work-arounds helpers
  */
 
 #ifndef _KBASE_HW_H_
@@ -29,17 +28,13 @@
 #include "mali_kbase_defs.h"
 
 /**
- * kbase_hw_has_issue - Tell whether a work-around should be enabled
- * @kbdev: Device pointer
- * @issue: issue to be checked
+ * @brief Tell whether a work-around should be enabled
  */
 #define kbase_hw_has_issue(kbdev, issue)\
 	test_bit(issue, &(kbdev)->hw_issues_mask[0])
 
 /**
- * kbase_hw_has_feature - Tell whether a feature is supported
- * @kbdev: Device pointer
- * @feature: feature to be checked
+ * @brief Tell whether a feature is supported
  */
 #define kbase_hw_has_feature(kbdev, feature)\
 	test_bit(feature, &(kbdev)->hw_features_mask[0])
@@ -63,8 +58,7 @@
 int kbase_hw_set_issues_mask(struct kbase_device *kbdev);
 
 /**
- * kbase_hw_set_features_mask - Set the features mask depending on the GPU ID
- * @kbdev: Device pointer
+ * @brief Set the features mask depending on the GPU ID
  */
 void kbase_hw_set_features_mask(struct kbase_device *kbdev);
 

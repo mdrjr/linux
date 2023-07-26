@@ -729,7 +729,7 @@
 			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "job", "mmu", "gpu";
+			interrupt-names = "JOB", "MMU", "GPU";
 
 			clocks = <&clock CLK_G3D>;
 			clock-names = "core";

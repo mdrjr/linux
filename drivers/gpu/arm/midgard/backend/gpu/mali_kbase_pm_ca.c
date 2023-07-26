@@ -1,23 +1,19 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2013-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 /*
  * Base kernel core availability APIs
@@ -26,125 +22,161 @@
 #include <mali_kbase.h>
 #include <mali_kbase_pm.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
-#include <backend/gpu/mali_kbase_model_linux.h>
-#include <mali_kbase_dummy_job_wa.h>
+
+static const struct kbase_pm_ca_policy *const policy_list[] = {
+	&kbase_pm_ca_fixed_policy_ops,
+#ifdef CONFIG_MALI_DEVFREQ
+	&kbase_pm_ca_devfreq_policy_ops,
+#endif
+#if !MALI_CUSTOMER_RELEASE
+	&kbase_pm_ca_random_policy_ops
+#endif
+};
+
+/**
+ * POLICY_COUNT - The number of policies available in the system.
+ *
+ * This is derived from the number of functions listed in policy_list.
+ */
+#define POLICY_COUNT (sizeof(policy_list)/sizeof(*policy_list))
 
 int kbase_pm_ca_init(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_MALI_DEVFREQ
-	struct kbase_pm_backend_data *pm_backend = &kbdev->pm.backend;
+	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
-	if (kbdev->current_core_mask)
-		pm_backend->ca_cores_enabled = kbdev->current_core_mask;
-	else
-		pm_backend->ca_cores_enabled =
-				kbdev->gpu_props.props.raw_props.shader_present;
-#endif
+	kbdev->pm.backend.ca_current_policy = policy_list[0];
+
+	kbdev->pm.backend.ca_current_policy->init(kbdev);
 
 	return 0;
 }
 
 void kbase_pm_ca_term(struct kbase_device *kbdev)
 {
+	kbdev->pm.backend.ca_current_policy->term(kbdev);
 }
 
-#ifdef CONFIG_MALI_DEVFREQ
-void kbase_devfreq_set_core_mask(struct kbase_device *kbdev, u64 core_mask)
+int kbase_pm_ca_list_policies(const struct kbase_pm_ca_policy * const **list)
 {
-	struct kbase_pm_backend_data *pm_backend = &kbdev->pm.backend;
+	if (!list)
+		return POLICY_COUNT;
+
+	*list = policy_list;
+
+	return POLICY_COUNT;
+}
+
+KBASE_EXPORT_TEST_API(kbase_pm_ca_list_policies);
+
+const struct kbase_pm_ca_policy
+*kbase_pm_ca_get_policy(struct kbase_device *kbdev)
+{
+	KBASE_DEBUG_ASSERT(kbdev != NULL);
+
+	return kbdev->pm.backend.ca_current_policy;
+}
+
+KBASE_EXPORT_TEST_API(kbase_pm_ca_get_policy);
+
+void kbase_pm_ca_set_policy(struct kbase_device *kbdev,
+				const struct kbase_pm_ca_policy *new_policy)
+{
+	const struct kbase_pm_ca_policy *old_policy;
 	unsigned long flags;
-#if MALI_USE_CSF
-	u64 old_core_mask = 0;
-#endif
+
+	KBASE_DEBUG_ASSERT(kbdev != NULL);
+	KBASE_DEBUG_ASSERT(new_policy != NULL);
+
+	KBASE_TRACE_ADD(kbdev, PM_CA_SET_POLICY, NULL, NULL, 0u,
+								new_policy->id);
+
+	/* During a policy change we pretend the GPU is active */
+	/* A suspend won't happen here, because we're in a syscall from a
+	 * userspace thread */
+	kbase_pm_context_active(kbdev);
+
+	mutex_lock(&kbdev->pm.lock);
+
+	/* Remove the policy to prevent IRQ handlers from working on it */
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	old_policy = kbdev->pm.backend.ca_current_policy;
+	kbdev->pm.backend.ca_current_policy = NULL;
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+	if (old_policy->term)
+		old_policy->term(kbdev);
+
+	if (new_policy->init)
+		new_policy->init(kbdev);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	kbdev->pm.backend.ca_current_policy = new_policy;
 
-#if MALI_USE_CSF
-	if (!(core_mask & kbdev->pm.debug_core_mask)) {
-		dev_err(kbdev->dev,
-			"OPP core mask 0x%llX does not intersect with debug mask 0x%llX\n",
-			core_mask, kbdev->pm.debug_core_mask);
-		goto unlock;
-	}
+	/* If any core power state changes were previously attempted, but
+	 * couldn't be made because the policy was changing (current_policy was
+	 * NULL), then re-try them here. */
+	kbase_pm_update_cores_state_nolock(kbdev);
 
-	old_core_mask = pm_backend->ca_cores_enabled;
-#else
-	if (!(core_mask & kbdev->pm.debug_core_mask_all)) {
-		dev_err(kbdev->dev, "OPP core mask 0x%llX does not intersect with debug mask 0x%llX\n",
-				core_mask, kbdev->pm.debug_core_mask_all);
-		goto unlock;
-	}
+	kbdev->pm.backend.ca_current_policy->update_core_status(kbdev,
+					kbdev->shader_ready_bitmap,
+					kbdev->shader_transitioning_bitmap);
 
-	if (kbase_dummy_job_wa_enabled(kbdev)) {
-		dev_err_once(kbdev->dev, "Dynamic core scaling not supported as dummy job WA is enabled");
-		goto unlock;
-	}
-#endif /* MALI_USE_CSF */
-	pm_backend->ca_cores_enabled = core_mask;
-
-	kbase_pm_update_state(kbdev);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-#if MALI_USE_CSF
-	/* Check if old_core_mask contained the undesired cores and wait
-	 * for those cores to get powered down
-	 */
-	if ((core_mask & old_core_mask) != old_core_mask) {
-		if (kbase_pm_wait_for_cores_down_scale(kbdev)) {
-			dev_warn(kbdev->dev,
-				 "Wait for update of core_mask from %llx to %llx failed",
-				 old_core_mask, core_mask);
-		}
-	}
-#endif
+	mutex_unlock(&kbdev->pm.lock);
 
-	dev_dbg(kbdev->dev, "Devfreq policy : new core mask=%llX\n",
-			pm_backend->ca_cores_enabled);
-
-	return;
-unlock:
-	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	/* Now the policy change is finished, we release our fake context active
+	 * reference */
+	kbase_pm_context_idle(kbdev);
 }
-KBASE_EXPORT_TEST_API(kbase_devfreq_set_core_mask);
-#endif
+
+KBASE_EXPORT_TEST_API(kbase_pm_ca_set_policy);
 
 u64 kbase_pm_ca_get_core_mask(struct kbase_device *kbdev)
 {
-#if MALI_USE_CSF
-	u64 debug_core_mask = kbdev->pm.debug_core_mask;
-#else
-	u64 debug_core_mask = kbdev->pm.debug_core_mask_all;
-#endif
-
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-#ifdef CONFIG_MALI_DEVFREQ
-	/*
-	 * Although in the init we let the pm_backend->ca_cores_enabled to be
-	 * the max config (it uses the base_gpu_props), at this function we need
-	 * to limit it to be a subgroup of the curr config, otherwise the
-	 * shaders state machine on the PM does not evolve.
-	 */
-	return kbdev->gpu_props.curr_config.shader_present &
-			kbdev->pm.backend.ca_cores_enabled &
-			debug_core_mask;
-#else
-	return kbdev->gpu_props.curr_config.shader_present &
-		debug_core_mask;
-#endif
+	/* All cores must be enabled when instrumentation is in use */
+	if (kbdev->pm.backend.instr_enabled)
+		return kbdev->gpu_props.props.raw_props.shader_present &
+				kbdev->pm.debug_core_mask_all;
+
+	if (kbdev->pm.backend.ca_current_policy == NULL)
+		return kbdev->gpu_props.props.raw_props.shader_present &
+				kbdev->pm.debug_core_mask_all;
+
+	return kbdev->pm.backend.ca_current_policy->get_core_mask(kbdev) &
+						kbdev->pm.debug_core_mask_all;
 }
 
 KBASE_EXPORT_TEST_API(kbase_pm_ca_get_core_mask);
 
-u64 kbase_pm_ca_get_instr_core_mask(struct kbase_device *kbdev)
+void kbase_pm_ca_update_core_status(struct kbase_device *kbdev, u64 cores_ready,
+							u64 cores_transitioning)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
-	return (((1ull) << KBASE_DUMMY_MODEL_MAX_SHADER_CORES) - 1);
-#elif MALI_USE_CSF
-	return kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
-#else
-	return kbdev->pm.backend.pm_shaders_core_mask;
-#endif
+	if (kbdev->pm.backend.ca_current_policy != NULL)
+		kbdev->pm.backend.ca_current_policy->update_core_status(kbdev,
+							cores_ready,
+							cores_transitioning);
+}
+
+void kbase_pm_ca_instr_enable(struct kbase_device *kbdev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	kbdev->pm.backend.instr_enabled = true;
+
+	kbase_pm_update_cores_state_nolock(kbdev);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+}
+
+void kbase_pm_ca_instr_disable(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+	kbdev->pm.backend.instr_enabled = false;
+
+	kbase_pm_update_cores_state_nolock(kbdev);
 }

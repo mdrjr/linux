@@ -1,29 +1,25 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2012-2015, 2018-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2015 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
 
+
+
 #include <mali_kbase.h>
-#include <device/mali_kbase_device.h>
+#include <backend/gpu/mali_kbase_device_internal.h>
 #include "mali_kbase_debug_job_fault.h"
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
+#ifdef CONFIG_DEBUG_FS
 
 /*GPU_CONTROL_REG(r)*/
 static int gpu_control_reg_snapshot[] = {
@@ -69,8 +65,6 @@ static int mmu_reg_snapshot[] = {
 static int as_reg_snapshot[] = {
 	AS_TRANSTAB_LO,
 	AS_TRANSTAB_HI,
-	AS_TRANSCFG_LO,
-	AS_TRANSCFG_HI,
 	AS_MEMATTR_LO,
 	AS_MEMATTR_HI,
 	AS_FAULTSTATUS,
@@ -153,7 +147,7 @@ bool kbase_job_fault_get_reg_snapshot(struct kbase_context *kctx)
 	while (kctx->reg_dump[offset] != REGISTER_DUMP_TERMINATION_FLAG) {
 		kctx->reg_dump[offset+1] =
 				kbase_reg_read(kctx->kbdev,
-						kctx->reg_dump[offset]);
+						kctx->reg_dump[offset], NULL);
 		offset += 2;
 	}
 	return true;

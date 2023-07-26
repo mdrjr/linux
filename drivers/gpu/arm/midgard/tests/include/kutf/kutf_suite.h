@@ -1,23 +1,19 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014, 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 #ifndef _KERNEL_UTF_SUITE_H_
 #define _KERNEL_UTF_SUITE_H_
@@ -43,36 +39,36 @@
 #define KUTF_MAX_LINE_LENGTH (1024u)
 
 /**
- * KUTF_F_TEST_NONE - Pseudo-flag indicating an absence of any specified test class.
- * Note that tests should not be annotated with this constant as it is simply a zero
+ * Pseudo-flag indicating an absence of any specified test class. Note that
+ * tests should not be annotated with this constant as it is simply a zero
  * value; tests without a more specific class must be marked with the flag
  * KUTF_F_TEST_GENERIC.
  */
 #define KUTF_F_TEST_NONE                ((unsigned int)(0))
 
 /**
- * KUTF_F_TEST_SMOKETEST - Class indicating this test is a smoke test.
+ * Class indicating this test is a smoke test.
  * A given set of smoke tests should be quick to run, enabling rapid turn-around
  * of "regress-on-commit" test runs.
  */
 #define KUTF_F_TEST_SMOKETEST           ((unsigned int)(1 << 1))
 
 /**
- * KUTF_F_TEST_PERFORMANCE - Class indicating this test is a performance test.
+ * Class indicating this test is a performance test.
  * These tests typically produce a performance metric, such as "time to run" or
  * "frames per second",
  */
 #define KUTF_F_TEST_PERFORMANCE         ((unsigned int)(1 << 2))
 
 /**
- * KUTF_F_TEST_DEPRECATED - Class indicating that this test is a deprecated test.
+ * Class indicating that this test is a deprecated test.
  * These tests have typically been replaced by an alternative test which is
  * more efficient, or has better coverage.
  */
 #define KUTF_F_TEST_DEPRECATED          ((unsigned int)(1 << 3))
 
 /**
- * KUTF_F_TEST_EXPECTED_FAILURE - Class indicating that this test is a known failure.
+ * Class indicating that this test is a known failure.
  * These tests have typically been run and failed, but marking them as a known
  * failure means it is easier to triage results.
  *
@@ -83,69 +79,68 @@
 #define KUTF_F_TEST_EXPECTED_FAILURE    ((unsigned int)(1 << 4))
 
 /**
- * KUTF_F_TEST_GENERIC - Class indicating that this test is a generic test,
- * which is not a member of a more specific test class.
- * Tests which are not created with a specific set
+ * Class indicating that this test is a generic test, which is not a member of
+ * a more specific test class. Tests which are not created with a specific set
  * of filter flags by the user are assigned this test class by default.
  */
 #define KUTF_F_TEST_GENERIC             ((unsigned int)(1 << 5))
 
 /**
- * KUTF_F_TEST_RESFAIL - Class indicating this test is a resource allocation failure test.
+ * Class indicating this test is a resource allocation failure test.
  * A resource allocation failure test will test that an error code is
  * correctly propagated when an allocation fails.
  */
 #define KUTF_F_TEST_RESFAIL             ((unsigned int)(1 << 6))
 
 /**
- * KUTF_F_TEST_EXPECTED_FAILURE_RF - Additional flag indicating that this test
- * is an expected failure when run in resource failure mode.
- * These tests are never run when running the low resource mode.
+ * Additional flag indicating that this test is an expected failure when
+ * run in resource failure mode. These tests are never run when running
+ * the low resource mode.
  */
 #define KUTF_F_TEST_EXPECTED_FAILURE_RF ((unsigned int)(1 << 7))
 
 /**
- * KUTF_F_TEST_USER_0 - Flag reserved for user-defined filter zero.
+ * Flag reserved for user-defined filter zero.
  */
 #define KUTF_F_TEST_USER_0 ((unsigned int)(1 << 24))
 
 /**
- * KUTF_F_TEST_USER_1 - Flag reserved for user-defined filter one.
+ * Flag reserved for user-defined filter one.
  */
 #define KUTF_F_TEST_USER_1 ((unsigned int)(1 << 25))
 
 /**
- * KUTF_F_TEST_USER_2 - Flag reserved for user-defined filter two.
+ * Flag reserved for user-defined filter two.
  */
 #define KUTF_F_TEST_USER_2 ((unsigned int)(1 << 26))
 
 /**
- * KUTF_F_TEST_USER_3 - Flag reserved for user-defined filter three.
+ * Flag reserved for user-defined filter three.
  */
 #define KUTF_F_TEST_USER_3 ((unsigned int)(1 << 27))
 
 /**
- * KUTF_F_TEST_USER_4 - Flag reserved for user-defined filter four.
+ * Flag reserved for user-defined filter four.
  */
 #define KUTF_F_TEST_USER_4 ((unsigned int)(1 << 28))
 
 /**
- * KUTF_F_TEST_USER_5 - Flag reserved for user-defined filter five.
+ * Flag reserved for user-defined filter five.
  */
 #define KUTF_F_TEST_USER_5 ((unsigned int)(1 << 29))
 
 /**
- * KUTF_F_TEST_USER_6 - Flag reserved for user-defined filter six.
+ * Flag reserved for user-defined filter six.
  */
 #define KUTF_F_TEST_USER_6 ((unsigned int)(1 << 30))
 
 /**
- * KUTF_F_TEST_USER_7 - Flag reserved for user-defined filter seven.
+ * Flag reserved for user-defined filter seven.
  */
 #define KUTF_F_TEST_USER_7 ((unsigned int)(1 << 31))
 
 /**
- * KUTF_F_TEST_ALL - Pseudo-flag indicating that all test classes should be executed.
+ * Pseudo-flag indicating that all test classes should be executed.
  */
 #define KUTF_F_TEST_ALL                 ((unsigned int)(0xFFFFFFFFU))
 
@@ -264,10 +259,9 @@ struct kutf_suite {
 	struct list_head               test_list;
 };
 
-/** ===========================================================================
- * Application functions
- * ============================================================================
- */
+/* ============================================================================
+	Application functions
+============================================================================ */
 
 /**
  * kutf_create_application() - Create an in kernel test application.
@@ -285,10 +279,9 @@ struct kutf_application *kutf_create_application(const char *name);
  */
 void kutf_destroy_application(struct kutf_application *app);
 
-/**============================================================================
- * Suite functions
- * ============================================================================
- */
+/* ============================================================================
+	Suite functions
+============================================================================ */
 
 /**
  * kutf_create_suite() - Create a kernel test suite.
@@ -418,10 +411,10 @@ void kutf_add_test_with_filters_and_data(
 		unsigned int filters,
 		union kutf_callback_data test_data);
 
-/** ===========================================================================
- * Test functions
- * ============================================================================
- */
+
+/* ============================================================================
+	Test functions
+============================================================================ */
 /**
  * kutf_test_log_result_external() - Log a result which has been created
  *                                   externally into a in a standard form

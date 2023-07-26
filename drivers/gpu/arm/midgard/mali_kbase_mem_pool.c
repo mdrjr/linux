@@ -1,38 +1,30 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
 
+
+
 #include <mali_kbase.h>
 #include <linux/mm.h>
-#include <linux/migrate.h>
 #include <linux/dma-mapping.h>
 #include <linux/highmem.h>
 #include <linux/spinlock.h>
 #include <linux/shrinker.h>
 #include <linux/atomic.h>
 #include <linux/version.h>
-#if KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE
-#include <linux/sched/signal.h>
-#else
-#include <linux/signal.h>
-#endif
+
+#define NR_SLAB_RECLAIMABLE NR_SLAB_RECLAIMABLE_B
 
 #define pool_dbg(pool, format, ...) \
 	dev_dbg(pool->kbdev->dev, "%s-pool [%zu/%zu]: " format,	\
@@ -44,45 +36,14 @@
 #define NOT_DIRTY false
 #define NOT_RECLAIMED false
 
-/**
- * can_alloc_page() - Check if the current thread can allocate a physical page
- *
- * @pool:                Pointer to the memory pool.
- * @page_owner:          Pointer to the task/process that created the Kbase context
- *                       for which a page needs to be allocated. It can be NULL if
- *                       the page won't be associated with Kbase context.
- * @alloc_from_kthread:  Flag indicating that the current thread is a kernel thread.
- *
- * This function checks if the current thread is a kernel thread and can make a
- * request to kernel to allocate a physical page. If the kernel thread is allocating
- * a page for the Kbase context and the process that created the context is exiting
- * or is being killed, then there is no point in doing a page allocation.
- *
- * The check done by the function is particularly helpful when the system is running
- * low on memory. When a page is allocated from the context of a kernel thread, OoM
- * killer doesn't consider the kernel thread for killing and kernel keeps retrying
- * to allocate the page as long as the OoM killer is able to kill processes.
- * The check allows kernel thread to quickly exit the page allocation loop once OoM
- * killer has initiated the killing of @page_owner, thereby unblocking the context
- * termination for @page_owner and freeing of GPU memory allocated by it. This helps
- * in preventing the kernel panic and also limits the number of innocent processes
- * that get killed.
- *
- * Return: true if the page can be allocated otherwise false.
- */
-static inline bool can_alloc_page(struct kbase_mem_pool *pool, struct task_struct *page_owner,
-				  const bool alloc_from_kthread)
+static inline void kbase_mem_pool_lock(struct kbase_mem_pool *pool)
 {
-	if (likely(!alloc_from_kthread || !page_owner))
-		return true;
+	spin_lock(&pool->pool_lock);
+}
 
-	if ((page_owner->flags & PF_EXITING) || fatal_signal_pending(page_owner)) {
-		dev_info(pool->kbdev->dev, "%s : Process %s/%d exiting",
-			__func__, page_owner->comm, task_pid_nr(page_owner));
-		return false;
-	}
-
-	return true;
+static inline void kbase_mem_pool_unlock(struct kbase_mem_pool *pool)
+{
+	spin_unlock(&pool->pool_lock);
 }
 
 static size_t kbase_mem_pool_capacity(struct kbase_mem_pool *pool)
@@ -103,58 +64,15 @@ static bool kbase_mem_pool_is_empty(struct kbase_mem_pool *pool)
 	return kbase_mem_pool_size(pool) == 0;
 }
 
-static bool set_pool_new_page_metadata(struct kbase_mem_pool *pool, struct page *p,
-				       struct list_head *page_list, size_t *list_size)
-{
-	struct kbase_page_metadata *page_md = kbase_page_private(p);
-	bool not_movable = false;
-
-	lockdep_assert_held(&pool->pool_lock);
-
-	/* Free the page instead of adding it to the pool if it's not movable.
-	 * Only update page status and add the page to the memory pool if
-	 * it is not isolated.
-	 */
-	spin_lock(&page_md->migrate_lock);
-	if (PAGE_STATUS_GET(page_md->status) == (u8)NOT_MOVABLE) {
-		not_movable = true;
-	} else if (!WARN_ON_ONCE(IS_PAGE_ISOLATED(page_md->status))) {
-		page_md->status = PAGE_STATUS_SET(page_md->status, (u8)MEM_POOL);
-		page_md->data.mem_pool.pool = pool;
-		page_md->data.mem_pool.kbdev = pool->kbdev;
-		list_add(&p->lru, page_list);
-		(*list_size)++;
-	}
-	spin_unlock(&page_md->migrate_lock);
-
-	if (not_movable) {
-		kbase_free_page_later(pool->kbdev, p);
-		pool_dbg(pool, "skipping a not movable page\n");
-	}
-
-	return not_movable;
-}
-
 static void kbase_mem_pool_add_locked(struct kbase_mem_pool *pool,
 		struct page *p)
 {
-	bool queue_work_to_free = false;
-
 	lockdep_assert_held(&pool->pool_lock);
 
-	if (!pool->order && kbase_page_migration_enabled) {
-		if (set_pool_new_page_metadata(pool, p, &pool->page_list, &pool->cur_size))
-			queue_work_to_free = true;
-	} else {
-		list_add(&p->lru, &pool->page_list);
-		pool->cur_size++;
-	}
+	list_add(&p->lru, &pool->page_list);
+	pool->cur_size++;
 
-	if (queue_work_to_free) {
-		struct kbase_mem_migrate *mem_migrate = &pool->kbdev->mem_migrate;
-
-		queue_work(mem_migrate->free_pages_workq, &mem_migrate->free_pages_work);
-	}
+	zone_page_state_add(1, page_zone(p), NR_SLAB_RECLAIMABLE);
 
 	pool_dbg(pool, "added page\n");
 }
@@ -169,28 +87,16 @@ static void kbase_mem_pool_add(struct kbase_mem_pool *pool, struct page *p)
 static void kbase_mem_pool_add_list_locked(struct kbase_mem_pool *pool,
 		struct list_head *page_list, size_t nr_pages)
 {
-	bool queue_work_to_free = false;
+	struct page *p;
 
 	lockdep_assert_held(&pool->pool_lock);
 
-	if (!pool->order && kbase_page_migration_enabled) {
-		struct page *p, *tmp;
-
-		list_for_each_entry_safe(p, tmp, page_list, lru) {
-			list_del_init(&p->lru);
-			if (set_pool_new_page_metadata(pool, p, &pool->page_list, &pool->cur_size))
-				queue_work_to_free = true;
-		}
-	} else {
-		list_splice(page_list, &pool->page_list);
-		pool->cur_size += nr_pages;
+	list_for_each_entry(p, page_list, lru) {
+		zone_page_state_add(1, page_zone(p), NR_SLAB_RECLAIMABLE);
 	}
 
-	if (queue_work_to_free) {
-		struct kbase_mem_migrate *mem_migrate = &pool->kbdev->mem_migrate;
-
-		queue_work(mem_migrate->free_pages_workq, &mem_migrate->free_pages_work);
-	}
+	list_splice(page_list, &pool->page_list);
+	pool->cur_size += nr_pages;
 
 	pool_dbg(pool, "added %zu pages\n", nr_pages);
 }
@@ -203,8 +109,7 @@ static void kbase_mem_pool_add_list(struct kbase_mem_pool *pool,
 	kbase_mem_pool_unlock(pool);
 }
 
-static struct page *kbase_mem_pool_remove_locked(struct kbase_mem_pool *pool,
-						 enum kbase_page_status status)
+static struct page *kbase_mem_pool_remove_locked(struct kbase_mem_pool *pool)
 {
 	struct page *p;
 
@@ -214,31 +119,22 @@ static struct page *kbase_mem_pool_remove_locked(struct kbase_mem_pool *pool,
 		return NULL;
 
 	p = list_first_entry(&pool->page_list, struct page, lru);
-
-	if (!pool->order && kbase_page_migration_enabled) {
-		struct kbase_page_metadata *page_md = kbase_page_private(p);
-
-		spin_lock(&page_md->migrate_lock);
-		WARN_ON(PAGE_STATUS_GET(page_md->status) != (u8)MEM_POOL);
-		page_md->status = PAGE_STATUS_SET(page_md->status, (u8)status);
-		spin_unlock(&page_md->migrate_lock);
-	}
-
 	list_del_init(&p->lru);
 	pool->cur_size--;
+
+	zone_page_state_add(-1, page_zone(p), NR_SLAB_RECLAIMABLE);
 
 	pool_dbg(pool, "removed page\n");
 
 	return p;
 }
 
-static struct page *kbase_mem_pool_remove(struct kbase_mem_pool *pool,
-					  enum kbase_page_status status)
+static struct page *kbase_mem_pool_remove(struct kbase_mem_pool *pool)
 {
 	struct page *p;
 
 	kbase_mem_pool_lock(pool);
-	p = kbase_mem_pool_remove_locked(pool, status);
+	p = kbase_mem_pool_remove_locked(pool);
 	kbase_mem_pool_unlock(pool);
 
 	return p;
@@ -248,9 +144,8 @@ static void kbase_mem_pool_sync_page(struct kbase_mem_pool *pool,
 		struct page *p)
 {
 	struct device *dev = pool->kbdev->dev;
-	dma_addr_t dma_addr = pool->order ? kbase_dma_addr_as_priv(p) : kbase_dma_addr(p);
-
-	dma_sync_single_for_device(dev, dma_addr, (PAGE_SIZE << pool->order), DMA_BIDIRECTIONAL);
+	dma_sync_single_for_device(dev, kbase_dma_addr(p),
+			(PAGE_SIZE << pool->order), DMA_BIDIRECTIONAL);
 }
 
 static void kbase_mem_pool_zero_page(struct kbase_mem_pool *pool,
@@ -276,85 +171,61 @@ static void kbase_mem_pool_spill(struct kbase_mem_pool *next_pool,
 struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool)
 {
 	struct page *p;
-	gfp_t gfp = __GFP_ZERO;
-	struct kbase_device *const kbdev = pool->kbdev;
-	struct device *const dev = kbdev->dev;
+	gfp_t gfp;
+	struct device *dev = pool->kbdev->dev;
 	dma_addr_t dma_addr;
 	int i;
 
-	/* don't warn on higher order failures */
-	if (pool->order)
-		gfp |= GFP_HIGHUSER | __GFP_NOWARN;
-	else
-		gfp |= kbase_page_migration_enabled ? GFP_HIGHUSER_MOVABLE : GFP_HIGHUSER;
+#if defined(CONFIG_ARM) && !defined(CONFIG_HAVE_DMA_ATTRS) && \
+	LINUX_VERSION_CODE < KERNEL_VERSION(3, 5, 0)
+	/* DMA cache sync fails for HIGHMEM before 3.5 on ARM */
+	gfp = GFP_USER | __GFP_ZERO;
+#else
+	gfp = GFP_HIGHUSER | __GFP_ZERO;
+#endif
 
-	p = kbdev->mgm_dev->ops.mgm_alloc_page(kbdev->mgm_dev,
-		pool->group_id, gfp, pool->order);
+	if (current->flags & PF_KTHREAD) {
+		/* Don't trigger OOM killer from kernel threads, e.g. when
+		 * growing memory on GPU page fault */
+		gfp |= __GFP_NORETRY;
+	}
+
+	/* don't warn on higer order failures */
+	if (pool->order)
+		gfp |= __GFP_NOWARN;
+
+	p = alloc_pages(gfp, pool->order);
 	if (!p)
 		return NULL;
 
 	dma_addr = dma_map_page(dev, p, 0, (PAGE_SIZE << pool->order),
 				DMA_BIDIRECTIONAL);
-
 	if (dma_mapping_error(dev, dma_addr)) {
-		kbdev->mgm_dev->ops.mgm_free_page(kbdev->mgm_dev,
-			pool->group_id, p, pool->order);
+		__free_pages(p, pool->order);
 		return NULL;
 	}
 
-	/* Setup page metadata for 4KB pages when page migration is enabled */
-	if (!pool->order && kbase_page_migration_enabled) {
-		INIT_LIST_HEAD(&p->lru);
-		if (!kbase_alloc_page_metadata(kbdev, p, dma_addr, pool->group_id)) {
-			dma_unmap_page(dev, dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
-			kbdev->mgm_dev->ops.mgm_free_page(kbdev->mgm_dev, pool->group_id, p,
-							  pool->order);
-			return NULL;
-		}
-	} else {
-		WARN_ON(dma_addr != page_to_phys(p));
-		for (i = 0; i < (1u << pool->order); i++)
-			kbase_set_dma_addr_as_priv(p + i, dma_addr + PAGE_SIZE * i);
-	}
+	WARN_ON(dma_addr != page_to_phys(p));
+	for (i = 0; i < (1u << pool->order); i++)
+		kbase_set_dma_addr(p+i, dma_addr + PAGE_SIZE * i);
 
 	return p;
 }
 
-static void enqueue_free_pool_pages_work(struct kbase_mem_pool *pool)
+static void kbase_mem_pool_free_page(struct kbase_mem_pool *pool,
+		struct page *p)
 {
-	struct kbase_mem_migrate *mem_migrate = &pool->kbdev->mem_migrate;
+	struct device *dev = pool->kbdev->dev;
+	dma_addr_t dma_addr = kbase_dma_addr(p);
+	int i;
 
-	if (!pool->order && kbase_page_migration_enabled)
-		queue_work(mem_migrate->free_pages_workq, &mem_migrate->free_pages_work);
-}
+	dma_unmap_page(dev, dma_addr, (PAGE_SIZE << pool->order),
+		       DMA_BIDIRECTIONAL);
+	for (i = 0; i < (1u << pool->order); i++)
+		kbase_clear_dma_addr(p+i);
+	__free_pages(p, pool->order);
 
-void kbase_mem_pool_free_page(struct kbase_mem_pool *pool, struct page *p)
-{
-	struct kbase_device *kbdev;
-
-	if (WARN_ON(!pool))
-		return;
-	if (WARN_ON(!p))
-		return;
-
-	kbdev = pool->kbdev;
-
-	if (!pool->order && kbase_page_migration_enabled) {
-		kbase_free_page_later(kbdev, p);
-		pool_dbg(pool, "page to be freed to kernel later\n");
-	} else {
-		int i;
-		dma_addr_t dma_addr = kbase_dma_addr_as_priv(p);
-
-		for (i = 0; i < (1u << pool->order); i++)
-			kbase_clear_dma_addr_as_priv(p + i);
-
-		dma_unmap_page(kbdev->dev, dma_addr, (PAGE_SIZE << pool->order), DMA_BIDIRECTIONAL);
-
-		kbdev->mgm_dev->ops.mgm_free_page(kbdev->mgm_dev, pool->group_id, p, pool->order);
-
-		pool_dbg(pool, "freed page to kernel\n");
-	}
+	pool_dbg(pool, "freed page to kernel\n");
 }
 
 static size_t kbase_mem_pool_shrink_locked(struct kbase_mem_pool *pool,
@@ -366,12 +237,9 @@ static size_t kbase_mem_pool_shrink_locked(struct kbase_mem_pool *pool,
 	lockdep_assert_held(&pool->pool_lock);
 
 	for (i = 0; i < nr_to_shrink && !kbase_mem_pool_is_empty(pool); i++) {
-		p = kbase_mem_pool_remove_locked(pool, FREE_IN_PROGRESS);
+		p = kbase_mem_pool_remove_locked(pool);
 		kbase_mem_pool_free_page(pool, p);
 	}
-
-	/* Freeing of pages will be deferred when page migration is enabled. */
-	enqueue_free_pool_pages_work(pool);
 
 	return i;
 }
@@ -388,47 +256,21 @@ static size_t kbase_mem_pool_shrink(struct kbase_mem_pool *pool,
 	return nr_freed;
 }
 
-int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow,
-			struct task_struct *page_owner)
+int kbase_mem_pool_grow(struct kbase_mem_pool *pool,
+		size_t nr_to_grow)
 {
 	struct page *p;
 	size_t i;
-	const bool alloc_from_kthread = !!(current->flags & PF_KTHREAD);
 
-	kbase_mem_pool_lock(pool);
-
-	pool->dont_reclaim = true;
 	for (i = 0; i < nr_to_grow; i++) {
-		if (pool->dying) {
-			pool->dont_reclaim = false;
-			kbase_mem_pool_shrink_locked(pool, nr_to_grow);
-			kbase_mem_pool_unlock(pool);
-
-			return -ENOMEM;
-		}
-		kbase_mem_pool_unlock(pool);
-
-		if (unlikely(!can_alloc_page(pool, page_owner, alloc_from_kthread)))
-			return -ENOMEM;
-
 		p = kbase_mem_alloc_page(pool);
-		if (!p) {
-			kbase_mem_pool_lock(pool);
-			pool->dont_reclaim = false;
-			kbase_mem_pool_unlock(pool);
-
+		if (!p)
 			return -ENOMEM;
-		}
-
-		kbase_mem_pool_lock(pool);
-		kbase_mem_pool_add_locked(pool, p);
+		kbase_mem_pool_add(pool, p);
 	}
-	pool->dont_reclaim = false;
-	kbase_mem_pool_unlock(pool);
 
 	return 0;
 }
-KBASE_EXPORT_TEST_API(kbase_mem_pool_grow);
 
 void kbase_mem_pool_trim(struct kbase_mem_pool *pool, size_t new_size)
 {
@@ -443,7 +285,7 @@ void kbase_mem_pool_trim(struct kbase_mem_pool *pool, size_t new_size)
 	if (new_size < cur_size)
 		kbase_mem_pool_shrink(pool, cur_size - new_size);
 	else if (new_size > cur_size)
-		err = kbase_mem_pool_grow(pool, new_size - cur_size, NULL);
+		err = kbase_mem_pool_grow(pool, new_size - cur_size);
 
 	if (err) {
 		size_t grown_size = kbase_mem_pool_size(pool);
@@ -471,28 +313,16 @@ void kbase_mem_pool_set_max_size(struct kbase_mem_pool *pool, size_t max_size)
 
 	kbase_mem_pool_unlock(pool);
 }
-KBASE_EXPORT_TEST_API(kbase_mem_pool_set_max_size);
+
 
 static unsigned long kbase_mem_pool_reclaim_count_objects(struct shrinker *s,
 		struct shrink_control *sc)
 {
 	struct kbase_mem_pool *pool;
-	size_t pool_size;
 
 	pool = container_of(s, struct kbase_mem_pool, reclaim);
-
-	kbase_mem_pool_lock(pool);
-	if (pool->dont_reclaim && !pool->dying) {
-		kbase_mem_pool_unlock(pool);
-		/* Tell shrinker to skip reclaim
-		 * even though freeable pages are available
-		 */
-		return 0;
-	}
-	pool_size = kbase_mem_pool_size(pool);
-	kbase_mem_pool_unlock(pool);
-
-	return pool_size;
+	pool_dbg(pool, "reclaim count: %zu\n", kbase_mem_pool_size(pool));
+	return kbase_mem_pool_size(pool);
 }
 
 static unsigned long kbase_mem_pool_reclaim_scan_objects(struct shrinker *s,
@@ -503,80 +333,67 @@ static unsigned long kbase_mem_pool_reclaim_scan_objects(struct shrinker *s,
 
 	pool = container_of(s, struct kbase_mem_pool, reclaim);
 
-	kbase_mem_pool_lock(pool);
-	if (pool->dont_reclaim && !pool->dying) {
-		kbase_mem_pool_unlock(pool);
-		/* Tell shrinker that reclaim can't be made and
-		 * do not attempt again for this reclaim context.
-		 */
-		return SHRINK_STOP;
-	}
-
 	pool_dbg(pool, "reclaim scan %ld:\n", sc->nr_to_scan);
 
-	freed = kbase_mem_pool_shrink_locked(pool, sc->nr_to_scan);
-
-	kbase_mem_pool_unlock(pool);
+	freed = kbase_mem_pool_shrink(pool, sc->nr_to_scan);
 
 	pool_dbg(pool, "reclaim freed %ld pages\n", freed);
 
 	return freed;
 }
 
-int kbase_mem_pool_init(struct kbase_mem_pool *pool, const struct kbase_mem_pool_config *config,
-			unsigned int order, int group_id, struct kbase_device *kbdev,
-			struct kbase_mem_pool *next_pool)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 12, 0)
+static int kbase_mem_pool_reclaim_shrink(struct shrinker *s,
+		struct shrink_control *sc)
 {
-	if (WARN_ON(group_id < 0) ||
-		WARN_ON(group_id >= MEMORY_GROUP_MANAGER_NR_GROUPS)) {
-		return -EINVAL;
-	}
+	if (sc->nr_to_scan == 0)
+		return kbase_mem_pool_reclaim_count_objects(s, sc);
 
+	return kbase_mem_pool_reclaim_scan_objects(s, sc);
+}
+#endif
+
+int kbase_mem_pool_init(struct kbase_mem_pool *pool,
+		size_t max_size,
+		size_t order,
+		struct kbase_device *kbdev,
+		struct kbase_mem_pool *next_pool)
+{
 	pool->cur_size = 0;
-	pool->max_size = kbase_mem_pool_config_get_max_size(config);
+	pool->max_size = max_size;
 	pool->order = order;
-	pool->group_id = group_id;
 	pool->kbdev = kbdev;
 	pool->next_pool = next_pool;
-	pool->dying = false;
-	atomic_set(&pool->isolation_in_progress_cnt, 0);
 
 	spin_lock_init(&pool->pool_lock);
 	INIT_LIST_HEAD(&pool->page_list);
 
+	/* Register shrinker */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 12, 0)
+	pool->reclaim.shrink = kbase_mem_pool_reclaim_shrink;
+#else
 	pool->reclaim.count_objects = kbase_mem_pool_reclaim_count_objects;
 	pool->reclaim.scan_objects = kbase_mem_pool_reclaim_scan_objects;
+#endif
 	pool->reclaim.seeks = DEFAULT_SEEKS;
 	/* Kernel versions prior to 3.1 :
-	 * struct shrinker does not define batch
-	 */
+	 * struct shrinker does not define batch */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 0)
 	pool->reclaim.batch = 0;
-#if KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE
-	register_shrinker(&pool->reclaim);
-#else
-	register_shrinker(&pool->reclaim, "mali-mem-pool");
 #endif
+	register_shrinker(&pool->reclaim, "mali-mem-pool");
 
 	pool_dbg(pool, "initialized\n");
 
 	return 0;
 }
-KBASE_EXPORT_TEST_API(kbase_mem_pool_init);
-
-void kbase_mem_pool_mark_dying(struct kbase_mem_pool *pool)
-{
-	kbase_mem_pool_lock(pool);
-	pool->dying = true;
-	kbase_mem_pool_unlock(pool);
-}
 
 void kbase_mem_pool_term(struct kbase_mem_pool *pool)
 {
 	struct kbase_mem_pool *next_pool = pool->next_pool;
-	struct page *p, *tmp;
+	struct page *p;
 	size_t nr_to_spill = 0;
 	LIST_HEAD(spill_list);
-	LIST_HEAD(free_list);
 	int i;
 
 	pool_dbg(pool, "terminate()\n");
@@ -593,48 +410,29 @@ void kbase_mem_pool_term(struct kbase_mem_pool *pool)
 
 		/* Zero pages first without holding the next_pool lock */
 		for (i = 0; i < nr_to_spill; i++) {
-			p = kbase_mem_pool_remove_locked(pool, SPILL_IN_PROGRESS);
-			if (p)
-				list_add(&p->lru, &spill_list);
+			p = kbase_mem_pool_remove_locked(pool);
+			kbase_mem_pool_zero_page(pool, p);
+			list_add(&p->lru, &spill_list);
 		}
 	}
 
 	while (!kbase_mem_pool_is_empty(pool)) {
 		/* Free remaining pages to kernel */
-		p = kbase_mem_pool_remove_locked(pool, FREE_IN_PROGRESS);
-		if (p)
-			list_add(&p->lru, &free_list);
+		p = kbase_mem_pool_remove_locked(pool);
+		kbase_mem_pool_free_page(pool, p);
 	}
 
 	kbase_mem_pool_unlock(pool);
 
 	if (next_pool && nr_to_spill) {
-		list_for_each_entry(p, &spill_list, lru)
-			kbase_mem_pool_zero_page(pool, p);
-
 		/* Add new page list to next_pool */
 		kbase_mem_pool_add_list(next_pool, &spill_list, nr_to_spill);
 
 		pool_dbg(pool, "terminate() spilled %zu pages\n", nr_to_spill);
 	}
 
-	list_for_each_entry_safe(p, tmp, &free_list, lru) {
-		list_del_init(&p->lru);
-		kbase_mem_pool_free_page(pool, p);
-	}
-
-	/* Freeing of pages will be deferred when page migration is enabled. */
-	enqueue_free_pool_pages_work(pool);
-
-	/* Before returning wait to make sure there are no pages undergoing page isolation
-	 * which will require reference to this pool.
-	 */
-	while (atomic_read(&pool->isolation_in_progress_cnt))
-		cpu_relax();
-
 	pool_dbg(pool, "terminated\n");
 }
-KBASE_EXPORT_TEST_API(kbase_mem_pool_term);
 
 struct page *kbase_mem_pool_alloc(struct kbase_mem_pool *pool)
 {
@@ -642,7 +440,7 @@ struct page *kbase_mem_pool_alloc(struct kbase_mem_pool *pool)
 
 	do {
 		pool_dbg(pool, "alloc()\n");
-		p = kbase_mem_pool_remove(pool, ALLOCATE_IN_PROGRESS);
+		p = kbase_mem_pool_remove(pool);
 
 		if (p)
 			return p;
@@ -651,14 +449,6 @@ struct page *kbase_mem_pool_alloc(struct kbase_mem_pool *pool)
 	} while (pool);
 
 	return NULL;
-}
-
-struct page *kbase_mem_pool_alloc_locked(struct kbase_mem_pool *pool)
-{
-	lockdep_assert_held(&pool->pool_lock);
-
-	pool_dbg(pool, "alloc_locked()\n");
-	return kbase_mem_pool_remove_locked(pool, ALLOCATE_IN_PROGRESS);
 }
 
 void kbase_mem_pool_free(struct kbase_mem_pool *pool, struct page *p,
@@ -680,42 +470,17 @@ void kbase_mem_pool_free(struct kbase_mem_pool *pool, struct page *p,
 	} else {
 		/* Free page */
 		kbase_mem_pool_free_page(pool, p);
-		/* Freeing of pages will be deferred when page migration is enabled. */
-		enqueue_free_pool_pages_work(pool);
-	}
-}
-
-void kbase_mem_pool_free_locked(struct kbase_mem_pool *pool, struct page *p,
-		bool dirty)
-{
-	pool_dbg(pool, "free_locked()\n");
-
-	lockdep_assert_held(&pool->pool_lock);
-
-	if (!kbase_mem_pool_is_full(pool)) {
-		/* Add to our own pool */
-		if (dirty)
-			kbase_mem_pool_sync_page(pool, p);
-
-		kbase_mem_pool_add_locked(pool, p);
-	} else {
-		/* Free page */
-		kbase_mem_pool_free_page(pool, p);
-		/* Freeing of pages will be deferred when page migration is enabled. */
-		enqueue_free_pool_pages_work(pool);
 	}
 }
 
 int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
-			       struct tagged_addr *pages, bool partial_allowed,
-			       struct task_struct *page_owner)
+		struct tagged_addr *pages, bool partial_allowed)
 {
 	struct page *p;
 	size_t nr_from_pool;
 	size_t i = 0;
 	int err = -ENOMEM;
 	size_t nr_pages_internal;
-	const bool alloc_from_kthread = !!(current->flags & PF_KTHREAD);
 
 	nr_pages_internal = nr_4k_pages / (1u << (pool->order));
 
@@ -728,12 +493,9 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
 	/* Get pages from this pool */
 	kbase_mem_pool_lock(pool);
 	nr_from_pool = min(nr_pages_internal, kbase_mem_pool_size(pool));
-
 	while (nr_from_pool--) {
 		int j;
-
-		p = kbase_mem_pool_remove_locked(pool, ALLOCATE_IN_PROGRESS);
-
+		p = kbase_mem_pool_remove_locked(pool);
 		if (pool->order) {
 			pages[i++] = as_tagged_tag(page_to_phys(p),
 						   HUGE_HEAD | HUGE_PAGE);
@@ -749,8 +511,8 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
 
 	if (i != nr_4k_pages && pool->next_pool) {
 		/* Allocate via next pool */
-		err = kbase_mem_pool_alloc_pages(pool->next_pool, nr_4k_pages - i, pages + i,
-						 partial_allowed, page_owner);
+		err = kbase_mem_pool_alloc_pages(pool->next_pool,
+				nr_4k_pages - i, pages + i, partial_allowed);
 
 		if (err < 0)
 			goto err_rollback;
@@ -759,9 +521,6 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
 	} else {
 		/* Get any remaining pages from kernel */
 		while (i != nr_4k_pages) {
-			if (unlikely(!can_alloc_page(pool, page_owner, alloc_from_kthread)))
-				goto err_rollback;
-
 			p = kbase_mem_alloc_page(pool);
 			if (!p) {
 				if (partial_allowed)
@@ -791,54 +550,12 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
 
 done:
 	pool_dbg(pool, "alloc_pages(%zu) done\n", i);
+
 	return i;
 
 err_rollback:
 	kbase_mem_pool_free_pages(pool, i, pages, NOT_DIRTY, NOT_RECLAIMED);
 	return err;
-}
-
-int kbase_mem_pool_alloc_pages_locked(struct kbase_mem_pool *pool,
-		size_t nr_4k_pages, struct tagged_addr *pages)
-{
-	struct page *p;
-	size_t i;
-	size_t nr_pages_internal;
-
-	lockdep_assert_held(&pool->pool_lock);
-
-	nr_pages_internal = nr_4k_pages / (1u << (pool->order));
-
-	if (nr_pages_internal * (1u << pool->order) != nr_4k_pages)
-		return -EINVAL;
-
-	pool_dbg(pool, "alloc_pages_locked(4k=%zu):\n", nr_4k_pages);
-	pool_dbg(pool, "alloc_pages_locked(internal=%zu):\n",
-			nr_pages_internal);
-
-	if (kbase_mem_pool_size(pool) < nr_pages_internal) {
-		pool_dbg(pool, "Failed alloc\n");
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < nr_pages_internal; i++) {
-		int j;
-
-		p = kbase_mem_pool_remove_locked(pool, ALLOCATE_IN_PROGRESS);
-		if (pool->order) {
-			*pages++ = as_tagged_tag(page_to_phys(p),
-						   HUGE_HEAD | HUGE_PAGE);
-			for (j = 1; j < (1u << pool->order); j++) {
-				*pages++ = as_tagged_tag(page_to_phys(p) +
-							   PAGE_SIZE * j,
-							   HUGE_PAGE);
-			}
-		} else {
-			*pages++ = as_tagged(page_to_phys(p));
-		}
-	}
-
-	return nr_4k_pages;
 }
 
 static void kbase_mem_pool_add_array(struct kbase_mem_pool *pool,
@@ -862,7 +579,7 @@ static void kbase_mem_pool_add_array(struct kbase_mem_pool *pool,
 			continue;
 
 		if (is_huge_head(pages[i]) || !is_huge(pages[i])) {
-			p = as_page(pages[i]);
+			p = phys_to_page(as_phys_addr_t(pages[i]));
 			if (zero)
 				kbase_mem_pool_zero_page(pool, p);
 			else if (sync)
@@ -881,48 +598,6 @@ static void kbase_mem_pool_add_array(struct kbase_mem_pool *pool,
 			nr_pages, nr_to_pool);
 }
 
-static void kbase_mem_pool_add_array_locked(struct kbase_mem_pool *pool,
-		size_t nr_pages, struct tagged_addr *pages,
-		bool zero, bool sync)
-{
-	struct page *p;
-	size_t nr_to_pool = 0;
-	LIST_HEAD(new_page_list);
-	size_t i;
-
-	lockdep_assert_held(&pool->pool_lock);
-
-	if (!nr_pages)
-		return;
-
-	pool_dbg(pool, "add_array_locked(%zu, zero=%d, sync=%d):\n",
-			nr_pages, zero, sync);
-
-	/* Zero/sync pages first */
-	for (i = 0; i < nr_pages; i++) {
-		if (unlikely(!as_phys_addr_t(pages[i])))
-			continue;
-
-		if (is_huge_head(pages[i]) || !is_huge(pages[i])) {
-			p = as_page(pages[i]);
-			if (zero)
-				kbase_mem_pool_zero_page(pool, p);
-			else if (sync)
-				kbase_mem_pool_sync_page(pool, p);
-
-			list_add(&p->lru, &new_page_list);
-			nr_to_pool++;
-		}
-		pages[i] = as_tagged(0);
-	}
-
-	/* Add new page list to pool */
-	kbase_mem_pool_add_list_locked(pool, &new_page_list, nr_to_pool);
-
-	pool_dbg(pool, "add_array_locked(%zu) added %zu pages\n",
-			nr_pages, nr_to_pool);
-}
-
 void kbase_mem_pool_free_pages(struct kbase_mem_pool *pool, size_t nr_pages,
 		struct tagged_addr *pages, bool dirty, bool reclaimed)
 {
@@ -931,7 +606,6 @@ void kbase_mem_pool_free_pages(struct kbase_mem_pool *pool, size_t nr_pages,
 	size_t nr_to_pool;
 	LIST_HEAD(to_pool_list);
 	size_t i = 0;
-	bool pages_released = false;
 
 	pool_dbg(pool, "free_pages(%zu):\n", nr_pages);
 
@@ -964,66 +638,16 @@ void kbase_mem_pool_free_pages(struct kbase_mem_pool *pool, size_t nr_pages,
 			pages[i] = as_tagged(0);
 			continue;
 		}
-		p = as_page(pages[i]);
+
+		p = phys_to_page(as_phys_addr_t(pages[i]));
+
+		if (reclaimed)
+			zone_page_state_add(-1, page_zone(p),
+					NR_SLAB_RECLAIMABLE);
 
 		kbase_mem_pool_free_page(pool, p);
 		pages[i] = as_tagged(0);
-		pages_released = true;
 	}
-
-	/* Freeing of pages will be deferred when page migration is enabled. */
-	if (pages_released)
-		enqueue_free_pool_pages_work(pool);
 
 	pool_dbg(pool, "free_pages(%zu) done\n", nr_pages);
-}
-
-
-void kbase_mem_pool_free_pages_locked(struct kbase_mem_pool *pool,
-		size_t nr_pages, struct tagged_addr *pages, bool dirty,
-		bool reclaimed)
-{
-	struct page *p;
-	size_t nr_to_pool;
-	LIST_HEAD(to_pool_list);
-	size_t i = 0;
-	bool pages_released = false;
-
-	lockdep_assert_held(&pool->pool_lock);
-
-	pool_dbg(pool, "free_pages_locked(%zu):\n", nr_pages);
-
-	if (!reclaimed) {
-		/* Add to this pool */
-		nr_to_pool = kbase_mem_pool_capacity(pool);
-		nr_to_pool = min(nr_pages, nr_to_pool);
-
-		kbase_mem_pool_add_array_locked(pool, nr_to_pool, pages, false,
-						dirty);
-
-		i += nr_to_pool;
-	}
-
-	/* Free any remaining pages to kernel */
-	for (; i < nr_pages; i++) {
-		if (unlikely(!as_phys_addr_t(pages[i])))
-			continue;
-
-		if (is_huge(pages[i]) && !is_huge_head(pages[i])) {
-			pages[i] = as_tagged(0);
-			continue;
-		}
-
-		p = as_page(pages[i]);
-
-		kbase_mem_pool_free_page(pool, p);
-		pages[i] = as_tagged(0);
-		pages_released = true;
-	}
-
-	/* Freeing of pages will be deferred when page migration is enabled. */
-	if (pages_released)
-		enqueue_free_pool_pages_work(pool);
-
-	pool_dbg(pool, "free_pages_locked(%zu) done\n", nr_pages);
 }

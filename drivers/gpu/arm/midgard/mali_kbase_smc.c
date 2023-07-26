@@ -1,42 +1,26 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015, 2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
 
-#if IS_ENABLED(CONFIG_ARM64)
+
+
+#ifdef CONFIG_ARM64
 
 #include <mali_kbase.h>
 #include <mali_kbase_smc.h>
 
 #include <linux/compiler.h>
-
-/* __asmeq is not available on Kernel versions >= 4.20 */
-#ifndef __asmeq
-/*
- * This is used to ensure the compiler did actually allocate the register we
- * asked it for some inline assembly sequences.  Apparently we can't trust the
- * compiler from one version to another so a bit of paranoia won't hurt.  This
- * string is meant to be concatenated with the inline asm string and will
- * cause compilation to stop on mismatch.  (for details, see gcc PR 15089)
- */
-#define __asmeq(x, y)  ".ifnc " x "," y " ; .err ; .endif\n\t"
-#endif
 
 static noinline u64 invoke_smc_fid(u64 function_id,
 		u64 arg0, u64 arg1, u64 arg2)

@@ -1,23 +1,19 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2013-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU license.
+ * of such GNU licence.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * A copy of the licence is included with the program, and can also be obtained
+ * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  */
+
+
 
 /*
  * Debugfs interface to dump the memory visible to the GPU
@@ -29,23 +25,7 @@
 #include <linux/list.h>
 #include <linux/file.h>
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-
-#define SHOW_GPU_MEM_DATA(type, format)                                      \
-{                                                                            \
-	unsigned int i, j;                                                   \
-	const type *ptr = (type *)cpu_addr;                                  \
-	const unsigned int col_width = sizeof(type);                         \
-	const unsigned int row_width = (col_width == sizeof(u64)) ? 32 : 16; \
-	const unsigned int num_cols = row_width / col_width;                 \
-	for (i = 0; i < PAGE_SIZE; i += row_width) {                         \
-		seq_printf(m, "%016llx:", gpu_addr + i);                     \
-		for (j = 0; j < num_cols; j++)                               \
-			seq_printf(m, format, ptr[j]);                       \
-		ptr += num_cols;                                             \
-		seq_putc(m, '\n');                                           \
-	}                                                                    \
-}
+#ifdef CONFIG_DEBUG_FS
 
 struct debug_mem_mapping {
 	struct list_head node;
@@ -60,7 +40,6 @@ struct debug_mem_mapping {
 struct debug_mem_data {
 	struct list_head mapping_list;
 	struct kbase_context *kctx;
-	unsigned int column_width;
 };
 
 struct debug_mem_seq_off {
@@ -128,9 +107,9 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	struct debug_mem_data *mem_data = m->private;
 	struct debug_mem_seq_off *data = v;
 	struct debug_mem_mapping *map;
-	unsigned long long gpu_addr;
+	int i, j;
 	struct page *page;
-	void *cpu_addr;
+	uint32_t *mapping;
 	pgprot_t prot = PAGE_KERNEL;
 
 	map = list_entry(data->lh, struct debug_mem_mapping, node);
@@ -146,34 +125,21 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	if (!(map->flags & KBASE_REG_CPU_CACHED))
 		prot = pgprot_writecombine(prot);
 
-	page = as_page(map->alloc->pages[data->offset]);
-	cpu_addr = vmap(&page, 1, VM_MAP, prot);
-	if (!cpu_addr)
+	page = phys_to_page(as_phys_addr_t(map->alloc->pages[data->offset]));
+	mapping = vmap(&page, 1, VM_MAP, prot);
+	if (!mapping)
 		goto out;
 
-	gpu_addr = (map->start_pfn + data->offset) << PAGE_SHIFT;
+	for (i = 0; i < PAGE_SIZE; i += 4*sizeof(*mapping)) {
+		seq_printf(m, "%016llx:", i + ((map->start_pfn +
+				data->offset) << PAGE_SHIFT));
 
-	/* Cases for 4 supported values of column_width for showing
-	 * the GPU memory contents.
-	 */
-	switch (mem_data->column_width) {
-	case 1:
-		SHOW_GPU_MEM_DATA(u8, " %02hhx");
-		break;
-	case 2:
-		SHOW_GPU_MEM_DATA(u16, " %04hx");
-		break;
-	case 4:
-		SHOW_GPU_MEM_DATA(u32, " %08x");
-		break;
-	case 8:
-		SHOW_GPU_MEM_DATA(u64, " %016llx");
-		break;
-	default:
-		dev_warn(mem_data->kctx->kbdev->dev, "Unexpected column width");
+		for (j = 0; j < 4*sizeof(*mapping); j += sizeof(*mapping))
+			seq_printf(m, " %08x", mapping[(i+j)/sizeof(*mapping)]);
+		seq_putc(m, '\n');
 	}
 
-	vunmap(cpu_addr);
+	vunmap(mapping);
 
 	seq_putc(m, '\n');
 
@@ -204,13 +170,6 @@ static int debug_mem_zone_open(struct rb_root *rbtree,
 			/* Empty region - ignore */
 			continue;
 
-		if (reg->flags & KBASE_REG_PROTECTED) {
-			/* CPU access to protected memory is forbidden - so
-			 * skip this GPU virtual region.
-			 */
-			continue;
-		}
-
 		mapping = kmalloc(sizeof(*mapping), GFP_KERNEL);
 		if (!mapping) {
 			ret = -ENOMEM;
@@ -230,24 +189,14 @@ out:
 
 static int debug_mem_open(struct inode *i, struct file *file)
 {
-	struct kbase_context *const kctx = i->i_private;
+	struct file *kctx_file = i->i_private;
+	struct kbase_context *kctx = kctx_file->private_data;
 	struct debug_mem_data *mem_data;
 	int ret;
 
-	if (get_file_rcu(kctx->filp) == 0)
-		return -ENOENT;
-
-	/* Check if file was opened in write mode. GPU memory contents
-	 * are returned only when the file is not opened in write mode.
-	 */
-	if (file->f_mode & FMODE_WRITE) {
-		file->private_data = kctx;
-		return 0;
-	}
-
 	ret = seq_open(file, &ops);
 	if (ret)
-		goto open_fail;
+		return ret;
 
 	mem_data = kmalloc(sizeof(*mem_data), GFP_KERNEL);
 	if (!mem_data) {
@@ -259,41 +208,27 @@ static int debug_mem_open(struct inode *i, struct file *file)
 
 	INIT_LIST_HEAD(&mem_data->mapping_list);
 
+	get_file(kctx_file);
+
 	kbase_gpu_vm_lock(kctx);
 
-	mem_data->column_width = kctx->mem_view_column_width;
-
 	ret = debug_mem_zone_open(&kctx->reg_rbtree_same, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_custom, mem_data);
-	if (ret != 0) {
+	if (0 != ret) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
 	}
 
 	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec, mem_data);
-	if (ret != 0) {
+	if (0 != ret) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
 	}
 
-#if MALI_USE_CSF
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec_fixed, mem_data);
-	if (ret != 0) {
+	ret = debug_mem_zone_open(&kctx->reg_rbtree_custom, mem_data);
+	if (0 != ret) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
 	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_fixed, mem_data);
-	if (ret != 0) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-#endif
 
 	kbase_gpu_vm_unlock(kctx);
 
@@ -312,98 +247,59 @@ out:
 			list_del(&mapping->node);
 			kfree(mapping);
 		}
+		fput(kctx_file);
 		kfree(mem_data);
 	}
 	seq_release(i, file);
-open_fail:
-	fput(kctx->filp);
-
 	return ret;
 }
 
 static int debug_mem_release(struct inode *inode, struct file *file)
 {
-	struct kbase_context *const kctx = inode->i_private;
+	struct file *kctx_file = inode->i_private;
+	struct seq_file *sfile = file->private_data;
+	struct debug_mem_data *mem_data = sfile->private;
+	struct debug_mem_mapping *mapping;
 
-	/* If the file wasn't opened in write mode, then release the
-	 * memory allocated to show the GPU memory contents.
-	 */
-	if (!(file->f_mode & FMODE_WRITE)) {
-		struct seq_file *sfile = file->private_data;
-		struct debug_mem_data *mem_data = sfile->private;
-		struct debug_mem_mapping *mapping;
+	seq_release(inode, file);
 
-		seq_release(inode, file);
-
-		while (!list_empty(&mem_data->mapping_list)) {
-			mapping = list_first_entry(&mem_data->mapping_list,
+	while (!list_empty(&mem_data->mapping_list)) {
+		mapping = list_first_entry(&mem_data->mapping_list,
 				struct debug_mem_mapping, node);
-			kbase_mem_phy_alloc_put(mapping->alloc);
-			list_del(&mapping->node);
-			kfree(mapping);
-		}
-
-		kfree(mem_data);
+		kbase_mem_phy_alloc_put(mapping->alloc);
+		list_del(&mapping->node);
+		kfree(mapping);
 	}
 
-	fput(kctx->filp);
+	kfree(mem_data);
+
+	fput(kctx_file);
 
 	return 0;
 }
 
-static ssize_t debug_mem_write(struct file *file, const char __user *ubuf,
-			       size_t count, loff_t *ppos)
-{
-	struct kbase_context *const kctx = file->private_data;
-	unsigned int column_width = 0;
-	int ret = 0;
-
-	CSTD_UNUSED(ppos);
-
-	ret = kstrtouint_from_user(ubuf, count, 0, &column_width);
-
-	if (ret)
-		return ret;
-	if (!is_power_of_2(column_width)) {
-		dev_dbg(kctx->kbdev->dev,
-			"Column width %u not a multiple of power of 2", column_width);
-		return  -EINVAL;
-	}
-	if (column_width > 8) {
-		dev_dbg(kctx->kbdev->dev,
-			"Column width %u greater than 8 not supported", column_width);
-		return  -EINVAL;
-	}
-
-	kbase_gpu_vm_lock(kctx);
-	kctx->mem_view_column_width = column_width;
-	kbase_gpu_vm_unlock(kctx);
-
-	return count;
-}
-
 static const struct file_operations kbase_debug_mem_view_fops = {
-	.owner = THIS_MODULE,
 	.open = debug_mem_open,
 	.release = debug_mem_release,
 	.read = seq_read,
-	.write = debug_mem_write,
 	.llseek = seq_lseek
 };
 
-void kbase_debug_mem_view_init(struct kbase_context *const kctx)
+/**
+ * kbase_debug_mem_view_init - Initialise the mem_view sysfs file
+ * @kctx_file: The /dev/mali0 file instance for the context
+ *
+ * This function creates a "mem_view" file which can be used to get a view of
+ * the context's memory as the GPU sees it (i.e. using the GPU's page tables).
+ *
+ * The file is cleaned up by a call to debugfs_remove_recursive() deleting the
+ * parent directory.
+ */
+void kbase_debug_mem_view_init(struct file *kctx_file)
 {
-	/* Caller already ensures this, but we keep the pattern for
-	 * maintenance safety.
-	 */
-	if (WARN_ON(!kctx) ||
-		WARN_ON(IS_ERR_OR_NULL(kctx->kctx_dentry)))
-		return;
+	struct kbase_context *kctx = kctx_file->private_data;
 
-	/* Default column width is 4 */
-	kctx->mem_view_column_width = sizeof(u32);
-
-	debugfs_create_file("mem_view", 0400, kctx->kctx_dentry, kctx,
+	debugfs_create_file("mem_view", S_IRUSR, kctx->kctx_dentry, kctx_file,
 			&kbase_debug_mem_view_fops);
 }
 
