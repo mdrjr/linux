@@ -91,3 +91,38 @@
 &usbdrd_dwc3_1 {
 	dr_mode = "host";
 };
+
+&i2c_1 { 
+	status = "disabled";
+	samsung,i2c-max-bus-freq = <400000>;
+};
+
+&hsi2c_5 {
+    status = "disabled";
+    samsung,hs-mode;
+    clock-frequency = <400000>;
+};
+
+&spi_1 {
+        status = "disabled";
+        samsung,spi-src-clk = <0>;
+        num-cs = <2>;
+        cs-gpios = <&gpa2 5 GPIO_ACTIVE_HIGH>, <&gpx2 1 GPIO_ACTIVE_HIGH>;
+};
+
+&serial_0 {
+        status = "disabled";
+};
+
+&serial_1 {
+        status = "disabled";
+};
+
+&serial_2 {
+        // Debugging UART port
+        status = "okay";
+};
+
+&serial_3 {
+        status = "disabled";
+};
