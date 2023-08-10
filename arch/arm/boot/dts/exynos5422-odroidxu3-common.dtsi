@@ -45,7 +45,7 @@
 		compatible = "pwm-fan";
 		pwms = <&pwm 0 20972 0>;
 		#cooling-cells = <2>;
-		cooling-levels = <0 130 170 230>;
+		cooling-levels = <0 120 180 240>;
 	};
 
 	thermal-zones {
