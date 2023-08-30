@@ -61,10 +61,6 @@
 	gpu_opp_table: opp-table-gpu {
 		compatible = "operating-points-v2";
 
-		opp-285714281 {
-			opp-hz = /bits/ 64 <285714281>;
-			opp-microvolt = <800000>;
-		};
 		opp-399999994 {
 			opp-hz = /bits/ 64 <399999994>;
 			opp-microvolt = <800000>;
