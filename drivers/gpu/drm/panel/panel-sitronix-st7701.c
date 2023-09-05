@@ -430,7 +430,7 @@ static void kd50t048a_gip_sequence(struct st7701 *st7701)
 	ST7701_DSI(st7701, 0xC1, 0x78);
 	ST7701_DSI(st7701, 0xC3, 0x78);
 	ST7701_DSI(st7701, 0xD0, 0x88);
-	msleep(120);
+	msleep(250);
 
 	ST7701_DSI(st7701, 0xE0, 0x00, 0x00, 0x02);
 	ST7701_DSI(st7701, 0xE1, 0x08, 0x00, 0x0A, 0x00, 0x07, 0x00, 0x09, 0x00,
@@ -549,12 +549,6 @@ static int st7701_get_modes(struct drm_panel *panel,
 
 	connector->display_info.width_mm = desc_mode->width_mm;
 	connector->display_info.height_mm = desc_mode->height_mm;
-
-	/*
-	 * TODO: Remove once all drm drivers call
-	 * drm_connector_set_orientation_from_panel()
-	 */
-	drm_connector_set_panel_orientation(connector, st7701->orientation);
 
 	return 1;
 }

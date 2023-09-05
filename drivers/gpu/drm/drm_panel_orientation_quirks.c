@@ -461,7 +461,7 @@ EXPORT_SYMBOL(drm_get_panel_orientation_quirk);
 /* There are no quirks for non x86 devices yet */
 int drm_get_panel_orientation_quirk(int width, int height)
 {
-	return DRM_MODE_PANEL_ORIENTATION_UNKNOWN;
+	return DRM_MODE_PANEL_ORIENTATION_LEFT_UP;
 }
 EXPORT_SYMBOL(drm_get_panel_orientation_quirk);
 
