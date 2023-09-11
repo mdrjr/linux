@@ -75,6 +75,14 @@
 			linux,code = <KEY_VOLUMEDOWN>;
 			gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
 		};
+		
+		headphone-detect-switch {
+			label = "HEADPHONE";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_HEADPHONE_INSERT>;
+			gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_HIGH>;
+		};
+
 	};
 
     joypad: gou_joypad {
