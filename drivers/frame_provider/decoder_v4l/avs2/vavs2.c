@@ -4640,7 +4640,7 @@ static struct vframe_s *vavs2_vf_get(void *op_arg)
 
 		if (pic)
 			avs2_print(dec, AVS2_DBG_BUFMGR,
-				"%s index 0x%x pos %d poc %d getcount %d type 0x%x w/h %d/%d, pts %d, %lld\n",
+				"%s index 0x%x pos %d poc %d getcount %d type 0x%x w/h %d/%d, pts %d, %lld, timestamp %llu\n",
 				__func__, index,
 				pic->imgtr_fwRefDistance_bak,
 				pic->poc,
@@ -4648,7 +4648,8 @@ static struct vframe_s *vavs2_vf_get(void *op_arg)
 				vf->type,
 				vf->width, vf->height,
 				vf->pts,
-				vf->pts_us64);
+				vf->pts_us64,
+				vf->timestamp);
 		return vf;
 		}
 	}
@@ -5033,9 +5034,37 @@ static void set_vframe(struct AVS2Decoder_s *dec,
 			vf->duration = 0;
 	}
 
-	if (!vdec->vbuf.use_ptsserv && vdec_stream_based(vdec)) {
-		vf->pts_us64 = stream_offset;
-		vf->pts = 0;
+	if (vdec_stream_based(vdec)) {
+		/* lookup by decoder */
+		u64 frame_type = 0;
+		struct checkoutptsoffset pts_st;
+		u64 dur_offset = vf->duration;
+
+		if (pic->slice_type == I_IMG)
+			frame_type = KEYFRAME_FLAG;
+		else if ((pic->slice_type == P_IMG) ||
+			(pic->slice_type == F_IMG))
+			frame_type = PFRAME_FLAG;
+		else if (pic->slice_type == B_IMG)
+			frame_type = BFRAME_FLAG;
+
+		dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | stream_offset;
+
+		if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+			vf->pts = pts_st.pts;
+			vf->pts_us64 = pts_st.pts_64;
+			vf->timestamp = pts_st.pts_64;
+#ifdef DEBUG_PTS
+			dec->pts_hit++;
+#endif
+		} else {
+#ifdef DEBUG_PTS
+			dec->pts_missed++;
+#endif
+			vf->pts = 0;
+			vf->pts_us64 = 0;
+			vf->timestamp = 0;
+		}
 	}
 
 	if (!dummy) {
@@ -5177,8 +5206,8 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 			decoder_do_aux_data_check(pvdec, pic->cuva_data_buf, pic->cuva_data_size, pic->poc);
 #endif
 			avs2_print(dec, AVS2_DBG_BUFMGR_DETAIL,
-					"%s: pic %p stream_offset 0x%x, poc %d, cuva_data_size %d, signal_type:0x%x vf:%p\n",
-					__func__, pic, pic->stream_offset, pic->poc, pic->cuva_data_size, vf->signal_type, vf);
+					"%s: pic %p stream_offset 0x%x, poc %d, cuva_data_size %d, signal_type:0x%x vf:%p timestamp %llu\n",
+					__func__, pic, pic->stream_offset, pic->poc, pic->cuva_data_size, vf->signal_type, vf, vf->timestamp);
 
 			if (get_dbg_flag(dec) & AVS2_DBG_HDR_INFO) {
 				u32 i;
@@ -7471,6 +7500,8 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 				READ_VREG(HEVC_STREAM_RD_PTR));
 			vdec_vframe_dirty(vdec, dec->chunk);
 			vdec_clean_input(vdec);
+			if (ctx->es_free)
+				ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		}
 
 		if (get_free_buf_count(dec) >=
@@ -7559,6 +7590,8 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT),
 			READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		if (ctx->es_free)
+			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		if (dec->dec_status == HEVC_DECPIC_DATA_DONE)
 			vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 	} else if (dec->dec_result == DEC_RESULT_AGAIN) {
@@ -7581,6 +7614,8 @@ static void avs2_work_implement(struct AVS2Decoder_s *dec)
 		notify_v4l_eos(hw_to_vdec(dec));
 		vdec_tracing(&ctx->vtr, VTRACE_DEC_ST_4, 0);
 		vdec_vframe_dirty(hw_to_vdec(dec), dec->chunk);
+		if (ctx->es_free)
+			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - dec->start_shift_bytes);
 	} else if (dec->dec_result == DEC_RESULT_FORCE_EXIT) {
 		avs2_print(dec, PRINT_FLAG_VDEC_STATUS, "%s: force exit\n", __func__);

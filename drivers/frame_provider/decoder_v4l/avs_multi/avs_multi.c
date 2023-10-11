@@ -1411,12 +1411,13 @@ static struct vframe_s *vavs_vf_get(void *op_arg)
 			}
 
 			debug_print(hw, PRINT_FLAG_VFRAME_DETAIL,
-				"%s, index = %d, w %d h %d, type 0x%x detached %d\n",
+				"%s, index = %d, w %d h %d, type 0x%x timestamp %llu, detached %d\n",
 				__func__,
 				vf->index,
 				vf->width,
 				vf->height,
 				vf->type,
+				vf->timestamp,
 				buf_of_vf(vf)->detached);
 		}
 
@@ -2824,6 +2825,8 @@ static void vavs_work(struct work_struct *work)
 		}
 		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
 		hw->chunk = NULL;
+		if (ctx->es_free)
+			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 	} else if (hw->dec_result == DEC_RESULT_AGAIN
 		&& (hw_to_vdec(hw)->next_status != VDEC_STATUS_DISCONNECTED)) {
 		/*
@@ -2852,6 +2855,8 @@ static void vavs_work(struct work_struct *work)
 			vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
 			hw->chunk = NULL;
 			vdec_clean_input(hw_to_vdec(hw));
+			if (ctx->es_free)
+				ctx->es_free(ctx, vdec->vbuf.buf_rp);
 		return;
 	} else if (hw->dec_result == DEC_RESULT_FORCE_EXIT) {
 		debug_print(hw, PRINT_FLAG_ERROR,
@@ -2873,6 +2878,8 @@ static void vavs_work(struct work_struct *work)
 		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
 		hw->chunk = NULL;
 		vdec_clean_input(hw_to_vdec(hw));
+		if (ctx->es_free)
+			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 
 		flush_output(hw);
 		notify_v4l_eos(hw_to_vdec(hw));
@@ -3680,13 +3687,40 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 		if (hw->m_ins_flag && vdec_frame_based(hw_to_vdec(hw)))
 			set_vframe_pts(hw, decode_pic_count, vf);
 
-		if (vdec_stream_based(vdec) && (!vdec->vbuf.use_ptsserv)) {
-			vf->pts_us64 = (((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
-			vf->pts = 0;
+		if (vdec_stream_based(vdec)) {
+			/* lookup by decoder */
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = vf->duration;
+
+			if (picture_type == I_PICTURE)
+				frame_type = KEYFRAME_FLAG;
+			else if (picture_type == P_PICTURE)
+				frame_type = PFRAME_FLAG;
+			else
+				frame_type = BFRAME_FLAG;
+
+			dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+				vf->pts = pts_st.pts;
+				vf->pts_us64 = pts_st.pts_64;
+				vf->timestamp = pts_st.pts_64;
+#ifdef DEBUG_PTS
+				hw->pts_hit++;
+#endif
+			} else {
+#ifdef DEBUG_PTS
+				hw->pts_missed++;
+#endif
+				vf->pts = 0;
+				vf->pts_us64 = 0;
+				vf->timestamp = 0;
+			}
 		}
 
 		debug_print(hw, PRINT_FLAG_PTS,
-			"interlace1 vf->pts = %d, vf->pts_us64 = %lld, pts_valid = %d\n", vf->pts, vf->pts_us64, pts_valid);
+			"%s: interlace1 vf->pts = %d, pts_us64 = %lld, timestamp %llu, pts_valid = %d\n",
+			__func__, vf->pts, vf->pts_us64, vf->timestamp, pts_valid);
 
 		decoder_do_frame_check(hw_to_vdec(hw), vf);
 		vdec_vframe_ready(vdec, vf);
@@ -3788,12 +3822,39 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 		if (hw->m_ins_flag && vdec_frame_based(hw_to_vdec(hw)))
 			set_vframe_pts(hw, decode_pic_count, vf);
 
-		if (vdec_stream_based(vdec) && (!vdec->vbuf.use_ptsserv)) {
-			vf->pts_us64 = (u64)-1;
-			vf->pts = 0;
+		if (vdec_stream_based(vdec)) {
+			/* lookup by decoder */
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = vf->duration;
+
+			if (picture_type == I_PICTURE)
+				frame_type = KEYFRAME_FLAG;
+			else if (picture_type == P_PICTURE)
+				frame_type = PFRAME_FLAG;
+			else
+				frame_type = BFRAME_FLAG;
+
+			dur_offset = -1;
+			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+				vf->pts = pts_st.pts;
+				vf->pts_us64 = pts_st.pts_64;
+				vf->timestamp = pts_st.pts_64;
+#ifdef DEBUG_PTS
+				hw->pts_hit++;
+#endif
+			} else {
+#ifdef DEBUG_PTS
+				hw->pts_missed++;
+#endif
+				vf->pts = 0;
+				vf->pts_us64 = 0;
+				vf->timestamp = 0;
+			}
 		}
 		debug_print(hw, PRINT_FLAG_PTS,
-			"interlace2 vf->pts = %d, vf->pts_us64 = %lld, pts_valid = %d\n", vf->pts, vf->pts_us64, pts_valid);
+			"%s: interlace2 vf->pts = %d, pts_us64 = %lld, timestamp = %llu, pts_valid = %d\n",
+			__func__, vf->pts, vf->pts_us64, vf->timestamp, pts_valid);
 
 		vdec_vframe_ready(vdec, vf);
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
@@ -3900,19 +3961,47 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 		debug_print(hw, PRINT_FLAG_VFRAME_DETAIL,
 			"buffer_index %d, canvas addr %x\n",
 				   buffer_index, vf->canvas0Addr);
-		debug_print(hw, PRINT_FLAG_PTS,
-			"progressive vf->pts = %d, vf->pts_us64 = %lld, pts_valid = %d\n", vf->pts, vf->pts_us64, pts_valid);
+
 		hw->vfbuf_use[buffer_index]++;
 		hw->vf_ref[buffer_index]++;
 
 		if (hw->m_ins_flag && vdec_frame_based(hw_to_vdec(hw)))
 			set_vframe_pts(hw, decode_pic_count, vf);
 
-		if (vdec_stream_based(vdec) && (!vdec->vbuf.use_ptsserv)) {
-			vf->pts_us64 =
-				(((u64)vf->duration << 32) & 0xffffffff00000000) | offset;
-			vf->pts = 0;
+		if (vdec_stream_based(vdec)) {
+			/* lookup by decoder */
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = vf->duration;
+
+			if (picture_type == I_PICTURE)
+				frame_type = KEYFRAME_FLAG;
+			else if (picture_type == P_PICTURE)
+				frame_type = PFRAME_FLAG;
+			else
+				frame_type = BFRAME_FLAG;
+
+			dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+				vf->pts = pts_st.pts;
+				vf->pts_us64 = pts_st.pts_64;
+				vf->timestamp = pts_st.pts_64;
+#ifdef DEBUG_PTS
+				hw->pts_hit++;
+#endif
+			} else {
+#ifdef DEBUG_PTS
+				hw->pts_missed++;
+#endif
+				vf->pts = 0;
+				vf->pts_us64 = 0;
+				vf->timestamp = 0;
+			}
 		}
+		debug_print(hw, PRINT_FLAG_PTS,
+			"%s: progressive vf->pts = %d, pts_us64 = %lld, timestamp %llu, pts_valid = %d\n",
+			__func__, vf->pts, vf->pts_us64, vf->timestamp, pts_valid);
+
 		decoder_do_frame_check(hw_to_vdec(hw), vf);
 		vdec_vframe_ready(vdec, vf);
 		if (v4l2_ctx->enable_di_post)
