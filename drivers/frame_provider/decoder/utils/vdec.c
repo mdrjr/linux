@@ -86,10 +86,6 @@
 #include "../../../common/media_utils/media_utils.h"
 #include "../../../media_sync/pts_server/pts_server_core.h"
 
-#if 0
-#define PXP_DEBUG
-#endif
-
 #ifdef CONFIG_AMLOGIC_IONVIDEO
 #include <linux/amlogic/media/video_sink/ionvideo_ext.h>
 #else
@@ -950,7 +946,8 @@ static void dec_dmc_port_ctrl(bool dmc_on, u32 target)
 
 	if (target == VDEC_INPUT_TARGET_VLD) {
 		if ((cpu_type == AM_MESON_CPU_MAJOR_ID_S7) ||
-			(cpu_type == AM_MESON_CPU_MAJOR_ID_S7D)) {
+			(cpu_type == AM_MESON_CPU_MAJOR_ID_S7D) ||
+			(cpu_type == AM_MESON_CPU_MAJOR_ID_S6)) {
 			mask = (1 << 8);
 		} else {
 			mask = (1 << 13);	/*bit13: DOS VDEC interface*/
@@ -961,6 +958,8 @@ static void dec_dmc_port_ctrl(bool dmc_on, u32 target)
 		if ((cpu_type == AM_MESON_CPU_MAJOR_ID_S7) ||
 			(cpu_type == AM_MESON_CPU_MAJOR_ID_S7D)) {
 			mask = (1 << 7);
+		} else if  (cpu_type == AM_MESON_CPU_MAJOR_ID_S6) {
+			mask = (1 << 6) | (1 << 7);
 		} else {
 			mask = (1 << 4); /*hevc*/
 			if ((cpu_type >= AM_MESON_CPU_MAJOR_ID_G12A) &&
@@ -1020,6 +1019,9 @@ static void dec_dmc_port_ctrl(bool dmc_on, u32 target)
 			break;
 		case AM_MESON_CPU_MAJOR_ID_S7D:
 			sts_reg_addr = 0xcf;
+			break;
+		case AM_MESON_CPU_MAJOR_ID_S6:
+			sts_reg_addr = 0xd8;
 			break;
 		default:
 			sts_reg_addr = DMC_CHAN_STS;
@@ -1118,37 +1120,15 @@ static void vdec_enable_DMC(struct vdec_s *vdec)
 #if 0
 static int vdec_get_hw_type(int value)
 {
-	int type;
-	switch (value) {
-		case VFORMAT_HEVC:
-		case VFORMAT_VP9:
-		case VFORMAT_AVS2:
-		case VFORMAT_AV1:
-		case VFORMAT_AVS3:
-			type = CORE_MASK_HEVC;
-		break;
-
-		case VFORMAT_MPEG12:
-		case VFORMAT_MPEG4:
-		case VFORMAT_H264:
-		case VFORMAT_MJPEG:
-		case VFORMAT_REAL:
-		case VFORMAT_JPEG:
-		case VFORMAT_VC1:
-		case VFORMAT_AVS:
-		case VFORMAT_YUV:
-		case VFORMAT_H264MVC:
-		case VFORMAT_H264_4K2K:
-		case VFORMAT_H264_ENC:
-		case VFORMAT_JPEG_ENC:
-			type = CORE_MASK_VDEC_1;
-		break;
-
-		default:
-			type = -1;
-	}
-
-	return type;
+	if (is_core_hevc_fmt(value))
+		return CORE_MASK_HEVC;
+	else if (is_core_vdec_fmt(value))
+		return CORE_MASK_VDEC_1;
+	else if (value == VFORMAT_H264_ENC ||
+		value == VFORMAT_JPEG_ENC)
+		return CORE_MASK_HCODEC;
+	else
+		return -1;
 }
 #endif
 
@@ -1390,6 +1370,7 @@ static const char * const vdec_device_name[] = {
 	"amvdec_avs2",       "ammvdec_avs2",
 	"amvdec_av1",        "ammvdec_av1",
 	"amvdec_avs3",       "ammvdec_avs3",
+	"amvdec_h266",       "ammvdec_h266",
 };
 
 
@@ -1412,8 +1393,9 @@ static const char * const vdec_device_name[] = {
 	"jpegenc",
 	"amvdec_vp9",
 	"amvdec_avs2",
-	"amvdec_av1"
-	"amvdec_avs3"
+	"amvdec_av1",
+	"amvdec_avs3",
+	"amvdec_h266",
 };
 
 #endif
@@ -3144,12 +3126,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 	mutex_unlock(&vdec_mutex);
 
 	vdec_input_set_type(&vdec->input, vdec->type,
-			(vdec->format == VFORMAT_HEVC ||
-			vdec->format == VFORMAT_AVS2 ||
-			vdec->format == VFORMAT_VP9 ||
-			vdec->format == VFORMAT_AV1 ||
-			vdec->format == VFORMAT_AVS3
-			) ?
+			(is_core_hevc_fmt(vdec->format)) ?
 				VDEC_INPUT_TARGET_HEVC :
 				VDEC_INPUT_TARGET_VLD);
 	if (vdec_single(vdec) ||
@@ -3573,7 +3550,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 		vfm_map_remove("dvblpath");
 		vfm_map_add("dvblpath", vdec->vfm_map_chain);
 	}
-
+#ifndef PXP_DEBUG
 	if (!vdec_single(vdec) && !vdec->disable_vfm) {
 		vf_reg_provider(&p->vframe_provider);
 
@@ -3599,6 +3576,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 			}
 		}
 	}
+#endif
 	if (vdec_single(vdec) && !vdec_secure(vdec)) {
 		if (!is_support_no_parser())
 			tee_config_device_state(DMC_DEV_ID_PARSER, 0);
@@ -3785,6 +3763,7 @@ void vdec_release(struct vdec_s *vdec)
 	vdec_frame_rate_uevent(0);
 	vdec_disconnect(vdec);
 
+#ifndef PXP_DEBUG
 	if (!vdec->disable_vfm && vdec->vframe_provider.name) {
 		if (!vdec_single(vdec)) {
 			if (vdec_core->hint_fr_vdec == vdec
@@ -3797,7 +3776,7 @@ void vdec_release(struct vdec_s *vdec)
 		}
 		vf_unreg_provider(&vdec->vframe_provider);
 	}
-
+#endif
 	if (vdec_core->vfm_vdec == vdec)
 		vdec_core->vfm_vdec = NULL;
 
