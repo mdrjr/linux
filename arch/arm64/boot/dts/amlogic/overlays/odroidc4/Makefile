@@ -32,7 +32,8 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					gpio-joystick1.dtbo	\
 					display_vu7c.dtbo	\
 					dht11.dtbo	\
-					weather_board_zero.dtbo
+					weather_board_zero.dtbo \
+					circuitpython.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)

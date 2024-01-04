@@ -1,0 +1,50 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&i2c2>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&spicc0>;
+
+		__overlay__ {
+			status = "okay";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			spidev: spidev@0 {
+				status = "okay";
+				compatible = "linux,spidev";
+				reg = <0>;
+				/* spi default max clock 100Mhz */
+				spi-max-frequency = <100000000>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&uart_A>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&pwm_ef>;
+
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "pwm_pins", "gpio_periphs";
+			pinctrl-0 = <&pwm_e_pins &pwm_f_pins1>;
+			pinctrl-1 = <&pwmef_to_gpios>;
+		};
+	};
+};
