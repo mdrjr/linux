@@ -352,6 +352,7 @@
 	opp-2016000000 {
 		opp-hz = /bits/ 64 <2016000000>;
 		opp-microvolt = <1050000>;
+		turbo-mode;
 	};
 };
 
@@ -384,22 +385,27 @@
 	opp-2016000000 {
 		opp-hz = /bits/ 64 <2016000000>;
 		opp-microvolt = <1025000>;
+		turbo-mode;
 	};
 	opp-2100000000 {
 		opp-hz = /bits/ 64 <2100000000>;
 		opp-microvolt = <1025000>;
+		turbo-mode;
 	};
 	opp-2208000000 {
 		opp-hz = /bits/ 64 <2208000000>;
 		opp-microvolt = <1050000>;
+		turbo-mode;
 	};
 	opp-2304000000 {
 		opp-hz = /bits/ 64 <2304000000>;
 		opp-microvolt = <1050000>;
+		turbo-mode;
 	};
 	opp-2400000000 {
 		opp-hz = /bits/ 64 <2400000000>;
 		opp-microvolt = <1050000>;
+		turbo-mode;
 	};
 };
 
