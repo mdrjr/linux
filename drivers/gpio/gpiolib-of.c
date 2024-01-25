@@ -398,6 +398,20 @@ out:
 	return desc;
 }
 
+int of_get_named_gpio_flags(const struct device_node *np, const char *list_name,
+			    int index, enum of_gpio_flags *flags)
+{
+	struct gpio_desc *desc;
+
+	desc = of_get_named_gpiod_flags(np, list_name, index, flags);
+
+	if (IS_ERR(desc))
+		return PTR_ERR(desc);
+	else
+		return desc_to_gpio(desc);
+}
+EXPORT_SYMBOL_GPL(of_get_named_gpio_flags);
+
 /**
  * of_get_named_gpio() - Get a GPIO number to use with GPIO API
  * @np:		device node to get GPIO from
