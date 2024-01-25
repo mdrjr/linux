@@ -344,6 +344,12 @@ config JOYSTICK_MAPLE
 	  To compile this as a module choose M here: the module will be called
 	  maplecontrol.
 
+config JOYSTICK_ODROID_GOU
+       tristate "ODROID-Go-Ultra joypad driver"
+       depends on INPUT_POLLDEV
+       help
+         Made for ODROID-GO-Ultra.
+
 config JOYSTICK_PSXPAD_SPI
 	tristate "PlayStation 1/2 joypads via SPI interface"
 	depends on SPI
