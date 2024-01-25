@@ -139,7 +139,8 @@
 };
 
 &mali {
-	dma-coherent;
+	system-coherency = <0>;
+	power_policy = "always_on";
 };
 
 &pmu {

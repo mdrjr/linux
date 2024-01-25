@@ -242,5 +242,6 @@ source "drivers/peci/Kconfig"
 source "drivers/hte/Kconfig"
 
 source "drivers/cdx/Kconfig"
+source "drivers/gpu/arm/Kconfig"
 
 endmenu
