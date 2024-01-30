@@ -34,6 +34,7 @@
 #include "mali_kbase_fence_defs.h"
 #include <linux/sync_file.h>
 #endif
+#include <linux/fdtable.h>
 
 #include "mali_kbase.h"
 

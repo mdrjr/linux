@@ -3777,45 +3777,6 @@ static int kbasep_protected_mode_init(struct kbase_device *kbdev)
 
 	kbdev->protected_mode_support = false;
 
-#ifdef CONFIG_OF
-	protected_node = of_parse_phandle(kbdev->dev->of_node,
-			"protected-mode-switcher", 0);
-
-	if (!protected_node)
-		protected_node = of_parse_phandle(kbdev->dev->of_node,
-				"secure-mode-switcher", 0);
-
-	if (!protected_node) {
-		/* If protected_node cannot be looked up then we assume
-		 * protected mode is not supported on this platform. */
-		dev_info(kbdev->dev, "Protected mode not available\n");
-		return 0;
-	}
-
-	pdev = of_find_device_by_node(protected_node);
-	if (!pdev)
-		return -EINVAL;
-
-	protected_dev = platform_get_drvdata(pdev);
-	if (!protected_dev)
-		return -EPROBE_DEFER;
-
-	kbdev->protected_ops = &protected_dev->ops;
-	kbdev->protected_dev = protected_dev;
-
-	if (kbdev->protected_ops) {
-		int err;
-
-		/* Make sure protected mode is disabled on startup */
-		mutex_lock(&kbdev->pm.lock);
-		err = kbdev->protected_ops->protected_mode_disable(
-				kbdev->protected_dev);
-		mutex_unlock(&kbdev->pm.lock);
-
-		/* protected_mode_disable() returns -EINVAL if not supported */
-		kbdev->protected_mode_support = (err != -EINVAL);
-	}
-#endif
 	return 0;
 }
 

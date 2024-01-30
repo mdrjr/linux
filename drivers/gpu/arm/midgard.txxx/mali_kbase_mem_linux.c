@@ -1187,7 +1187,7 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 #else
 	faulted_pages = get_user_pages(address, *va_pages,
 			reg->flags & KBASE_REG_GPU_WR ? FOLL_WRITE : 0,
-			pages, NULL);
+			pages);
 #endif
 
 	up_read(kbase_mem_get_process_mmap_lock());
@@ -1895,11 +1895,7 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 	 * See MIDBASE-1057
 	 */
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
-	vma->vm_flags |= VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO;
-#else
-	vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED | VM_IO;
-#endif
+	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
 	vma->vm_ops = &kbase_vm_ops;
 	vma->vm_private_data = map;
 
@@ -1921,7 +1917,8 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 		u64 start_off = vma->vm_pgoff - reg->start_pfn +
 			(aligned_offset>>PAGE_SHIFT);
 
-		vma->vm_flags |= VM_PFNMAP;
+		vm_flags_set(vma, VM_PFNMAP);
+
 		for (i = 0; i < nr_pages; i++) {
 			phys_addr_t phys;
 
@@ -1935,7 +1932,8 @@ static int kbase_cpu_mmap(struct kbase_va_region *reg, struct vm_area_struct *vm
 	} else {
 		WARN_ON(aligned_offset);
 		/* MIXEDMAP so we can vfree the kaddr early and not track it after map time */
-		vma->vm_flags |= VM_MIXEDMAP;
+		vm_flags_set(vma, VM_MIXEDMAP);
+		
 		/* vmalloc remaping is easy... */
 		err = remap_vmalloc_range(vma, kaddr, 0);
 		WARN_ON(err);
@@ -2028,7 +2026,8 @@ static int kbase_trace_buffer_mmap(struct kbase_context *kctx, struct vm_area_st
 	*reg = new_reg;
 
 	/* map read only, noexec */
-	vma->vm_flags &= ~(VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
+	vm_flags_set(vma, VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
+
 	/* the rest of the flags is added by the cpu_mmap handler */
 
 	dev_dbg(kctx->kbdev->dev, "%s done\n", __func__);
@@ -2200,7 +2199,11 @@ int kbase_mmap(struct file *file, struct vm_area_struct *vma)
 	dev_dbg(dev, "kbase_mmap\n");
 
 	/* strip away corresponding VM_MAY% flags to the VM_% flags requested */
-	vma->vm_flags &= ~((vma->vm_flags & (VM_READ | VM_WRITE)) << 4);
+	if(!(vma->vm_flags & VM_READ))
+		vm_flags_clear(vma, VM_MAYREAD);
+	
+	if(!(vma->vm_flags & VM_WRITE))
+		vm_flags_clear(vma, VM_MAYWRITE);
 
 	if (0 == nr_pages) {
 		err = -EINVAL;
@@ -2481,6 +2484,11 @@ void kbase_vunmap(struct kbase_context *kctx, struct kbase_vmap_struct *map)
 }
 KBASE_EXPORT_TEST_API(kbase_vunmap);
 
+static void kbasep_add_mm_counter(struct mm_struct *mm, int member, long value)
+{
+	percpu_counter_add(&mm->rss_stat[member], value);
+}
+
 void kbasep_os_process_page_usage_update(struct kbase_context *kctx, int pages)
 {
 	struct mm_struct *mm;
@@ -2490,10 +2498,10 @@ void kbasep_os_process_page_usage_update(struct kbase_context *kctx, int pages)
 	if (mm) {
 		atomic_add(pages, &kctx->nonmapped_pages);
 #ifdef SPLIT_RSS_COUNTING
-		add_mm_counter(mm, MM_FILEPAGES, pages);
+		kbasep_add_mm_counter(mm, MM_FILEPAGES, pages);
 #else
 		spin_lock(&mm->page_table_lock);
-		add_mm_counter(mm, MM_FILEPAGES, pages);
+		kbasep_add_mm_counter(mm, MM_FILEPAGES, pages);
 		spin_unlock(&mm->page_table_lock);
 #endif
 	}
@@ -2518,10 +2526,10 @@ static void kbasep_os_process_page_usage_drain(struct kbase_context *kctx)
 
 	pages = atomic_xchg(&kctx->nonmapped_pages, 0);
 #ifdef SPLIT_RSS_COUNTING
-	add_mm_counter(mm, MM_FILEPAGES, -pages);
+	kbasep_add_mm_counter(mm, MM_FILEPAGES, -pages);
 #else
 	spin_lock(&mm->page_table_lock);
-	add_mm_counter(mm, MM_FILEPAGES, -pages);
+	kbasep_add_mm_counter(mm, MM_FILEPAGES, -pages);
 	spin_unlock(&mm->page_table_lock);
 #endif
 }
@@ -2552,12 +2560,9 @@ static int kbase_tracking_page_setup(struct kbase_context *kctx, struct vm_area_
 	spin_unlock(&kctx->mm_update_lock);
 
 	/* no real access */
-	vma->vm_flags &= ~(VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
-	vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO;
-#else
-	vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED | VM_IO;
-#endif
+    vm_flags_clear(vma, VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
+    vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
+
 	vma->vm_ops = &kbase_vm_special_ops;
 	vma->vm_private_data = kctx;
 

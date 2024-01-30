@@ -820,17 +820,20 @@
 		};
 
 		gpu: gpu@11800000 {
-			compatible = "samsung,exynos5420-mali", "arm,mali-t628";
+			compatible = "samsung,exynos5420-mali", "arm,mali-t628", "arm,malit6xx";
 			reg = <0x11800000 0x5000>;
 			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "job", "mmu", "gpu";
+			interrupt-names = "JOB", "MMU", "GPU";
 
 			clocks = <&clock CLK_G3D>;
 			clock-names = "core";
 			power-domains = <&g3d_pd>;
 			operating-points-v2 = <&gpu_opp_table>;
+
+	        //system-coherency = <0>;
+	        //power_policy = "always_on";
 
 			status = "disabled";
 			#cooling-cells = <2>;
