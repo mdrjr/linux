@@ -3400,7 +3400,7 @@ static int rk818_battery_resume(struct platform_device *dev)
 {
 	struct rk818_battery *di = platform_get_drvdata(dev);
 	int interval_sec, time_step, pwroff_vol;
-	u8 val, st;
+	u8 st;
 
 	di->s2r = true;
 	di->current_avg = rk818_bat_get_avg_current(di);

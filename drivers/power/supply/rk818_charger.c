@@ -538,7 +538,6 @@ static int rk818_charger_set_property(struct power_supply *psy,
 				      const union power_supply_propval *val)
 {
 	struct rk818_charger *cg = power_supply_get_drvdata(psy);
-	int ret;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
