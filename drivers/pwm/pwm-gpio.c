@@ -134,11 +134,53 @@ static void gpio_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 		gpio_pwm_off(gpio_data);
 }
 
+static int gpio_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm, 
+				const struct pwm_state *state) {
+
+		int err;
+		int enabled = pwm->state.enabled;
+		
+		if(state->polarity != pwm->state.polarity) {
+			if(enabled) {
+				gpio_pwm_disable(chip, pwm);
+				enabled = false;
+			}
+
+			err = gpio_pwm_set_polarity(chip, pwm, state->polarity);
+			if(err)
+				return err;
+		}
+
+		if(!state->enabled) { 
+			if(enabled)
+				gpio_pwm_disable(chip, pwm);
+
+			return 0;
+		}
+
+		err = gpio_pwm_config(chip, pwm, state->duty_cycle, state->period);
+		if(err)
+			return err;
+
+		if(!pwm->state.enabled) 
+			err = gpio_pwm_enable(chip, pwm);
+	
+	return err;
+}
+
+static int gpio_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+					struct pwm_state *state) {
+
+	if(!state)
+		return 0;
+
+	return 0;
+
+}
+
 static const struct pwm_ops gpio_pwm_ops = {
-	.config = gpio_pwm_config,
-	.set_polarity = gpio_pwm_set_polarity,
-	.enable = gpio_pwm_enable,
-	.disable = gpio_pwm_disable,
+	.get_state = gpio_pwm_get_state,
+	.apply = gpio_pwm_apply,
 	.owner = THIS_MODULE,
 };
 
@@ -149,7 +191,7 @@ static int gpio_pwm_probe(struct platform_device *pdev)
 	int npwm, i;
 	int hrtimer = 0;
 
-	npwm = of_gpio_named_count(pdev->dev.of_node, "pwm-gpios");
+	npwm = 1;
 	if (npwm < 1)
 		return -ENODEV;
 
@@ -215,7 +257,7 @@ static int gpio_pwm_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int gpio_pwm_remove(struct platform_device *pdev)
+static void gpio_pwm_remove(struct platform_device *pdev)
 {
 	struct gpio_pwm_chip *gpio_chip;
 	int i;
@@ -231,7 +273,6 @@ static int gpio_pwm_remove(struct platform_device *pdev)
 
 	pwmchip_remove(&gpio_chip->chip);
 
-	return 0;
 }
 
 static const struct of_device_id gpio_pwm_of_match[] = {
@@ -242,7 +283,7 @@ MODULE_DEVICE_TABLE(of, gpio_pwm_of_match);
 
 static struct platform_driver gpio_pwm_driver = {
 	.probe = gpio_pwm_probe,
-	.remove = gpio_pwm_remove,
+	.remove_new = gpio_pwm_remove,
 	.driver = {
 		.name = DRV_NAME,
 		.of_match_table = of_match_ptr(gpio_pwm_of_match),
