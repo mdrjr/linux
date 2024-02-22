@@ -13,7 +13,8 @@ dtbo-y += \
 	uart0.dtbo \
 	uart1.dtbo \
 	w1-gpio_p15.dtbo \
-	w1-gpio_p22.dtbo
+	w1-gpio_p22.dtbo \
+	gpio-poweroff.dtbo
 
 targets += $(dtbo-y)
 always-y := $(dtbo-y)
