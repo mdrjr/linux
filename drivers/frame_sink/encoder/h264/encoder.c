@@ -1371,7 +1371,7 @@ static int scale_frame(struct encode_wq_s *wq,
 			input_format = GE2D_FORMAT_S24_RGB; //Opposite color after ge2d
 		} else if (request->fmt == FMT_RGBA8888) {
 			src_canvas_w =
-				((request->src_w + 31) >> 5) << 5;
+				((request->src_w + 15) >> 4) << 4;
 			canvas_config(
 				enc_canvas_offset + 9,
 				src_addr,
