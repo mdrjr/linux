@@ -607,7 +607,8 @@ static inline int vcodec_video_es_init(vcodec_para_t *pcodec, int sched)
     } else if (pcodec->video_type == VFORMAT_HEVC ||
                pcodec->video_type == VFORMAT_VP9 ||
                pcodec->video_type == VFORMAT_AVS2 ||
-               pcodec->video_type == VFORMAT_AVS3) {
+               pcodec->video_type == VFORMAT_AVS3 ||
+               pcodec->video_type == VFORMAT_H266) {
         if (sched != SINGLE_MODE)
             amstream_dev = CODEC_VIDEO_ES_HEVC_DEVICE_SCHED;
         else

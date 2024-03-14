@@ -1659,6 +1659,7 @@ static void print_help()
     printf("\t15  --avs2\n");
     printf("\t16  --av1\n");
     printf("\t17  --avs3\n");
+    printf("\t18  --h266\n");
     printf("\t21  --h265_10bit\n");
     printf("\t24  --vp9_10bit\n");
     printf("\t25  --avs2_10bit\n");

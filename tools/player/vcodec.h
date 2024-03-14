@@ -35,6 +35,7 @@ enum vformat_e {
 	VFORMAT_AVS2,
 	VFORMAT_AV1,
 	VFORMAT_AVS3,
+	VFORMAT_H266,
 	VFORMAT_MAX
 };
 
@@ -60,7 +61,9 @@ enum vformat_e {
 #define VIDEO_DEC_FORMAT_AVS2		(17)
 #define VIDEO_DEC_FORMAT_AV1		(18)
 #define VIDEO_DEC_FORMAT_AVS3		(19)
-#define VIDEO_DEC_FORMAT_MAX		(20)
+#define VIDEO_DEC_FORMAT_H266		(20)
+#define VIDEO_DEC_FORMAT_MAX		(21)
+
 
 // err status
 #define C_PAE                               (0x01000000)
