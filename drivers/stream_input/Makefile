@@ -16,6 +16,9 @@ ${MODULE_NAME}-objs	+=	parser/dvb_common.o
 ${MODULE_NAME}-objs	+=	subtitle/subtitle.o
 
 obj-$(CONFIG_AMLOGIC_HW_DEMUX)   += parser/hw_demux/
+ifeq ($(TARGET_BUILD_KERNEL_VERSION),5.15)
+	obj-$(CONFIG_AMLOGIC_HW_DEMUX)   += t5d_demux/
+endif
 obj-$(CONFIG_AMLOGIC_DVB)   += parser/dvb_ci/
 
 ccflags-y += -I.
