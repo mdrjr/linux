@@ -166,6 +166,21 @@ int amports_switch_gate(const char *name, int enable)
 }
 EXPORT_SYMBOL(amports_switch_gate);
 
+struct clk *amports_gate_clk_get(const char *name)
+{
+	int i;
+	struct clk *clk = NULL;
+
+	for (i = 0; i < sizeof(gates) / sizeof(struct gate_switch_node); i++) {
+		if (!strcmp(name, gates[i].name)) {
+			clk = gates[i].clk;
+		}
+	}
+
+	return clk;
+}
+EXPORT_SYMBOL(amports_gate_clk_get);
+
 #else
 /*
  *can used for debug.

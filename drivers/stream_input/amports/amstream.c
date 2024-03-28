@@ -54,6 +54,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 #include <linux/clk.h>
+#include <linux/clk/clk-conf.h>
+#include <linux/clk-provider.h>
 #include <linux/compat.h>
 #if 1				/* MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6 */
 /* #include <mach/mod_gate.h> */
@@ -4443,6 +4445,55 @@ struct stream_buf_s *get_stream_buffer(int id)
 	return &bufs[id];
 }
 EXPORT_SYMBOL(get_stream_buffer);
+
+#ifdef CONFIG_HIBERNATION
+static int amstream_pm_freeze(struct device *dev)
+{
+	int i = 0;
+	struct clk *clk, *pclk;
+	struct clk_hw* clk_hw;
+	static const char *clk_name[4] = {
+		"clk_vdec_mux",
+		"clk_hevc_mux",
+		"clk_hevcf_mux",
+		"clk_hevcb_mux"
+	};
+
+	if (!is_support_new_dos_dev()) {
+		for (i = 0; i < 4; i++) {
+			clk = amports_gate_clk_get(clk_name[i]);
+			if (clk != NULL) {
+				clk_hw = clk_hw_get_parent_by_index(__clk_get_hw(clk), 1);
+				pclk = clk_get_sys(clk_hw_get_name(clk_hw), NULL);
+				clk_set_parent(clk, pclk);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int amstream_pm_thaw(struct device *dev)
+{
+	return 0;
+}
+
+static int amstream_pm_restore(struct device *dev)
+{
+	if (!is_support_new_dos_dev()) {
+		of_clk_set_defaults(dev->of_node, false);
+	}
+
+	return 0;
+}
+
+const struct dev_pm_ops amstream_driver_pm = {
+	.freeze		= amstream_pm_freeze,
+	.thaw		= amstream_pm_thaw,
+	.restore	= amstream_pm_restore,
+};
+#endif
+
 static const struct of_device_id amlogic_mesonstream_dt_match[] = {
 	{
 		.compatible = "amlogic, codec, streambuf",
@@ -4457,6 +4508,9 @@ static struct platform_driver amstream_driver = {
 		.owner = THIS_MODULE,
 		.name = "mesonstream",
 		.of_match_table = amlogic_mesonstream_dt_match,
+#ifdef CONFIG_HIBERNATION
+		.pm = &amstream_driver_pm,
+#endif
 	}
 };
 

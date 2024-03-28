@@ -30,5 +30,6 @@ struct gate_switch_node {
 
 extern int amports_clock_gate_init(struct device *dev);
 extern int amports_switch_gate(const char *name, int enable);
+extern struct clk *amports_gate_clk_get(const char *name);
 
 #endif
