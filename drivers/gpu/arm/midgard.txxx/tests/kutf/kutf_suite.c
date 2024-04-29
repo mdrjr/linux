@@ -687,19 +687,19 @@ void kutf_add_test_with_filters_and_data(
 	}
 
 	test_func->filters = filters;
-	tmp = debugfs_create_x32("filters", S_IROTH, test_func->dir,
+	debugfs_create_x32("filters", S_IROTH, test_func->dir,
 				 &test_func->filters);
 	if (!tmp) {
 		pr_err("Failed to create debugfs file \"filters\" when adding test %s\n", name);
-		goto fail_file;
+	//	goto fail_file;
 	}
 
 	test_func->test_id = id;
-	tmp = debugfs_create_u32("test_id", S_IROTH, test_func->dir,
+	debugfs_create_u32("test_id", S_IROTH, test_func->dir,
 				 &test_func->test_id);
 	if (!tmp) {
 		pr_err("Failed to create debugfs file \"test_id\" when adding test %s\n", name);
-		goto fail_file;
+	//	goto fail_file;
 	}
 
 	for (i = 0; i < suite->fixture_variants; i++) {
