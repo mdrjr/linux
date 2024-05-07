@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 5.4.268 Kernel Configuration
+# Linux/arm 5.4.274 Kernel Configuration
 #
 
 #
@@ -1370,10 +1370,8 @@ CONFIG_NET_SCHED=y
 #
 # Queueing/Scheduling
 #
-CONFIG_NET_SCH_CBQ=m
 CONFIG_NET_SCH_HTB=m
 CONFIG_NET_SCH_HFSC=m
-CONFIG_NET_SCH_ATM=m
 CONFIG_NET_SCH_PRIO=m
 CONFIG_NET_SCH_MULTIQ=m
 CONFIG_NET_SCH_RED=m
@@ -1385,7 +1383,6 @@ CONFIG_NET_SCH_TBF=m
 # CONFIG_NET_SCH_ETF is not set
 # CONFIG_NET_SCH_TAPRIO is not set
 CONFIG_NET_SCH_GRED=m
-CONFIG_NET_SCH_DSMARK=m
 CONFIG_NET_SCH_NETEM=m
 CONFIG_NET_SCH_DRR=m
 CONFIG_NET_SCH_MQPRIO=m
@@ -1690,7 +1687,7 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 # Firmware loader
 #
 CONFIG_FW_LOADER=y
-CONFIG_EXTRA_FIRMWARE="s5p-mfc-v8.fw edid/1024x600.bin edid/1024x768.bin edid/1152x864_75hz.bin edid/1280x1024.bin edid/1280x720.bin edid/1280x768.bin edid/1280x800.bin edid/1360x768.bin edid/1366x768.bin edid/1400x1050.bin edid/1440x900.bin edid/1600x1200.bin edid/1600x900.bin edid/1680x1050.bin edid/1792x1344.bin edid/1920x1080_23_976hz.bin edid/1920x1080_24hz.bin edid/1920x1080_50hz.bin edid/1920x1080.bin edid/1920x1200_30hz.bin edid/1920x1200_60hz.bin edid/1920x800.bin edid/480x800.bin edid/640x480.bin edid/720x480.bin edid/720x576.bin edid/800x480.bin edid/800x600.bin edid/848x480.bin edid/480x272.bin edid/1080x1920_55.bin"
+CONFIG_EXTRA_FIRMWARE="s5p-mfc-v8.fw edid/1024x600.bin edid/1024x768.bin edid/1152x864_75hz.bin edid/1280x1024.bin edid/1280x720.bin edid/1280x768.bin edid/1280x800.bin edid/1360x768.bin edid/1366x768.bin edid/1400x1050.bin edid/1440x900.bin edid/1600x1200.bin edid/1600x900.bin edid/1680x1050.bin edid/1792x1344.bin edid/1920x1080_23_976hz.bin edid/1920x1080_24hz.bin edid/1920x1080_50hz.bin edid/1920x1080.bin edid/1920x1200_30hz.bin edid/1920x1200_60hz.bin edid/1920x800.bin edid/480x800.bin edid/640x480.bin edid/720x480.bin edid/720x576.bin edid/800x480.bin edid/800x600.bin edid/848x480.bin edid/480x272.bin edid/1080x1920_55.bin edid/1920x720_60hz.bin"
 CONFIG_EXTRA_FIRMWARE_DIR="firmware"
 # CONFIG_FW_LOADER_USER_HELPER is not set
 # CONFIG_FW_LOADER_COMPRESS is not set
@@ -3248,7 +3245,6 @@ CONFIG_MFD_SEC_CORE=y
 # CONFIG_ABX500_CORE is not set
 # CONFIG_MFD_STMPE is not set
 CONFIG_MFD_SYSCON=y
-# CONFIG_MFD_TI_AM335X_TSCADC is not set
 # CONFIG_MFD_LP3943 is not set
 # CONFIG_MFD_LP8788 is not set
 # CONFIG_MFD_TI_LMU is not set
