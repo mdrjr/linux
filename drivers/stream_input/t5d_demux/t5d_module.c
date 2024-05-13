@@ -1206,7 +1206,7 @@ static ssize_t tso_source_show(struct class *class,
 	u32 val = 0;
 
 	val = t5d_hw_dmx_get_tso();
-	r = sprintf(buf, "tso source:%d\n", val);
+	r = sprintf(buf, "tso source:ts%d\n", val);
 	buf += r;
 	total += r;
 
@@ -1217,17 +1217,19 @@ static ssize_t tso_source_store(struct class *class,
 				struct class_attribute *attr,
 				const char *buf, size_t count)
 {
-	unsigned int value = 0;
+	unsigned int tso_src = 0;
 
-	if (buf[0] == '0') {
-		value = 0;
-		print_dbg("value:%#x\n", value);
-	} else if (buf[0] == '1') {
-		value = 1;
-		print_dbg("value:%#x\n", value);
-	}
+	if (!strncmp("ts0", buf, 3))
+		tso_src = 0;
+	else if (!strncmp("ts1", buf, 3))
+		tso_src = 1;
+	else if (!strncmp("ts2", buf, 3))
+		tso_src = 2;
+	else if (!strncmp("ts3", buf, 3))
+		tso_src = 3;
 
-	t5d_hw_dmx_set_tso(value);
+	t5d_hw_dmx_set_tso(tso_src);
+
 	return count;
 }
 

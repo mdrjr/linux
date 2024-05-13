@@ -459,10 +459,11 @@ t5d_hw_dmx_set_tso(unsigned int value)
 	int out_src = value;
 
 	data = READ_MPEG_REG(STB_TOP_CONFIG);
-	if (out_src == 0)
-		WRITE_MPEG_REG(STB_TOP_CONFIG, data & ~(1 << TS_OUTPUT_SOURCE));
-	else if (out_src == 1)
-		WRITE_MPEG_REG(STB_TOP_CONFIG, data | (1 << TS_OUTPUT_SOURCE));
+	data &= ~(7 << TS_OUTPUT_SOURCE);
+
+	data |= out_src << TS_OUTPUT_SOURCE;
+
+	WRITE_MPEG_REG(STB_TOP_CONFIG, data);
 
 	return 0;
 }
@@ -475,10 +476,10 @@ unsigned int
 t5d_hw_dmx_get_tso(void)
 {
 	u32 data;
-	unsigned int value;
+	u32 value;
 
 	data = READ_MPEG_REG(STB_TOP_CONFIG);
-	value = ((data >> TS_OUTPUT_SOURCE) & 0x01);
+	value = (data >> TS_OUTPUT_SOURCE);
 
 	return value;
 }
