@@ -34,6 +34,7 @@
 #include "aml_ci_bus.h"
 #include "aml_ci.h"
 #include "amci.h"
+#include "../../../common/media_utils/media_kernel_version.h"
 
 
 //can see jtag dts and driver to select gpio function.
@@ -1650,16 +1651,16 @@ static int dvb_ca_en50221_parse_attributes(void)
 	return 0;
 }
 
-static ssize_t reset_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t reset_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo 1 > %s\n\t", attr->attr.name);
 	return ret;
 }
 
-static ssize_t reset_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t reset_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret;
 	struct aml_ci *ci = (struct aml_ci *)ci_bus.priv;
@@ -1667,16 +1668,16 @@ struct class_attribute *attr, const char *buf, size_t size)
 	return size;
 }
 static CLASS_ATTR_RW(reset);
-static ssize_t pwr_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t pwr_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo 1|0> %s\n\t", attr->attr.name);
 	return ret;
 }
 
-static ssize_t pwr_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t pwr_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret = 0;
 	int enable = 0;
@@ -1689,16 +1690,16 @@ struct class_attribute *attr, const char *buf, size_t size)
 
 static CLASS_ATTR_RW(pwr);
 
-static ssize_t start_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t start_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "start:%d\n", ci_bus.pc.start_work);
 	return ret;
 }
 
-static ssize_t start_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t start_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int enable = 0;
 	long value;
@@ -1713,16 +1714,16 @@ struct class_attribute *attr, const char *buf, size_t size)
 
 static CLASS_ATTR_RW(start);
 
-static ssize_t wakeup_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t wakeup_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "wakeup:%d\n", ci_bus.wakeup_thread);
 	return ret;
 }
 
-static ssize_t wakeup_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t wakeup_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int enable = 0;
 	long value;
@@ -1736,8 +1737,8 @@ struct class_attribute *attr, const char *buf, size_t size)
 
 static CLASS_ATTR_RW(wakeup);
 
-static ssize_t status_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t status_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	struct aml_ci *ci = (struct aml_ci *)ci_bus.priv;
@@ -1747,8 +1748,8 @@ struct class_attribute *attr, char *buf)
 }
 static CLASS_ATTR_RO(status);
 
-static ssize_t irq_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t irq_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = aml_ci_gio_get_irq();
@@ -1757,8 +1758,8 @@ struct class_attribute *attr, char *buf)
 }
 static CLASS_ATTR_RO(irq);
 
-static ssize_t iotest_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t iotest_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo (r|w|f|c)(i|a) addr data > %s\n",
@@ -1766,8 +1767,8 @@ struct class_attribute *attr, char *buf)
 	return ret;
 }
 
-static ssize_t iotest_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t iotest_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int n = 0;
 	int i = 0;

@@ -34,6 +34,7 @@
 
 //#include "dvb_ca_en50221.h"
 #include <dvbdev.h>
+#include "../../../common/media_utils/media_kernel_version.h"
 
 MODULE_PARM_DESC(aml_ci_debug, "\n\t\t dvb ci debug");
 static int aml_ci_debug = 1;
@@ -666,8 +667,8 @@ void aml_ci_exit(struct aml_ci *ci)
 
 static struct aml_ci *ci_dev;
 
-static ssize_t ts_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t ts_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 		int ret;
 		ret = sprintf(buf, "ts%d\n", 1);

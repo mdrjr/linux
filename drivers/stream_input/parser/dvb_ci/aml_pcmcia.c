@@ -220,8 +220,8 @@ EXPORT_SYMBOL(aml_pcmcia_reset);
 
 
 #if 0
-static ssize_t aml_pcmcia_test_cmd(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t aml_pcmcia_test_cmd(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	pr_dbg("pcmcia cmd: %s\n", buf);
 	if (pc_cur) {

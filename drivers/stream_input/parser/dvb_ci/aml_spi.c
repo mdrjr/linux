@@ -35,6 +35,7 @@
 #include <linux/irq.h>
 #include "aml_spi.h"
 #include "aml_ci.h"
+#include "../../../common/media_utils/media_kernel_version.h"
 
 #define AML_MODE_NAME       "aml_dvbci_spi"
 
@@ -1646,16 +1647,16 @@ pr_error("Skipping unknown tupletype:0x%x L:0x%x\n",
 	return 0;
 }
 
-static ssize_t reset_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t reset_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo 1 > %s\n\t", attr->attr.name);
 	return ret;
 }
 
-static ssize_t reset_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t reset_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret;
 	struct aml_ci *ci = (struct aml_ci *)g_spi_dev->priv;
@@ -1663,16 +1664,16 @@ struct class_attribute *attr, const char *buf, size_t size)
 	return size;
 }
 
-static ssize_t pwr_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t pwr_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo 1|0> %s\n\t", attr->attr.name);
 	return ret;
 }
 
-static ssize_t pwr_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t pwr_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret = 0;
 	int enable = 0;
@@ -1682,8 +1683,8 @@ struct class_attribute *attr, const char *buf, size_t size)
 	ret = aml_gio_power(&g_spi_dev->pc, enable);
 	return size;
 }
-static ssize_t status_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t status_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	struct aml_ci *ci = (struct aml_ci *)g_spi_dev->priv;
@@ -1692,8 +1693,8 @@ struct class_attribute *attr, char *buf)
 	return ret;
 }
 
-static ssize_t irq_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t irq_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = aml_ci_gio_get_irq();
@@ -1701,8 +1702,8 @@ struct class_attribute *attr, char *buf)
 	return ret;
 }
 
-static ssize_t iotest_show(struct class *class,
-struct class_attribute *attr, char *buf)
+static ssize_t iotest_show(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo (r|w|f|c)(i|a) addr data > %s\n",
@@ -1710,8 +1711,8 @@ struct class_attribute *attr, char *buf)
 	return ret;
 }
 
-static ssize_t iotest_store(struct class *class,
-struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t iotest_store(KV_CLASS_CONST struct class *class,
+KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int n = 0;
 	int i = 0;

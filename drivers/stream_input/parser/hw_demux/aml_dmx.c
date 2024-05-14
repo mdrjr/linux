@@ -51,7 +51,7 @@
 #endif
 #include "aml_dvb_reg.h"
 #include <linux/sched/signal.h>
-
+#include "../../../common/media_utils/media_kernel_version.h"
 
 #define ENABLE_SEC_BUFF_WATCHDOG
 #define USE_AHB_MODE
@@ -5712,8 +5712,8 @@ int _set_tsfile_clkdiv(struct aml_dvb *dvb, int clkdiv)
 	return 0;
 }
 
-static ssize_t tsfile_clkdiv_store(struct class *class,
-				     struct class_attribute *attr,
+static ssize_t tsfile_clkdiv_store(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				     const char *buf, size_t size)
 {
 	long div;
@@ -5723,8 +5723,8 @@ static ssize_t tsfile_clkdiv_store(struct class *class,
 	return size;
 }
 
-static ssize_t tsfile_clkdiv_show(struct class *class,
-				     struct class_attribute *attr, char *buf)
+static ssize_t tsfile_clkdiv_show(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	ssize_t ret;
 
@@ -5735,8 +5735,8 @@ static ssize_t tsfile_clkdiv_show(struct class *class,
 
 static int dmx_id;
 
-static ssize_t dmx_smallsec_show(struct class *class,
-				     struct class_attribute *attr, char *buf)
+static ssize_t dmx_smallsec_show(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	ssize_t ret;
 	struct aml_dvb *dvb = aml_get_dvb_device();
@@ -5745,8 +5745,8 @@ static ssize_t dmx_smallsec_show(struct class *class,
 					dvb->dmx[dmx_id].smallsec.bufsize);
 	return ret;
 }
-static ssize_t dmx_smallsec_store(struct class *class,
-				     struct class_attribute *attr,
+static ssize_t dmx_smallsec_store(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				     const char *buf, size_t size)
 {
 	int i, e, s = 0, f = 0;
@@ -5760,8 +5760,8 @@ static ssize_t dmx_smallsec_store(struct class *class,
 	return size;
 }
 
-static ssize_t dmx_timeout_show(struct class *class,
-				     struct class_attribute *attr, char *buf)
+static ssize_t dmx_timeout_show(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	ssize_t ret;
 	struct aml_dvb *dvb = aml_get_dvb_device();
@@ -5776,8 +5776,8 @@ static ssize_t dmx_timeout_show(struct class *class,
 	DMX_WRITE_REG(dmx_id, STB_INT_STATUS, (1<<INPUT_TIME_OUT));
 	return ret;
 }
-static ssize_t dmx_timeout_store(struct class *class,
-				     struct class_attribute *attr,
+static ssize_t dmx_timeout_store(KV_CLASS_CONST struct class *class,
+				     KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				     const char *buf, size_t size)
 {
 	int i, e, t = 0, c = 0, m = 0, f = 0;
@@ -5793,8 +5793,8 @@ static ssize_t dmx_timeout_store(struct class *class,
 
 
 #define DEMUX_SCAMBLE_FUNC_DECL(i)  \
-static ssize_t demux##i##_scramble_show(struct class *class,  \
-struct class_attribute *attr, char *buf)\
+static ssize_t demux##i##_scramble_show(KV_CLASS_CONST struct class *class,  \
+KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)\
 {\
 	int data = 0;\
 	int aflag = 0;\
@@ -5818,8 +5818,8 @@ DEMUX_SCAMBLE_FUNC_DECL(1)
 #if DMX_DEV_COUNT > 2
 DEMUX_SCAMBLE_FUNC_DECL(2)
 #endif
-static ssize_t ciplus_output_ctrl_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t ciplus_output_ctrl_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf)
 {
 	int ret;
@@ -5849,8 +5849,8 @@ static ssize_t ciplus_output_ctrl_show(struct class *class,
 	return ret;
 }
 
-static ssize_t ciplus_output_ctrl_store(struct class *class,
-					  struct class_attribute *attr,
+static ssize_t ciplus_output_ctrl_store(KV_CLASS_CONST struct class *class,
+					  KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					  const char *buf, size_t size)
 {
 	struct aml_dvb *dvb = aml_get_dvb_device();
@@ -5892,15 +5892,15 @@ static ssize_t ciplus_output_ctrl_store(struct class *class,
 
 	return size;
 }
-static ssize_t reset_fec_input_ctrl_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t reset_fec_input_ctrl_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf)
 {
 	return 0;
 }
 
-static ssize_t reset_fec_input_ctrl_store(struct class *class,
-					  struct class_attribute *attr,
+static ssize_t reset_fec_input_ctrl_store(KV_CLASS_CONST struct class *class,
+					  KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					  const char *buf, size_t size)
 {
 	u32 v;
@@ -5913,25 +5913,25 @@ static ssize_t reset_fec_input_ctrl_store(struct class *class,
 
 	return size;
 }
-static ssize_t register_addr_show(struct class *class,
-					struct class_attribute *attr,
+static ssize_t register_addr_show(KV_CLASS_CONST struct class *class,
+					KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					char *buf);
-static ssize_t register_addr_store(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t register_addr_store(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 const char *buf, size_t size);
-static ssize_t dmx_id_show(struct class *class,
-				  struct class_attribute *attr, char *buf);
-static ssize_t dmx_id_store(struct class *class,
-				   struct class_attribute *attr,
+static ssize_t dmx_id_show(KV_CLASS_CONST struct class *class,
+				  KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf);
+static ssize_t dmx_id_store(KV_CLASS_CONST struct class *class,
+				   KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				   const char *buf, size_t size);
-static ssize_t register_value_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t register_value_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf);
-static ssize_t register_value_store(struct class *class,
-					  struct class_attribute *attr,
+static ssize_t register_value_store(KV_CLASS_CONST struct class *class,
+					  KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					  const char *buf, size_t size);
-static ssize_t dmx_sec_statistics_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t dmx_sec_statistics_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf);
 static int reg_addr;
 
@@ -5991,8 +5991,8 @@ static struct class aml_dmx_class = {
 	.class_groups = aml_dmx_class_groups,
 };
 
-static ssize_t dmx_id_show(struct class *class,
-				  struct class_attribute *attr, char *buf)
+static ssize_t dmx_id_show(KV_CLASS_CONST struct class *class,
+				  KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 
@@ -6000,8 +6000,8 @@ static ssize_t dmx_id_show(struct class *class,
 	return ret;
 }
 
-static ssize_t dmx_id_store(struct class *class,
-				   struct class_attribute *attr,
+static ssize_t dmx_id_store(KV_CLASS_CONST struct class *class,
+				   KV_CLASS_ATTR_CONST struct class_attribute *attr,
 				   const char *buf, size_t size)
 {
 	int id = 0;
@@ -6018,8 +6018,8 @@ static ssize_t dmx_id_store(struct class *class,
 	return size;
 }
 
-static ssize_t register_addr_show(struct class *class,
-					struct class_attribute *attr,
+static ssize_t register_addr_show(KV_CLASS_CONST struct class *class,
+					KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf)
 {
 	int ret;
@@ -6028,8 +6028,8 @@ static ssize_t register_addr_show(struct class *class,
 	return ret;
 }
 
-static ssize_t register_addr_store(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t register_addr_store(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 const char *buf, size_t size)
 {
 	int addr = 0;
@@ -6041,8 +6041,8 @@ static ssize_t register_addr_store(struct class *class,
 	return size;
 }
 
-static ssize_t register_value_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t register_value_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf)
 {
 	int ret, value;
@@ -6052,8 +6052,8 @@ static ssize_t register_value_show(struct class *class,
 	return ret;
 }
 
-static ssize_t register_value_store(struct class *class,
-					  struct class_attribute *attr,
+static ssize_t register_value_store(KV_CLASS_CONST struct class *class,
+					  KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					  const char *buf, size_t size)
 {
 	int value = 0;
@@ -6065,8 +6065,8 @@ static ssize_t register_value_store(struct class *class,
 	return size;
 }
 
-static ssize_t dmx_sec_statistics_show(struct class *class,
-					 struct class_attribute *attr,
+static ssize_t dmx_sec_statistics_show(KV_CLASS_CONST struct class *class,
+					 KV_CLASS_ATTR_CONST struct class_attribute *attr,
 					 char *buf)
 {
 	ssize_t ret;

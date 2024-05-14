@@ -40,6 +40,7 @@
 
 #include "aml_cimax.h"
 #include "./usb/SRC/cimax+usb-driver.h"
+#include "../../../../common/media_utils/media_kernel_version.h"
 
 #define MOD_NAME       "aml_cimax_usb"
 
@@ -1393,16 +1394,16 @@ static int cimax_usb_reset(struct cimax_usb *usb, int reset_val)
 	return 0;
 }
 
-static ssize_t reset_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t reset_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret;
 	ret = sprintf(buf, "echo 1 > %s\n", attr->attr.name);
 	return ret;
 }
 
-static ssize_t reset_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t reset_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret;
 	int val = 0;
@@ -1414,8 +1415,8 @@ static ssize_t reset_store(struct class *class,
 	return size;
 }
 
-static ssize_t debug_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t debug_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	if (!g_usb)
@@ -1438,16 +1439,16 @@ static ssize_t debug_show(struct class *class,
 }
 
 static int reg_addr;
-static ssize_t addr_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t addr_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	ret = sprintf(buf, "addr = 0x%04x\n", reg_addr);
 	return ret;
 }
 
-static ssize_t addr_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t addr_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	if (!g_usb)
 		return size;
@@ -1456,8 +1457,8 @@ static ssize_t addr_store(struct class *class,
 	return size;
 }
 
-static ssize_t reg_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t reg_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	u8 reg_val = 0;
@@ -1475,8 +1476,8 @@ static ssize_t reg_show(struct class *class,
 	return ret;
 }
 
-static ssize_t reg_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t reg_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int ret = 0;
 	struct aml_cimax *cimax = NULL;
@@ -1497,8 +1498,8 @@ static ssize_t reg_store(struct class *class,
 }
 
 static int cis_mode; /*0:hex 1:binary*/
-static ssize_t cis_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t cis_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 
@@ -1521,8 +1522,8 @@ static ssize_t cis_show(struct class *class,
 	return ret;
 }
 
-static ssize_t cis_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t cis_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	if (size >= 3
 		&& !memcmp(buf, "bin", 3))
@@ -1532,8 +1533,8 @@ static ssize_t cis_store(struct class *class,
 	return size;
 }
 
-static ssize_t ts_rate_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t ts_rate_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	u8 lsb = 0, msb = 0, plen = 0;
@@ -1569,8 +1570,8 @@ static ssize_t ts_rate_show(struct class *class,
 	return ret;
 }
 
-static ssize_t loop_show(struct class *class,
-	struct class_attribute *attr, char *buf)
+static ssize_t loop_show(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	int ret = 0;
 	u8 ch = 0, mod = 0;
@@ -1634,8 +1635,8 @@ static ssize_t loop_show(struct class *class,
 	return ret;
 }
 
-static ssize_t loop_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t loop_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int loop = 0;
 
@@ -1647,8 +1648,8 @@ static ssize_t loop_store(struct class *class,
 	return size;
 }
 
-static ssize_t slot_reset_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t slot_reset_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int err = 0;
 	int slot = 0;
@@ -1667,8 +1668,8 @@ static ssize_t slot_reset_store(struct class *class,
 	return size;
 }
 
-static ssize_t detect_store(struct class *class,
-	struct class_attribute *attr, const char *buf, size_t size)
+static ssize_t detect_store(KV_CLASS_CONST struct class *class,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t size)
 {
 	int err = 0;
 	int slot = 0;
