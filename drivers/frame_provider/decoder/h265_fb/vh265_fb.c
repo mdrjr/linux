@@ -12829,7 +12829,6 @@ pic_done:
 			hevc->start_parser_type = 0;
 			hevc->switch_dvlayer_flag = 0;
 #endif
-			hevc->decoded_poc = hevc->curr_POC;
 #if 0 //def NEW_FB_CODE
 			if (hevc->decoding_pic) {
 				hevc->decoding_pic->decoded_done_mark = 1;
@@ -12881,6 +12880,7 @@ pic_done:
 			}
 
 muti_output:
+			hevc->decoded_poc = hevc->curr_POC;
 			if (vdec_frame_based(hw_to_vdec(hevc)) &&
 				(READ_VREG(HEVC_SHIFT_BYTE_COUNT) + 4 < hevc->data_size)
 				 && (frmbase_muti_slice == 1)
