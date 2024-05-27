@@ -93,6 +93,7 @@ typedef struct __attribute__((packed)) psinstance {
 	s32 mRef;
 	u32 last_offset[2];
 	u32 write_count;
+	u32 mAudioOffsetMargin;
 } ptsserver_ins;
 
 typedef struct Pts_Server_Manage {
@@ -164,5 +165,6 @@ long ptsserver_checkin_apts_size(s32 pServerInsId,checkin_apts_size* mCheckinPts
 long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mCheckoutPtsOffset);
 long ptsserver_get_list_size(s32 pServerInsId, u32* ListSize);
 int  ptsserver_check_rec_num_enough(s32 pServerInsId,u32 val);
+long ptsserver_set_audio_offset_margin(s32 pServerInsId, u32 offsetMargin);
 
 #endif

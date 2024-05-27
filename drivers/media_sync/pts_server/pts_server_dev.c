@@ -86,6 +86,7 @@ static long ptsserver_ioctl(struct file *file, unsigned int cmd, ulong arg)
 	s32 mTrickMode = 0;
 	s32 mEsSpliceMode = 0;
 	u32 mListSize = 0;
+	u32 mAudioOffsetMargin = 0;
 	switch (cmd) {
 		case PTSSERVER_IOC_INSTANCE_ALLOC:
 			if (copy_from_user ((void *)&allocparm,
@@ -287,6 +288,17 @@ static long ptsserver_ioctl(struct file *file, unsigned int cmd, ulong arg)
 				priv->mPtsServerInsId = PServerInsId;
 			}
 		break;
+		case PTSSERVER_IOC_SET_AUDIO_OFFSET_MARGIN:
+			if (priv->pServerIns == NULL) {
+				return -EFAULT;
+			}
+			if (copy_from_user ((void *)&mAudioOffsetMargin,
+							(void *)arg,
+							sizeof(mAudioOffsetMargin))) {
+				return -EFAULT;
+			}
+			ret = ptsserver_set_audio_offset_margin(priv->mPtsServerInsId,mAudioOffsetMargin);
+		break;
 		default:
 			pr_info("invalid cmd:%d\n", cmd);
 		break;
@@ -314,6 +326,7 @@ static long ptsserver_compat_ioctl(struct file *file, unsigned int cmd, ulong ar
 		case PTSSERVER_IOC_INSTANCE_STATIC_BINDER:
 		case PTSSERVER_IOC_GET_LIST_SIZE:
 		case PTSSERVER_IOC_INSTANCE_SET_ID:
+		case PTSSERVER_IOC_SET_AUDIO_OFFSET_MARGIN:
 			return ptsserver_ioctl(file, cmd, arg);
 		default:
 			return -EINVAL;

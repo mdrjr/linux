@@ -147,6 +147,7 @@ long ptsserver_ins_init_syncinfo(ptsserver_ins* pInstance,ptsserver_alloc_para* 
 	pInstance->mLastCheckoutPts90k = 0;
 	pInstance->mFirstCheckinPts90k = 0;
 	pInstance->mLastCheckinPts90k = 0;
+	pInstance->mAudioOffsetMargin = 0;
 
 	mutex_init(&pInstance->mPtsListLock);
 
@@ -859,6 +860,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 
 		// Deal with all the key ptn
 		if (find && find_ptn) {
+			lastCheckoutPtsU64 = pInstance->mLastCheckoutPts64;
 			if (!invalid_mode) {
 				mCheckoutPtsOffset->pts = find_ptn->pts_90k;
 				mCheckoutPtsOffset->pts_64 = find_ptn->pts_64;
@@ -866,7 +868,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 				if (ptsserver_debuglevel >= 1 ||
 					!pInstance->mPtsCheckoutStarted) {
 					pts_pr_vinfo(index,
-						"Checkout ok ListCount:%d find:%d offset(diff:%d L:0x%x C:%x) pts(90k:0x%llx 64:%lld) l_Checkoutpts:%lld, dur_count:%d, diff:%lld us shot_bound:%d\n",
+						"Checkout ok ListCount:%d find:%d offset(diff:%d L:0x%x C:%x) pts(90k:0x%llx 64:%lld) l_Checkoutpts:%lld, dur_count:%d, ptsdiff:%lld us shot_bound:%d\n",
 									pInstance->mListSize,find_index,abs(cur_offset - find_ptn->offset),
 									find_ptn->offset,cur_offset,find_ptn->pts_90k,find_ptn->pts_64, pInstance->mLastCheckoutPts64,
 									pInstance->mLastCheckoutDurationCount,mCheckoutPtsOffset->pts_64 - lastCheckoutPtsU64,
@@ -886,6 +888,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 	// 3.pts == -1 case, pts has error value
 	if (!find || invalid_mode) {
 		lastCheckoutPts = pInstance->mLastCheckoutPts;
+		lastCheckoutPtsU64 = pInstance->mLastCheckoutPts64;
 		pInstance->mPtsCheckoutFailCount++;
 
 		// If cur_offset smaller than last offset means sticky package from codec
@@ -912,7 +915,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 			pInstance->mLastCheckoutPts = pInstance->mLastCheckoutPts + pInstance->mDecoderDuration * 90 / 96;
 			pInstance->mLastCheckoutPts64 = pInstance->mLastCheckoutPts64 + pInstance->mDecoderDuration * 1000 / 96;
 			if (ptsserver_debuglevel >= 1) {
-				pts_pr_vinfo(index,"Checkout fail Calculate by mDecoderDuration:%d pts(32:%x 64:%lld) lastCheckoutpts:%x, shot_bound:%d  diff:%lld us\n",
+				pts_pr_vinfo(index,"Checkout fail Calculate by mDecoderDuration:%d pts(32:%x 64:%lld) lastCheckoutpts:%x, shot_bound:%d  ptsdiff:%lld us\n",
 									pInstance->mDecoderDuration,
 									pInstance->mLastCheckoutPts,
 									pInstance->mLastCheckoutPts64,
@@ -935,7 +938,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 
 			}
 			if (ptsserver_debuglevel >= 1) {
-				pts_pr_vinfo(index,"Checkout fail Calculate by FrameDuration(32:%d 64:%lld) pts(32:%x 64:%lld) lastCheckoutpts:%x, shot_bound:%d diff:%lld us\n",
+				pts_pr_vinfo(index,"Checkout fail Calculate by FrameDuration(32:%d 64:%lld) pts(32:%x 64:%lld) lastCheckoutpts:%x, shot_bound:%d ptsdiff:%lld us\n",
 									pInstance->mFrameDuration,
 									pInstance->mFrameDuration64,
 									pInstance->mLastCheckoutPts,
@@ -954,6 +957,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 
 	// Calculate duration if checkout first time
 	if (pInstance->mPtsCheckoutStarted) {
+		lastCheckoutPtsU64 = pInstance->mLastCheckoutPts64;
 		if (pInstance->mFrameDuration == 0 && pInstance->mFrameDuration64 == 0) {
 
 			pInstance->mFrameDuration = div_u64(mCheckoutPtsOffset->pts - pInstance->mLastCheckoutPts,
@@ -984,7 +988,7 @@ long ptsserver_checkout_pts_offset(s32 pServerInsId, checkout_pts_offset* mCheck
 									FrameDur64,
 									pInstance->mDoubleCheckFrameDuration,
 									pInstance->mDoubleCheckFrameDuration64);
-				pts_pr_vinfo(index,"checkout LastDoubleCheckoutPts(32:%d 64:%lld) pts(32:%x 64:%lld) PtsCheckoutFailCount:%d diff:%lld us\n",
+				pts_pr_vinfo(index,"checkout LastDoubleCheckoutPts(32:%d 64:%lld) pts(32:%x 64:%lld) PtsCheckoutFailCount:%d ptsdiff:%lld us\n",
 									pInstance->mLastDoubleCheckoutPts,
 									pInstance->mLastDoubleCheckoutPts64,
 									mCheckoutPtsOffset->pts,
@@ -1442,6 +1446,7 @@ long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mChec
 	u32 cur_offset = 0xFFFFFFFF & mCheckoutPtsOffset->offset;
 
 	u32 offsetDiff = 1024;
+	u32 lookup_threshold = 0;
 	s32 find_frame_num = 0;
 	s32 find = 0;
 	s32 offsetAbs = 0;
@@ -1459,7 +1464,14 @@ long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mChec
 		mutex_unlock(&vPtsServerIns->mListLock);
 		return -1;
 	}
-	offsetDiff = pInstance->mLookupThreshold;
+
+	if (pInstance->mAudioOffsetMargin == 0) {
+		lookup_threshold = pInstance->mLookupThreshold;
+		offsetDiff = pInstance->mLookupThreshold;
+	} else {
+		lookup_threshold = pInstance->mAudioOffsetMargin;
+		offsetDiff = pInstance->mAudioOffsetMargin;
+	}
 
 	if (!pInstance->mPtsCheckoutStarted) {
 		pts_pr_ainfo(index,"Checkout(First) ListSize:%d offset:0x%x\n",
@@ -1482,9 +1494,10 @@ long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mChec
 			if (ptn != NULL) {
 				offsetAbs = abs(cur_offset - ptn->offset);
 				if (ptsserver_debuglevel > 1) {
-					pts_pr_ainfo(index,"Checkout i:%d offset(diff:%d L:0x%x C:0x%x)\n",i,offsetAbs,ptn->offset,cur_offset);
+					pts_pr_ainfo(index,"Checkout i:%d offset(diff:%d L:0x%x C:0x%x pts_90k:0x%llx pts_64:%llu)\n",
+									i,offsetAbs,ptn->offset,cur_offset,ptn->pts_90k,ptn->pts_64);
 				}
-				if (offsetAbs <=  pInstance->mLookupThreshold) {
+				if (offsetAbs <= lookup_threshold) {
 					if (offsetAbs <= offsetDiff) {
 						offsetDiff = offsetAbs;
 						find = 1;
@@ -1532,18 +1545,29 @@ long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mChec
 		find = 0; //invalid pts
 	}
 	if (!find) {
-		pInstance->mPtsCheckoutFailCount++;
-		mCheckoutPtsOffset->pts_90k = -1;
-		mCheckoutPtsOffset->pts_64 = -1;
-		pInstance->mLastCheckoutCurOffset = cur_offset;
-		if (ptsserver_debuglevel >= 1 || pInstance->mPtsCheckoutFailCount % 30 == 0) {
-			pts_pr_ainfo(index,"Checkout fail mPtsCheckoutFailCount:%d level:%d pts(32:0x%llx 64:%lld)\n",
-				pInstance->mPtsCheckoutFailCount,pInstance->mLastCheckinOffset - cur_offset,
-				mCheckoutPtsOffset->pts_90k,
-				mCheckoutPtsOffset->pts_64);
+		//when first apts lookup failed, use first checkin apts instead.(Refer to tsync logic)
+		if (!pInstance->mPtsCheckoutStarted) {
+			pInstance->mPtsCheckoutStarted = 1;
+			mCheckoutPtsOffset->pts_90k = pInstance->mFirstCheckinPts90k;
+			mCheckoutPtsOffset->pts_64 = pInstance->mFirstCheckinPts64;
+			pts_pr_ainfo(index,"First apts checkout fail, level:%d, return first checkin apts(32:0x%llx 64:%lld)\n",
+					pInstance->mLastCheckinOffset - cur_offset,
+					mCheckoutPtsOffset->pts_90k,
+					mCheckoutPtsOffset->pts_64);
+		} else {
+			pInstance->mPtsCheckoutFailCount++;
+			mCheckoutPtsOffset->pts_90k = -1;
+			mCheckoutPtsOffset->pts_64 = -1;
+			pInstance->mLastCheckoutCurOffset = cur_offset;
+			if (ptsserver_debuglevel >= 1 || pInstance->mPtsCheckoutFailCount % 30 == 0) {
+				pts_pr_ainfo(index,"Checkout fail mPtsCheckoutFailCount:%d level:%d pts(32:0x%llx 64:%lld)\n",
+					pInstance->mPtsCheckoutFailCount,pInstance->mLastCheckinOffset - cur_offset,
+					mCheckoutPtsOffset->pts_90k,
+					mCheckoutPtsOffset->pts_64);
+			}
+			mutex_unlock(&vPtsServerIns->mListLock);
+			return 0;
 		}
-		mutex_unlock(&vPtsServerIns->mListLock);
-		return 0;
 	}
 
 	if (!pInstance->mPtsCheckoutStarted) {
@@ -1630,6 +1654,29 @@ long ptsserver_get_list_size(s32 pServerInsId, u32* ListSize) {
 	return 0;
 }
 
+long ptsserver_set_audio_offset_margin(s32 pServerInsId, u32 offsetMargin) {
+	PtsServerManage* vPtsServerIns = NULL;
+	ptsserver_ins* pInstance = NULL;
+	s32 index = get_index_from_ptsserver_id(pServerInsId);
+
+	if (index < 0 || index >= MAX_INSTANCE_NUM) {
+		return -1;
+	}
+	vPtsServerIns = &(vPtsServerInsList[index]);
+	mutex_lock(&vPtsServerIns->mListLock);
+	pInstance = vPtsServerIns->pInstance;
+
+	if (pInstance == NULL) {
+		mutex_unlock(&vPtsServerIns->mListLock);
+		return -1;
+	}
+	pr_info("%s --> pServerInsId:%d, set offset margin:%d\n", __func__, pServerInsId, offsetMargin);
+	pInstance->mAudioOffsetMargin = offsetMargin;
+	mutex_unlock(&vPtsServerIns->mListLock);
+
+	return 0;
+}
+
 long ptsserver_ins_reset(s32 pServerInsId) {
 	PtsServerManage* vPtsServerIns = NULL;
 	ptsserver_ins* pInstance = NULL;
@@ -1698,6 +1745,7 @@ long ptsserver_ins_reset(s32 pServerInsId) {
 	pInstance->mFirstCheckinPts90k = 0;
 	pInstance->mLastCheckinPts90k = 0;
 	pInstance->mListSize = 0;
+	pInstance->mAudioOffsetMargin = 0;
 
 	mutex_unlock(&vPtsServerIns->mListLock);
 	pr_info("%s ok \n",__func__);
