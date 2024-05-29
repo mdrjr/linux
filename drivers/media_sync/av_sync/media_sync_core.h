@@ -29,6 +29,28 @@
 
 #define MIN_UPDATETIME_THRESHOLD_US 50000
 #define RECORD_SLOPE_NUM 5
+#define RECORD_PCR_NUM 4
+#define CHECK_SLOPE_SYSTEM_TIME_1S 1000000
+#define CHECK_SLOPE_SYSTEM_TIME_3S 3000000
+#define CHECK_SLOPE_SYSTEM_TIME_500MS 500000
+#define SLOPE_NORMAL 100
+#define SLOPE_ABNORMAL 200
+#define SLOPE_JITTER_MIN 98
+#define SLOPE_JITTER_MAX 102
+#define SLOPE_THRESHOLD_MIN 50
+#define SLOPE_THRESHOLD_MAX 185
+#define SLOPE_SPEED_UP_THRESHOLD 101
+
+#define CACHE_1S    90000
+#define CACHE_100MS 9000
+#define CACHE_150MS 13500
+#define CACHE_200MS 18000
+#define CACHE_300MS 27000
+#define CACHE_500MS 45000
+
+#define SYSTEM_TIME_15000MS 15000000
+#define AUDIO_SYNC_THRESHOLD_100MS 9000
+
 #define DEFAULT_TRIGGER_DISCONTINUE_THRESHOLD 630000//(7000 * 90)
 #define DEFAULT_REMOVE_DISCONTINUE_THRESHOLD 450000
 #define DEFAULT_FRAME_SEGMENT_THRESHOLD 45000//(500 * 90)
@@ -299,9 +321,10 @@ typedef struct instance{
 	u32 mGetAudioCacheUpdateCount;
 	u32 mGetVideoCacheUpdateCount;
 	u32 isVideoFrameAdvance;
+	s32 mVideoTrickMode;
 	s64 mLastCheckSlopeSystemtime;
 	s64 mLastCheckSlopeDemuxPts;
-	s32 mVideoTrickMode;
+	s64 mCheckSlopeSytemtimeThreshold;
 	mediasync_clocktype mSourceClockType;
 	mediasync_clockprovider_state mSourceClockState;
 	mediasync_audioinfo mAudioInfo;
@@ -323,6 +346,8 @@ typedef struct instance{
 	mediasync_holdvideoinfo mHoldVideoInfo;
 	u32 mStartStrategy;
 	mediasync_audio_switch mAudioSwitch;
+	mediasync_frameinfo mRcordPcr[RECORD_PCR_NUM];
+	u32 mRcordPcrCount;
 }mediasync_ins;
 
 typedef struct Media_Sync_Manage {

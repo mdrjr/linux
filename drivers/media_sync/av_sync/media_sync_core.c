@@ -882,7 +882,15 @@ long mediasync_ins_alloc(s32 sDemuxId,
 				pInstance->mRcordSlope[pInstance->mRcordSlopeCount] = 0;
 			}
 			pInstance->mRcordSlopeCount = 0;
-
+			pInstance->mLastCheckSlopeSystemtime = 0;
+			pInstance->mCheckSlopeSytemtimeThreshold = 500000;
+			for (pInstance->mRcordPcrCount = 0;
+					pInstance->mRcordPcrCount < RECORD_PCR_NUM;
+					pInstance->mRcordPcrCount++) {
+				pInstance->mRcordPcr[pInstance->mRcordPcrCount].framePts = 0;
+				pInstance->mRcordPcr[pInstance->mRcordPcrCount].frameSystemTime = 0;
+			}
+			pInstance->mRcordPcrCount = 0;
 			mediasync_ins_reset_l(pInstance);
 			spin_unlock_irqrestore(&(vMediaSyncInsList[index].m_lock),flags);
 			break;
@@ -1792,7 +1800,19 @@ long mediasync_ins_set_refclockinfo(MediaSyncManager* pSyncManage,mediasync_fram
 	pInstance->mSyncInfo.refClockInfo.framePts = info.framePts;
 	pInstance->mSyncInfo.refClockInfo.frameSystemTime = info.frameSystemTime;
 	pInstance->mStcParmUpdateCount++;
+
 	syncIndex = pInstance->mSyncIndex;
+
+	if (pInstance->mSourceClockType == PCR_CLOCK) {
+		pInstance->mLastCheckSlopeSystemtime = info.frameSystemTime;
+		if (pInstance->mPcrSlope.mNumerator != 100) {
+			pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_1S;
+		} else {
+			pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
+		}
+		pInstance->mLastCheckSlopeDemuxPts= div_u64(info.framePts * 100000 , 9);
+	}
+
 	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
 	mediasync_pr_info(0,syncIndex,"refclockinfo framePts:%lld frameSystemTime:%lld\n",info.framePts,info.frameSystemTime);
 
@@ -2852,10 +2872,12 @@ void mediasync_ins_get_audio_cache_info_implementation(mediasync_ins* pInstance,
 	int64_t lastAfter_diff = 0;
 	int isDiscontinueDone = 1;
 	int64_t cacheDuration = 0;
+
 	if (pInstance->mCacheFrames) {
 		info->cacheDuration = pInstance->frame_table[PTS_TYPE_AUDIO].mCacheInfo.cacheDuration;
 		info->cacheSize = pInstance->frame_table[PTS_TYPE_AUDIO].mCacheInfo.cacheSize;
 	} else {
+
 		//pr_info("mediasync_ins_get_videoinfo_2 curVideoInfo.framePts :%lld \n",pInstance->mSyncInfo.curVideoInfo.framePts);
 		if (pInstance->mAudioCacheUpdateCount == pInstance->mGetAudioCacheUpdateCount) {
 			info->cacheSize = pInstance->mAudioInfo.cacheSize;
@@ -2868,15 +2890,15 @@ void mediasync_ins_get_audio_cache_info_implementation(mediasync_ins* pInstance,
 
 
 			cacheDuration = pInstance->mSyncInfo.audioPacketsInfo.packetsPts - pInstance->mSyncInfo.curAudioInfo.framePts;
-/*
-			mediasync_pr_info(0,pInstance,"isDiscontinue:%d cacheDuration:%lld ms pts:0x%llx curpts:0x%llx PtsBefore:0x%llx PtsAfter:0x%llx \n",
+
+			mediasync_pr_info(2,pInstance->mSyncIndex,"isDiscontinue:%d cacheDuration:%lld ms demux pts:0x%llx curapts:0x%llx PtsBefore:0x%llx PtsAfter:0x%llx \n",
 				pInstance->mAudioDiscontinueInfo.isDiscontinue,
-				cacheDuration / 90,
+				div_u64((s64)cacheDuration, 90),
 				pInstance->mSyncInfo.audioPacketsInfo.packetsPts,
 				pInstance->mSyncInfo.curAudioInfo.framePts,
 				pInstance->mAudioDiscontinueInfo.discontinuePtsBefore,
 				pInstance->mAudioDiscontinueInfo.discontinuePtsAfter);
-*/
+
 			if (pInstance->mAudioDiscontinueInfo.discontinuePtsAfter != -1) {
 				int64_t diff = pInstance->mSyncInfo.curAudioInfo.framePts - pInstance->mAudioDiscontinueInfo.discontinuePtsAfter;
 				if (diff < 0) {
@@ -2955,7 +2977,7 @@ void mediasync_ins_get_audio_cache_info_implementation(mediasync_ins* pInstance,
 			}
 
 		}
-		//pr_info("---->audio cacheDuration : %d ms",info->cacheDuration / 90);
+		mediasync_pr_info(2,pInstance->mSyncIndex,"---->audio cacheDuration : %lld ms",div_u64((s64)info->cacheDuration, 90));
 		//info->cacheDuration = pInstance->mVideoInfo.cacheDuration;
 		//info->cacheSize =  pInstance->mAudioInfo.cacheSize;
 
@@ -3508,8 +3530,21 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 	u32 isUpdate = 0;
 	s64 pcrCurpcrDiff = 0;
 	u32 UpdateSlop = 100;
+	u32 RcordPcrCount = 0;
+	//s64 pcr_ns_overall_process = 0;
+	s64 pcr_diff_overall_process = 0;
+	s64 time_diff_overall_process = 0;
+	u32 slope_overall_process = 100;
 	mediasync_speed pcrslope;
 	u32 referenceAudioCache = 0;
+	u32 updateSlopDebug = 0 ;
+	u32 referenceSlope = 0;
+	u32 switchingAudioTrack = 0;
+	int videoFutureCache = 0;
+	int audioFutureCache = 0;
+	int futureConsumptionCache = 0;
+
+	u32 mCheckSlopeSytemtimeThreshold90k = 0;
 	if (pInstance->mSourceClockType != PCR_CLOCK ||
 		pInstance->mDemuxId < 0 ||
 		pInstance->mSyncInfo.state != MEDIASYNC_RUNNING ||
@@ -3518,38 +3553,140 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 	}
 
 	if (pInstance->mLastCheckSlopeSystemtime == 0) {
-		CurTimeUs = get_system_time_us();
-		pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
+		CurTimeUs = 0;
 		if (pInstance->mDemuxId >= 0) {
+			CurTimeUs = get_system_time_us();
 			demux_get_pcr(pInstance->mDemuxId, 0, &pcr);
 			pcr_ns = div_u64(pcr * 100000 , 9);
+			pInstance->mLastCheckSlopeDemuxPts = pcr_ns;
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].framePts = pcr_ns;
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].frameSystemTime = CurTimeUs;
 		}
-		pInstance->mLastCheckSlopeDemuxPts = pcr_ns;
+		pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
 		pInstance->mlastCheckVideocacheDuration = 0;
+		pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
 		return ;
 	}
+
 
 	CurTimeUs = get_system_time_us();
 	time_diff = CurTimeUs - pInstance->mLastCheckSlopeSystemtime;
 
-	if (time_diff >= 500000) {
+	if (time_diff >= pInstance->mCheckSlopeSytemtimeThreshold) {
 		if (pInstance->mDemuxId >= 0) {
 			demux_get_pcr(pInstance->mDemuxId, 0, &pcr);
 			mCurPcr = mediasync_ins_get_stc_time_implementation(pInstance,CurTimeUs);
 		}
+
 		pcr_ns = div_u64(pcr * 100000 , 9);
 		pcr_diff = pcr_ns - pInstance->mLastCheckSlopeDemuxPts;
+
+
+		/*Calculate the slope increase over mCheckSlopeSytemtimeThreshold seconds.*/
 		if (pcr_diff > 0) {
 			slope = div_u64(pcr_diff, time_diff);
 			slope = div_u64(slope+5, 10);
 		} else {
-			pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
+			slope = 0;
+		}
+
+		/*Calculate the slope over 10 seconds.*/
+		RcordPcrCount = pInstance->mRcordPcrCount+1;
+		if (RcordPcrCount >= RECORD_PCR_NUM) {
+			RcordPcrCount = 0;
+		}
+		if (pInstance->mRcordPcr[RcordPcrCount].framePts != 0) {
+			pcr_diff_overall_process = pcr_ns - pInstance->mRcordPcr[RcordPcrCount].framePts;
+			time_diff_overall_process = CurTimeUs - pInstance->mRcordPcr[RcordPcrCount].frameSystemTime;
+			if (media_sync_debug_level >= 1) {
+					mediasync_pr_info(0, pInstance->mSyncIndex,
+						"--->time_diff:%lld useCount:%d pcr:stime=(%lld %lld) diff=(%lld ms:%lld ms) npcr:ctime=(%lld:%lld)\n",
+						time_diff,
+						RcordPcrCount,
+						pInstance->mRcordPcr[RcordPcrCount].framePts,
+						pInstance->mRcordPcr[RcordPcrCount].frameSystemTime,
+						div_u64(pcr_diff_overall_process , 1000000),
+						div_u64(time_diff_overall_process , 1000),
+						pcr_ns,CurTimeUs);
+			}
+		} else {
+			pcr_diff_overall_process = pcr_ns - pInstance->mRcordPcr[0].framePts;
+			time_diff_overall_process = CurTimeUs - pInstance->mRcordPcr[0].frameSystemTime;
+			if (media_sync_debug_level >= 1) {
+				mediasync_pr_info(0, pInstance->mSyncIndex,
+					"--->time_diff:%lld RcordPcrCount:start pcr_ns:time=(%lld %lld) diff=(%lld ms:%lld ms) npcr:ctime=(%lld:%lld)\n",
+					time_diff,
+					pInstance->mRcordPcr[0].framePts,
+					pInstance->mRcordPcr[0].frameSystemTime,
+					div_u64(pcr_diff_overall_process , 1000000),
+					div_u64(time_diff_overall_process , 1000),
+					pcr_ns,CurTimeUs);
+			}
+		}
+
+		if (pcr_diff_overall_process > 0) {
+			slope_overall_process = div_u64(pcr_diff_overall_process, time_diff_overall_process);
+			slope_overall_process = div_u64(slope_overall_process+5, 10);
+		} else {
+			slope_overall_process = 0;
+		}
+
+		/***************One pcr was recorded in 3 seconds*************/
+		if (CurTimeUs - pInstance->mRcordPcr[pInstance->mRcordPcrCount].frameSystemTime >=
+			CHECK_SLOPE_SYSTEM_TIME_3S) {
+			//demux_get_pcr(pInstance->mDemuxId, 0, &pcr);
+			//pcr_ns = div_u64(pcr * 100000 , 9);
+			pInstance->mRcordPcrCount++;
+			if (pInstance->mRcordPcrCount >= RECORD_PCR_NUM) {
+				pInstance->mRcordPcrCount = 0;
+			}
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].framePts = pcr_ns;
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].frameSystemTime = CurTimeUs;
+			if (media_sync_debug_level >= 1) {
+				mediasync_pr_info(0, pInstance->mSyncIndex,
+					"rcoCount:%d pcr:%lld time:%lld\n",
+					pInstance->mRcordPcrCount,pInstance->mRcordPcr[pInstance->mRcordPcrCount].framePts,CurTimeUs);
+			}
+		}
+
+		/*********************check pcr discontinue**************************/
+		if (slope == 0 ||
+			slope > SLOPE_ABNORMAL ||
+			slope_overall_process == 0 ||
+			slope_overall_process > SLOPE_ABNORMAL) {
+			/*   pcr discontinue*/
 			pInstance->mLastCheckSlopeDemuxPts = pcr_ns;
-			mediasync_pr_info(0,pInstance->mSyncIndex,"--->pcr_diff:%lld \n",pcr_diff);
+			pInstance->mLastCheckSlopeSystemtime = CurTimeUs;
+			if (pInstance->mPcrSlope.mNumerator != 100) {
+				pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_1S;
+			} else {
+				pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
+			}
+
+			//pInstance->mlastCheckVideocacheDuration = 0;
+
+			for (i = 0;i < RECORD_PCR_NUM;i++) {
+				pInstance->mRcordPcr[i].framePts = 0;
+				pInstance->mRcordPcr[i].frameSystemTime = 0;
+			}
+			pInstance->mRcordPcrCount = 0;
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].framePts = pcr_ns;
+			pInstance->mRcordPcr[pInstance->mRcordPcrCount].frameSystemTime = CurTimeUs;
+			mediasync_pr_info(0, pInstance->mSyncIndex,"--->pcr discontinue pcr_diff:%lld pcr_diff_overall:%lld\n",pcr_diff,pcr_diff_overall_process);
+
 			return;
 		}
 
-		if (slope > 80 && slope < 130) {
+		if (slope_overall_process == SLOPE_NORMAL &&
+			slope >= SLOPE_JITTER_MIN &&
+			slope <= SLOPE_JITTER_MAX) {
+			pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_3S;
+		} else {
+			pInstance->mCheckSlopeSytemtimeThreshold = CHECK_SLOPE_SYSTEM_TIME_500MS;
+		}
+
+		if (slope > SLOPE_THRESHOLD_MIN &&
+			slope < SLOPE_THRESHOLD_MAX) {
 			pInstance->mRcordSlope[pInstance->mRcordSlopeCount] = slope;
 			pInstance->mRcordSlopeCount++;
 			if (pInstance->mRcordSlopeCount >= RECORD_SLOPE_NUM) {
@@ -3577,77 +3714,147 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 		}
 
 		avgslope = div_u64(avgslope,RECORD_SLOPE_NUM);
+
+		mCheckSlopeSytemtimeThreshold90k = div_u64(pInstance->mCheckSlopeSytemtimeThreshold * 9,100);
 		if (pInstance->mHasVideo == 1) {
 			mincache = info->mVideoInfo.cacheDuration;
-		} else if (pInstance->mHasAudio == 1) {
-			mincache = info->mAudioInfo.cacheDuration;
+			videoFutureCache =	info->mVideoInfo.cacheDuration + (int)div_u64((s64)slope * mCheckSlopeSytemtimeThreshold90k,100);
 		}
 
+		if (pInstance->mHasAudio == 1) {
+			if (mincache == 0) {
+				mincache = info->mAudioInfo.cacheDuration;
+			}
+			audioFutureCache =	info->mAudioInfo.cacheDuration + (int)div_u64((s64)slope * mCheckSlopeSytemtimeThreshold90k,100);
+		}
+
+		cacheDiffAbs = ABSSUB(mincache,pInstance->mlastCheckVideocacheDuration);
 		if (pInstance->mlastCheckVideocacheDuration != 0) {
 			if (pInstance->mPcrSlope.mNumerator != avgslope) {
-				cacheDiffAbs = ABSSUB(mincache,pInstance->mlastCheckVideocacheDuration);
+
 				if (avgslope > pInstance->mPcrSlope.mNumerator) {
-					if (mincache > 90000) {
+					/*   avgSlope  > runSlope*/
+					if (mincache > CACHE_1S) {
 						if (mincache > pInstance->mlastCheckVideocacheDuration &&
-							cacheDiffAbs > 45000) {
+							cacheDiffAbs > CACHE_500MS) {
 							isUpdate = 1;
-							UpdateSlop = avgslope;
+							if (slope_overall_process > avgslope) {
+								UpdateSlop = slope_overall_process;
+								updateSlopDebug = 1;
+							} else {
+								UpdateSlop = avgslope;
+								updateSlopDebug = 2;
+							}
 						}
 					} else {
 						if (mincache < pInstance->mlastCheckVideocacheDuration &&
-							cacheDiffAbs > 45000) {
+							cacheDiffAbs > CACHE_500MS) {
 							isUpdate = 1;
 							UpdateSlop = minslope;
+							updateSlopDebug = 3;
 						}
 					}
 				} else {
-					//mediasync_pr_info(0,pInstance,
-					//	"demux pts diff:%lld ms  cur pts : %lld ms vcache:%lld us achce:%d us",
-					//			(pInstance->mSyncInfo.videoPacketsInfo.packetsPts - pInstance->mSyncInfo.audioPacketsInfo.packetsPts)/90,
-					//		(pInstance->mSyncInfo.curVideoInfo.framePts - pInstance->mSyncInfo.curAudioInfo.framePts) / 90,
-					//			mincache*100/9,
-					//			info->mAudioInfo.cacheDuration*100/9);
+					/*   avgSlope  < runSlope*/
+					if (time_diff >= CHECK_SLOPE_SYSTEM_TIME_3S &&
+						slope_overall_process == SLOPE_NORMAL &&
+						slope >= SLOPE_JITTER_MIN &&
+						slope <= SLOPE_JITTER_MAX) {
+						if (pInstance->mPcrSlope.mNumerator > SLOPE_SPEED_UP_THRESHOLD) {
+							referenceSlope = 1;
+						} else {
+							referenceSlope = 0;
+						}
+					} else {
+						referenceSlope = 1;
+					}
+
+					if (abs(mCurPcr - pInstance->mSyncInfo.curAudioInfo.framePts) > AUDIO_SYNC_THRESHOLD_100MS &&
+						CurTimeUs - pInstance->mSyncInfo.setStateCurTimeUs < SYSTEM_TIME_15000MS) {
+						if (media_sync_debug_level >= 1) {
+							mediasync_pr_info(1, pInstance->mSyncIndex,
+								"switching AudioTrack pcrAptsDiff:%lld us timediff:%lld \n",
+								div_u64((mCurPcr - pInstance->mSyncInfo.curAudioInfo.framePts)*100,9),
+								CurTimeUs - pInstance->mSyncInfo.setStateCurTimeUs);
+						}
+						switchingAudioTrack = 1;
+					}
 					referenceAudioCache = 0;
+
+
+					//27000
 					if (pInstance->mHasAudio == 1 &&
-						info->mAudioInfo.cacheDuration > 0 &&
-						info->mAudioInfo.cacheDuration < 27000){
+						info->mAudioInfo.cacheDuration >= 0 &&
+						info->mAudioInfo.cacheDuration <= CACHE_300MS &&
+						switchingAudioTrack == 0 &&
+						referenceSlope == 1) {
 						referenceAudioCache = 1;
 					}
-					if (mincache < 90000 ||
+
+					if (mincache < CACHE_1S ||
 						referenceAudioCache == 1) {
 						if ((mincache < pInstance->mlastCheckVideocacheDuration &&
-							cacheDiffAbs > 18000) ||
+							cacheDiffAbs > CACHE_200MS) ||
 							referenceAudioCache == 1) {
-							isUpdate = 1;
 							UpdateSlop = avgslope;
+							updateSlopDebug = 4;
+							if (audioFutureCache != 0) {
+								futureConsumptionCache = (int)div_u64((s64)UpdateSlop * mCheckSlopeSytemtimeThreshold90k,100);
+								//150ms
+								if (audioFutureCache - futureConsumptionCache < CACHE_150MS) {
+									UpdateSlop = minslope;
+									updateSlopDebug = 5;
+								}
+							}
+							if (videoFutureCache != 0 && UpdateSlop == minslope) {
+								futureConsumptionCache = (int)div_u64((s64)UpdateSlop * mCheckSlopeSytemtimeThreshold90k,100);
+								if (videoFutureCache - futureConsumptionCache < CACHE_100MS) {
+									UpdateSlop = minslope;
+									updateSlopDebug = 6;
+								}
+							}
+							isUpdate = 1;
 						}
 					} else {
 						if (mincache > pInstance->mlastCheckVideocacheDuration &&
-							cacheDiffAbs > 90000) {
+							cacheDiffAbs > CACHE_1S) {
 							isUpdate = 1;
 							UpdateSlop = maxslope;
+							updateSlopDebug = 7;
 						}
 					}
 				}
+			}
+			if (isUpdate) {
+				futureConsumptionCache = (int)div_u64((s64)UpdateSlop * mCheckSlopeSytemtimeThreshold90k,100);
+			} else {
+				futureConsumptionCache = (int)div_u64((s64)pInstance->mPcrSlope.mNumerator * mCheckSlopeSytemtimeThreshold90k,100);
 			}
 		} else {
 			pInstance->mlastCheckVideocacheDuration = mincache;
 		}
 		pcrCurpcrDiff = ABSSUB(pcr ,(s64)mCurPcr);
 		#if 1
-		mediasync_pr_info(1,pInstance->mSyncIndex,"=======\n");
-		mediasync_pr_info(1,pInstance->mSyncIndex,"offset:%lld ms(%lld) pcr:%lld mCurPcr:%lld",
-			div_u64((pcr - (s64)mCurPcr),90),
-			pcrCurpcrDiff,
-			pcr,mCurPcr);
+		if (media_sync_debug_level >= 1) {
+			mediasync_pr_info(0, pInstance->mSyncIndex,"RunSlop:%d nowSlop:%d slope_overall:%d avg:%d max:%d min:%d \n",
+				pInstance->mPcrSlope.mNumerator,slope,slope_overall_process,avgslope,maxslope,minslope);
 
-		mediasync_pr_info(1,pInstance->mSyncIndex,
-		"Slop:%d avg:%d max:%d min:%d cache:%lld us Lcache::%lld us abs:%lld us acache:%lld us",
-			pInstance->mPcrSlope.mNumerator,avgslope,maxslope,minslope,
-			div_u64((s64)(mincache*100),9),
-			div_u64((s64)(pInstance->mlastCheckVideocacheDuration*100),9),
-			div_u64((s64)(cacheDiffAbs*100),9),
-			div_u64((s64)(info->mAudioInfo.cacheDuration*100),9));
+			mediasync_pr_info(0, pInstance->mSyncIndex,
+				"vcache:%lld us acache:%lld us Lcache::%lld us abs:%lld us \n",
+				div_u64((s64)(info->mVideoInfo.cacheDuration*100),9),
+				div_u64((s64)(info->mAudioInfo.cacheDuration*100),9),
+				div_u64((s64)(pInstance->mlastCheckVideocacheDuration*100),9),
+				div_u64((s64)(cacheDiffAbs*100),9));
+
+			mediasync_pr_info(0, pInstance->mSyncIndex,
+				"VfutCache:%lld us AfutCache:%lld us futCsmCache:%lld us offset:%lld ms\n",
+				div_u64((s64)(videoFutureCache*100),9),
+				div_u64((s64)(audioFutureCache*100),9),
+				div_u64((s64)(futureConsumptionCache*100),9),
+				div_u64((pcr - (s64)mCurPcr),90));
+		}
+		//div_u64((s64)((audio_new_pts - pInstance->mSyncInfo.audioPacketsInfo.packetsPts)*100),9)
+
 		#endif
 		//7000ms * 90
 		if (isUpdate && pcrCurpcrDiff < DEFAULT_TRIGGER_DISCONTINUE_THRESHOLD) {
@@ -3658,12 +3865,14 @@ void mediasync_ins_check_pcr_slope(mediasync_ins* pInstance, mediasync_update_in
 			pInstance->mSyncInfo.refClockInfo.frameSystemTime = CurTimeUs;
 			pInstance->mPtsAdjust = 0;
 			pInstance->mStartThreshold = pcr - mCurPcr;
-			mediasync_pr_info(0,pInstance->mSyncIndex,
-				"update nowSlope:%d -> Slope:%d max:%d min:%d offset:%lld",
+			mediasync_pr_info(0, pInstance->mSyncIndex,
+				"-->update runSlop:%d --> Slope:%d slopeOA:%d max:%d min:%d offset:%lld num:%d",
 					pInstance->mPcrSlope.mNumerator,
 					UpdateSlop,
+					slope_overall_process,
 					maxslope,minslope,
-					pcr - (s64)mCurPcr);
+					pcr - (s64)mCurPcr,
+					updateSlopDebug);
 			mediasync_ins_set_pcrslope_implementation(pInstance,pcrslope);
 			pInstance->mlastCheckVideocacheDuration = mincache;
 		}
