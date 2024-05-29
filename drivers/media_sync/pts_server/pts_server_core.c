@@ -265,6 +265,45 @@ long ptsserver_set_first_checkin_offset(s32 pServerInsId,start_offset* mStartOff
 }
 EXPORT_SYMBOL(ptsserver_set_first_checkin_offset);
 
+/*
+ return number of recs if the offset is bigger
+ Caching more than two frames is considered sufficient, and the decoder needs to run to reduce the number of runs.
+*/
+int ptsserver_check_rec_num_enough(s32 pServerInsId,u32 val)
+{
+	ptsserver_ins* pInstance = NULL;
+	PtsServerManage* vPtsServerIns = NULL;
+	s32 index = pServerInsId;
+	int r = 1;
+	if (index < 0 || index >= MAX_INSTANCE_NUM) {
+		return 0;
+	}
+	vPtsServerIns = &(vPtsServerInsList[index]);
+
+	mutex_lock(&vPtsServerIns->mListLock);
+	pInstance = vPtsServerIns->pInstance;
+
+	/********rp < wp1 < wp2,only this case maybe rec enough**********/
+	if ((val >= pInstance->last_offset[0]) &&
+		(val - pInstance->last_offset[0] < 0x80000000)) {
+		r = 0;
+	} else if ((val >= pInstance->last_offset[1]) &&
+		(val - pInstance->last_offset[1] < 0x80000000)) {
+		r = 0;
+	}
+
+	if (ptsserver_debuglevel >= 4) {
+		pts_pr_vinfo(index,"val:0x%x last_offset[0]:0x%x last_offset[1]:0x%x diff_a:0x%x diff_b:0x%x isEnough:%d \n",
+			val,pInstance->last_offset[0],pInstance->last_offset[1],
+			val - pInstance->last_offset[0],
+			val - pInstance->last_offset[1],
+			r);
+	}
+	mutex_unlock(&vPtsServerIns->mListLock);
+	return r;
+}
+EXPORT_SYMBOL(ptsserver_check_rec_num_enough);
+
 long ptsserver_checkin_pts_size(s32 pServerInsId,checkin_pts_size* mCheckinPtsSize,bool isOffset) {
 	PtsServerManage* vPtsServerIns = NULL;
 	ptsserver_ins* pInstance = NULL;
@@ -316,7 +355,15 @@ long ptsserver_checkin_pts_size(s32 pServerInsId,checkin_pts_size* mCheckinPtsSi
 			pInstance->mListSize--;
 		}
 	}
-
+	//record last two checkin offset
+	pInstance->last_offset[pInstance->write_count % 2] = mCheckinPtsSize->size;
+	if (ptsserver_debuglevel >= 4) {
+		pts_pr_vinfo(index,"last_offset[0]:%d last_offset[1]:%d write_count:%d\n",
+							pInstance->last_offset[0],
+							pInstance->last_offset[1],
+							pInstance->write_count);
+	}
+	pInstance->write_count++;
 	//record every checkin offset in mLastCheckinPieceOffset
 	if (isOffset) {
 		pInstance->mLastCheckinPieceOffset = mCheckinPtsSize->size;

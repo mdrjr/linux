@@ -84,6 +84,7 @@
 #include "vdec_canvas_utils.h"
 #include "../../../amvdec_ports/aml_vcodec_drv.h"
 #include "../../../common/media_utils/media_utils.h"
+#include "../../../media_sync/pts_server/pts_server_core.h"
 
 #if 0
 #define PXP_DEBUG
@@ -4271,14 +4272,20 @@ int vdec_check_rec_num_enough(struct vdec_s *vdec) {
 			/*just like use ptsserv, alway return true*/
 			return 1;
 		}
-		if ((total_rd_count >= vdec->vbuf.last_offset[0]) &&
-			(total_rd_count - vdec->vbuf.last_offset[0] < 0x80000000))
-			return 0;
-		else if ((total_rd_count >= vdec->vbuf.last_offset[1]) &&
-			(total_rd_count - vdec->vbuf.last_offset[1] < 0x80000000))
-			return 0;
-
-		return 1;
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T5D ||
+			get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TXHD2 ||
+			get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12A) &&
+			(vdec->frame_base_video_path == FRAME_BASE_PATH_DI_V4LVIDEO)) {
+			return ptsserver_check_rec_num_enough((vdec->pts_server_id & 0xff), total_rd_count);
+		} else {
+			if ((total_rd_count >= vdec->vbuf.last_offset[0]) &&
+				(total_rd_count - vdec->vbuf.last_offset[0] < 0x80000000))
+				return 0;
+			else if ((total_rd_count >= vdec->vbuf.last_offset[1]) &&
+				(total_rd_count - vdec->vbuf.last_offset[1] < 0x80000000))
+				return 0;
+			return 1;
+		}
 	}
 }
 

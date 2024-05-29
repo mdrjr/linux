@@ -91,6 +91,8 @@ typedef struct __attribute__((packed)) psinstance {
 	u64 mFirstCheckinPts90k;
 	u64 mLastCheckinPts90k;
 	s32 mRef;
+	u32 last_offset[2];
+	u32 write_count;
 } ptsserver_ins;
 
 typedef struct Pts_Server_Manage {
@@ -161,5 +163,6 @@ long ptsserver_static_ins_binder(s32 pServerInsId, ptsserver_ins** pIns, ptsserv
 long ptsserver_checkin_apts_size(s32 pServerInsId,checkin_apts_size* mCheckinPtsSize);
 long ptsserver_checkout_apts_offset(s32 pServerInsId,checkout_apts_offset* mCheckoutPtsOffset);
 long ptsserver_get_list_size(s32 pServerInsId, u32* ListSize);
+int  ptsserver_check_rec_num_enough(s32 pServerInsId,u32 val);
 
 #endif
