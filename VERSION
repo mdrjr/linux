@@ -1,10 +1,14 @@
 #Developing Version
 Major_V=6
-Minor_V=11
-DevelopingChangeId=I970ea9ff88c7331727d41fdd16bf23b04a105a2d
-
+Minor_V=12
+DevelopingChangeId=Id75de9d900dbf0cb64db84c3949a3205d7293669
+LTS_FLAG=LTS
 
 #history version
+#V6.12 Release Notes
+#Support kernel 6.6
+#Fixed H264/MPEG2 memory pollution issue
+#Improved VC1 playback stability
 #V6.10 Release Notes
 #Support S7 S7D chips
 #AMMS  V2.1

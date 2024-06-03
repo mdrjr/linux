@@ -10,9 +10,10 @@ MEDIAMODULE_COMMITID=$(cd ${MEDIA_MODULE_PATH}/; git rev-parse --short HEAD)
 UCODE_VERSION_DETAIL=$(cd ${MEDIA_MODULE_PATH}/; ./firmware/checkmsg ./firmware/video_ucode.bin | grep "ver    :" | awk '{print $3}' | sed 's/v//g')
 UCODE_VERSION=$(cd ${MEDIA_MODULE_PATH}/; ./firmware/checkmsg ./firmware/video_ucode.bin | grep "ver    :"  | awk -F '[v-]' '{print $3}' | awk -F [\.] '{printf "%d%02d%03d", $1,$2,$3}')
 RELEASED_VERSION=$(cd ${MEDIA_MODULE_PATH}/; grep "^#V" VERSION | head -1 | awk  '{print $1}' | sed 's/#//g')
+LTS_FLAG=$(cd ${MEDIA_MODULE_PATH}/; grep "^LTS_FLAG=" VERSION | awk -F "=" '{printf $2}')
 
 if [ "x${COMMIT_COUNT}" != "x" ]; then
-VERSION_CONTROL_CFLAGS="-DDECODER_VERSION=${Major_V}.${Minor_V}.${COMMIT_COUNT}-g${MEDIAMODULE_COMMITID}.${UCODE_VERSION}"
+VERSION_CONTROL_CFLAGS="-DDECODER_VERSION=${Major_V}.${Minor_V}.${COMMIT_COUNT}-g${MEDIAMODULE_COMMITID}.${UCODE_VERSION}${LTS_FLAG}"
 else
 VERSION_CONTROL_CFLAGS="${VERSION_CONTROL_CFLAGS} -DRELEASED_VERSION=${RELEASED_VERSION}"
 fi
