@@ -3527,9 +3527,10 @@ static int cal_current_buf_size(struct hevc_state_s *hevc,
 
 	int dw_mode = get_double_write_mode(hevc);
 
-	if (hevc->mmu_enable)
+	if (hevc->mmu_enable) {
 		buf_size = hevc_get_header_size(hevc->pic_w, hevc->pic_h);
-	else
+		buf_size = ((buf_size + 0xffff) >> 16) << 16;
+	} else
 		buf_size = 0;
 #ifdef H265_10B_MMU_DW
 	if (hevc->dw_mmu_enable) {
