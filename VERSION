@@ -1,8 +1,8 @@
 #Developing Version
 Major_V=6
-Minor_V=12
-DevelopingChangeId=Id75de9d900dbf0cb64db84c3949a3205d7293669
-LTS_FLAG=LTS
+Minor_V=13
+DevelopingChangeId=I8a16bced65c08410e7cc23e5c1d7333c909a5a2c
+LTS_FLAG=
 
 #history version
 #V6.12 Release Notes
