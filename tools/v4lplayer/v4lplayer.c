@@ -1063,7 +1063,7 @@ int frame_mode_write_dat(FILE *fp, FILE *fszp, char *buffer)
 static void usage()
 {
 	printf("Command help:\n");
-	printf("1. To play a video: v4lesplayer -i <file> -f <format> -d <dw_mode> -s <FSZ> -l <log_level> -o <dump> -n <num>\n");
+	printf("1. To play a video: v4lplayer -i <file> -f <format> -d <dw_mode> -s <FSZ> -l <log_level> -o <dump> -n <num>\n");
 	printf(" -i, --ifile,  input es file\n");
 	printf(" -f, --format, video format\n");
 	printf("\t0:mpeg12\t1:mpeg4\t\t2:h264\t\t3:mjpeg\n");
@@ -1097,7 +1097,7 @@ static void usage()
 	printf("\tBefore dumping, run 'mkdir -p /data/tmp -m 777;setenforce 0;rm /data/tmp/* -rf' command\n");
 	printf(" -n, --number, dump decoder info num\n");
 	printf(" -h, --help,   usage\n");
-	printf("example : v4lesplayer -f 2 -d 16 -i /data/h264.es -s /data/h264.fsz\n");
+	printf("example : v4lplayer -f 2 -d 16 -i /data/h264.es -s /data/h264.fsz\n");
 }
 
 static const char short_options[] = "i:s:d:f:l:o:n:h";

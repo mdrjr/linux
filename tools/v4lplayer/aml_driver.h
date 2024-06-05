@@ -227,8 +227,8 @@ struct v4l_userdata_meta_data_t {
 struct sei_usd_param_s {
 	__u32 info_type;    /* CC or AFD */
 	__u32 data_size;    /* size of the data domain */
-	void *data;    /*pointer to data domain */
-	void *v_addr;  /* used in kernel space */
+	__u64 data_ptr;    /*pointer to data domain. Need to be converted before use */
+	__u64 v_addr_ptr;  /* used in kernel space. Need to be converted before use */
 	struct v4l_userdata_meta_data_t meta_data;  /* meta_data */
 };
 

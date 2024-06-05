@@ -734,7 +734,7 @@ int get_dec_info(struct vdec_common_s *vdec_comm, int info_index)
 		vdec_comm->type == AML_DECINFO_EVENT_HDR10P ||
 		vdec_comm->type == AML_DECINFO_EVENT_CUVA ||
 		vdec_comm->type == AML_DECINFO_EVENT_AMDV) {
-		vdec_comm->u.usd_param.data = (void *)dec_info[info_index].buff;
+		vdec_comm->u.usd_param.data_ptr = (uintptr_t)dec_info[info_index].buff;
 		vdec_comm->u.usd_param.data_size = DEC_INFO_BUF_SIZE;
 	}
 
@@ -930,7 +930,7 @@ int save_frame_info(struct vdec_common_s *vdec_comm, int info_index)
 int dump_dec_info_buff_data(struct vdec_common_s *vdec_comm, int index)
 {
 	int buff_size = vdec_comm->u.usd_param.data_size;
-	uint8_t* buff = (uint8_t*)vdec_comm->u.usd_param.data;
+	uint8_t* buff = (uint8_t*)(uintptr_t)(vdec_comm->u.usd_param.data_ptr);
 	struct v4l_userdata_meta_data_t *mea_data = &vdec_comm->u.usd_param.meta_data;
 	struct decoder_info_config *decoder_info = &dec_info[index];
 	const char * name = dec_info_name[decoder_info->event];
@@ -949,7 +949,7 @@ int dump_dec_info_buff_data(struct vdec_common_s *vdec_comm, int index)
 		fprintf(decoder_info->fp, "frame_type:%d\n", mea_data->frame_type);
 		fprintf(decoder_info->fp, "vpts:%d\n", mea_data->vpts);
 		fprintf(decoder_info->fp, "vpts_valid:%d\n", mea_data->vpts_valid);
-		fprintf(decoder_info->fp, "timestamp:%d\n", mea_data->timestamp);
+		fprintf(decoder_info->fp, "timestamp:%lu\n", mea_data->timestamp);
 		fprintf(decoder_info->fp, "records_in_que:%d\n", mea_data->records_in_que);
 		fprintf(decoder_info->fp, "priv_data:%d\n", mea_data->priv_data);
 		fprintf(decoder_info->fp, "buff_data: size:%d\n", buff_size);
