@@ -941,6 +941,7 @@ struct h264_dpb_stru {
 	u32 poc_check_count;
 	u32 size_for_res_change;
 	u32 param1_for_res_change;
+	u32 avbcd_work_mode;
 };
 
 
