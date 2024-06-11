@@ -201,13 +201,12 @@ long ptsserver_ins_alloc(s32 *pServerInsId,
 			pInstance->mRef++;
 			*pServerInsId = index;
 			ptsserver_ins_init_syncinfo(pInstance,allocParm);
-			pr_info("ptsserv: %s --> index:%d\n",__func__,index);
 			mutex_unlock(&vPtsServerInsList[index].mListLock);
 			break;
 		}
 		mutex_unlock(&vPtsServerInsList[index].mListLock);
 	}
-
+	pr_info("ptsserv: %s --> index:%d\n",__func__,index);
 	if (index == MAX_DYNAMIC_INSTANCE_NUM) {
 		memset(pInstance, 0, sizeof(ptsserver_ins));
 		kfree(pInstance);;
@@ -255,13 +254,14 @@ long ptsserver_set_first_checkin_offset(s32 pServerInsId,start_offset* mStartOff
 		mutex_unlock(&vPtsServerIns->mListLock);
 		return -1;
 	}
-	pts_pr_vinfo(index,"mBaseOffset:%d mAlignmentOffset:%d\n",
-						mStartOffset->mBaseOffset,
-						mStartOffset->mAlignmentOffset);
 	pInstance->mLastCheckinOffset = mStartOffset->mBaseOffset;
 	pInstance->mLastCheckinPieceOffset = mStartOffset->mBaseOffset;
 	pInstance->mAlignmentOffset = mStartOffset->mAlignmentOffset;
 	mutex_unlock(&vPtsServerIns->mListLock);
+	pts_pr_vinfo(index,"mBaseOffset:%d mAlignmentOffset:%d\n",
+						mStartOffset->mBaseOffset,
+						mStartOffset->mAlignmentOffset);
+
 	return 0;
 }
 EXPORT_SYMBOL(ptsserver_set_first_checkin_offset);
@@ -335,11 +335,11 @@ long ptsserver_checkin_pts_size(s32 pServerInsId,checkin_pts_size* mCheckinPtsSi
 				pInstance->mLastDropIndex++;
 				pInstance->mListSize--;
 				if (ptsserver_debuglevel >= 1) {
-				pts_pr_vinfo(index,"Checkin delete node index node del_ptn:%px index:%d, size:%d pts_90k:0x%llx pts_64:%lld\n",
-									del_ptn,del_ptn->index,del_ptn->offset,
-									del_ptn->pts_90k,
-									del_ptn->pts_64);
-			}
+					pts_pr_vinfo(index,"Checkin delete node index node del_ptn:%px index:%d, size:%d pts_90k:0x%llx pts_64:%lld\n",
+										del_ptn,del_ptn->index,del_ptn->offset,
+										del_ptn->pts_90k,
+										del_ptn->pts_64);
+				}
 			}
 		}
 
@@ -423,10 +423,10 @@ long ptsserver_checkin_pts_size(s32 pServerInsId,checkin_pts_size* mCheckinPtsSi
 			ptn->expired_count = MAX_EXPIRED_COUNT;
 			ptn->index = pInstance->mLastIndex++;
 			if (ptsserver_debuglevel >= 1) {
-					pts_pr_vinfo(index,"-->dequeue empty ptn:%px offset:0x%x pts(90k:0x%llx 64:%lld)\n",
+				pts_pr_vinfo(index,"-->dequeue empty ptn:%px offset:0x%x pts(90k:0x%llx 64:%lld)\n",
 										ptn,ptn->offset,ptn->pts_90k,
 										ptn->pts_64);
-				}
+			}
 		} else {
 			if (ptsserver_debuglevel >= 1) {
 				pts_pr_vinfo(index,"ptn is null return \n");
@@ -523,7 +523,7 @@ long ptsserver_checkin_pts_size(s32 pServerInsId,checkin_pts_size* mCheckinPtsSi
 	pInstance->mLastCheckinPiecePts64 = mCheckinPtsSize->pts_64;
 
 	if (ptsserver_debuglevel >= 1 && checkinSpliceNode == true) {
-	pts_pr_vinfo(index,"[SpliceNode] Checkin Size(%d) %s 0x%x pts(32:0x%x 64:%lld) ptn:%px\n",
+		pts_pr_vinfo(index,"[SpliceNode] Checkin Size(%d) %s 0x%x pts(32:0x%x 64:%lld) ptn:%px\n",
 							pInstance->mLastCheckinPieceSize,
 							ptn->offset < pInstance->mLastCheckinOffset?"rest offset":"offset",
 							pInstance->mLastCheckinPieceOffset,
@@ -1355,7 +1355,7 @@ long ptsserver_checkin_apts_size(s32 pServerInsId,checkin_apts_size* mCheckinPts
 		list_del(&del_ptn->node);
 		list_add_tail(&del_ptn->node, &pInstance->pts_free_list);	//queue empty buffer
 		if (ptsserver_debuglevel >= 1) {
-		pts_pr_ainfo(index,"Checkin delete node size:%d pts:0x%llx pts_64:%lld\n",
+			pts_pr_ainfo(index,"Checkin delete node size:%d pts:0x%llx pts_64:%lld\n",
 							del_ptn->offset,
 							del_ptn->pts_90k,
 							del_ptn->pts_64);
