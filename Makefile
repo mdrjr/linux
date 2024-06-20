@@ -5,7 +5,14 @@ TARGET_VENDOR_MEDIA_VVC_SUPPORT := true
 
 ifeq (${wildcard ${PRODUCT_FULL_DIR}/media_modules.build.config.trunk.mk},)
 ${info "media_modules use default config"}
-CONFIGS := CONFIG_AMLOGIC_MEDIA_VDEC_MPEG2_MULTI=m \
+MEDIA_MODULES_CFLAGS = ""
+else
+${info "media_modules use config in ${PRODUCT_FULL_DIR}"}
+include ${PRODUCT_FULL_DIR}/media_modules.build.config.trunk.mk
+endif
+
+
+CONFIGS ?= CONFIG_AMLOGIC_MEDIA_VDEC_MPEG2_MULTI=m \
 	CONFIG_AMLOGIC_MEDIA_VDEC_MPEG4_MULTI=m \
 	CONFIG_AMLOGIC_MEDIA_VDEC_VC1=m \
 	CONFIG_AMLOGIC_MEDIA_VDEC_H264_MULTI=m \
@@ -38,11 +45,6 @@ ifeq ($(TARGET_VENDOR_MEDIA_VVC_SUPPORT), true)
 CONFIGS += CONFIG_AMLOGIC_MEDIA_VDEC_H266=m
 endif
 
-MEDIA_MODULES_CFLAGS = ""
-else
-${info "media_modules use config in ${PRODUCT_FULL_DIR}"}
-include ${PRODUCT_FULL_DIR}/media_modules.build.config.trunk.mk
-endif
 
 EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/drivers/include
 
