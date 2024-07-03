@@ -210,6 +210,12 @@ static void vdec_profile_time_summary(struct vdec_s *vdec, int event, struct vde
 				time_sum += time_summary[j];
 			time_avg = div_u64(time_sum, rate_time_avg_cnt);
 
+			if (event == VDEC_PROFILE_EVENT_CB) {
+				if (!back_core_flag)
+					vdec->front_run2cb_time = time_avg;
+				else
+					vdec->back_run2cb_time = time_avg;
+			}
 			if (time_avg >= rate_time_avg_threshold_hi && *print_flag == 0) {
 				*print_flag = 0x1;
 			}
