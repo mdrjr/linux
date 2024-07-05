@@ -4554,6 +4554,8 @@ int dmx_alloc_chan(struct aml_dmx *dmx, int type, int pes_type, int pid)
 			break;
 		case DMX_PES_AUDIO3:
 			pes_off_pre[dmx->id] = 0;
+			/*clear previous audio data*/
+			DMX_WRITE_REG(dmx->id, OTHER_WR_PTR, 0);
 			{
 				int i;
 
