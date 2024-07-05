@@ -70,6 +70,7 @@ struct t5d_video {
 	u64 pts;
 	u64 apts;
 	int pes_type;
+	int v_passthrough;
 };
 
 struct t5d_dump_node {
@@ -241,6 +242,7 @@ video_callback(int dmx_id, int fid, const u8 *data, int len, void *user_data)
 	struct dvb_demux_feed *feed = user_data;
 	struct t5d_es_data *es = (struct t5d_es_data *)data;
 	struct dmx_sec_es_data hdr;
+	struct dmx_non_sec_es_header non_sec_hdr;
 	u32 last_offset;
 	struct t5d_dump_node *d_entry = NULL;
 	struct t5d_dump_node *d_tmp = NULL;
@@ -283,13 +285,20 @@ video_callback(int dmx_id, int fid, const u8 *data, int len, void *user_data)
 
 	dmx_video->pts = es->pts;
 	hdr.pts_dts_flag = 0;
+	non_sec_hdr.pts_dts_flag = 0;
 
-	if (es->has_pts)
+	if (es->has_pts) {
 		hdr.pts_dts_flag |= 2;
-	if (!es->valid)
+		non_sec_hdr.pts_dts_flag |= 2;
+	}
+	if (!es->valid) {
 		hdr.pts_dts_flag |= 3;
-	if (es->scrambled)
+		non_sec_hdr.pts_dts_flag |= 3;
+	}
+	if (es->scrambled) {
 		hdr.pts_dts_flag |= 4;
+		non_sec_hdr.pts_dts_flag |= 4;
+	}
 
 	hdr.pts = es->pts;
 	hdr.dts = 0;
@@ -299,9 +308,18 @@ video_callback(int dmx_id, int fid, const u8 *data, int len, void *user_data)
 	hdr.data_end   = (u32)(dmx_video->phys + dmx_video->w_offset);
 
 	if (feed && feed->cb.ts) {
-		feed->cb.ts((const u8 *)&hdr, sizeof(hdr), NULL, 0, &feed->feed.ts, 0);
-		print_ver("pts: %llx, start: %#x, end: %#x, data start :%#x, data end: %#x\n",
-			  hdr.pts, hdr.buf_start, hdr.buf_end, hdr.data_start, hdr.data_end);
+		if (dmx_video->v_passthrough) {
+			feed->cb.ts((const u8 *)&hdr, sizeof(hdr), NULL, 0, &feed->feed.ts, 0);
+			print_ver("video pts: %llx, start: %#x, end: %#x, data start :%#x, data end: %#x\n",
+				  hdr.pts, hdr.buf_start, hdr.buf_end, hdr.data_start, hdr.data_end);
+		} else {
+			non_sec_hdr.pts = es->pts;
+			non_sec_hdr.dts = 0;
+			non_sec_hdr.len = es->len;
+			feed->cb.ts((const u8 *)&non_sec_hdr, sizeof(non_sec_hdr), NULL, 0, &feed->feed.ts, 0);
+			feed->cb.ts(es->data, es->len, NULL, 0, &feed->feed.ts, 0);
+			print_ver("video pts: %llx, len:%#x,\n", non_sec_hdr.pts, non_sec_hdr.len);
+		}
 	}
 
 	sid = t5d_get_demux_source_unlock(dmx_id);
@@ -352,7 +370,7 @@ audio_callback(int dmx_id, int fid, const u8 *data, int len, void *user_data)
 	hdr.len = es->len;
 
 	if (feed && feed->cb.ts) {
-		print_ver("pts: %llx, len:%#x\n", hdr.pts, hdr.len);
+		print_ver("audio pts: %llx, len:%#x\n", hdr.pts, hdr.len);
 		feed->cb.ts((const u8 *)&hdr, sizeof(hdr), NULL, 0, &feed->feed.ts, 0);
 
 		if (hdr.len)
@@ -463,7 +481,9 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 		p.pid	   = feed->pid;
 		p.pes_type = feed->pes_type;
 
-		print_dbg("feed pes_type: %d\n", feed->pes_type);
+		print_dbg("feed pes_type: %d, flags: %d\n",
+			  feed->pes_type,
+			  filter->params.pes.flags);
 		if ((feed->pes_type == DMX_PES_PCR0)
 		    || (feed->pes_type == DMX_PES_PCR1)
 		    || (feed->pes_type == DMX_PES_PCR2)
@@ -499,6 +519,10 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 			video->len = T5D_VIDEO_BUFFER_LEN;
 			video->w_offset = 0;
 			video->r_offset = 0;
+			if (filter->params.pes.flags & DMX_OUTPUT_RAW_MODE)
+				video->v_passthrough = 1;
+			else
+				video->v_passthrough = 0;
 			mutex_unlock(&t5d_mutex);
 		} else if (((feed->pes_type == DMX_PES_AUDIO0)
 			    || (feed->pes_type == DMX_PES_AUDIO1)
