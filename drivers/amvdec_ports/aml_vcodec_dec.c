@@ -5329,8 +5329,14 @@ static void vidioc_vdec_g_parm_ext(struct v4l2_ctrl *ctrl,
 	struct aml_vcodec_ctx *ctx)
 {
 	struct v4l2_streamparm parm = {0};
+	struct vb2_queue *dst_vq;
+	dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 
-	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	if (dst_vq->is_multiplanar == 1)
+		parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	else
+		parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+
 	memcpy(&parm.parm.raw_data, ctrl->p_new.p, sizeof(parm.parm.raw_data));
 	vidioc_vdec_g_parm(NULL, &ctx->fh, &parm);
 	memcpy(ctrl->p_new.p, &parm.parm.raw_data, sizeof(parm.parm.raw_data));
