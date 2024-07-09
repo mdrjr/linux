@@ -674,6 +674,18 @@ void vdec_set_vf_duration(s32 duration)
 	vdec_set_vf_dur(duration);
 }
 
+int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value)
+{
+	struct vdec_s *vdec = ada_ctx->vdec;
+	long r = 0;
+
+	r = vdec_set_trickmode(vdec,value);
+	if (r == -1)
+		return -ENODEV;
+
+	return r;
+}
+
 void aml_vdec_recycle_dec_resource(struct aml_vcodec_ctx * ctx,
 					struct aml_buf *aml_buf)
 {

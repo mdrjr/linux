@@ -90,6 +90,8 @@ void vdec_write_stream_data_inner(struct aml_vdec_adapt *ada_ctx, char *addr, u3
 
 void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmabuf_dmx_sec_es_data *es_data, int offset);
 
+int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value);
+
 int vdec_get_vdec_id(struct aml_vdec_adapt *ada_ctx);
 
 void vdec_thread_wakeup(struct aml_vdec_adapt *ada_ctx);
