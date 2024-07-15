@@ -48,6 +48,12 @@ struct aml_vdec_adapt {
 	char *frm_name;
 };
 
+enum DEC_STATUS {
+	DEC_STATUS_INPUT_UNDERRUN = 1,
+	DEC_STATUS_OUTPUT_UNDERRUN = 2,
+	DEC_STATUS_OUTPUT_BUFFFER_NOT_READY = 4,
+};
+
 int video_decoder_init(struct aml_vdec_adapt *ada_ctx);
 
 int video_decoder_release(struct aml_vdec_adapt *ada_ctx);
@@ -101,6 +107,8 @@ int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value);
 int vdec_get_vdec_id(struct aml_vdec_adapt *ada_ctx);
 
 void vdec_thread_wakeup(struct aml_vdec_adapt *ada_ctx);
+
+int vdec_get_decoder_buffer_status(struct aml_vdec_adapt *ada_ctx);
 
 #endif /* VDEC_ADAPT_H */
 
