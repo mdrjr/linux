@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 6.6.35 Kernel Configuration
+# Linux/arm64 6.6.36 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0"
 CONFIG_CC_IS_GCC=y
@@ -183,7 +183,7 @@ CONFIG_NAMESPACES=y
 CONFIG_UTS_NS=y
 CONFIG_TIME_NS=y
 CONFIG_IPC_NS=y
-# CONFIG_USER_NS is not set
+CONFIG_USER_NS=y
 CONFIG_PID_NS=y
 CONFIG_NET_NS=y
 # CONFIG_CHECKPOINT_RESTORE is not set
