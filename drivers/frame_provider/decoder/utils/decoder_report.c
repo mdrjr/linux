@@ -100,7 +100,7 @@ EXPORT_SYMBOL(register_dump_amstream_bufs_func);
 static void buff_show(ssize_t size, char *buf, int buff_size)
 {
 	if (size && buf) {
-		char *tmpbuf = kzalloc(sizeof(char) * size, GFP_KERNEL);
+		char *tmpbuf = kzalloc(sizeof(char) * (size + 1), GFP_KERNEL);
 		char *tmpptr = tmpbuf;
 		const char *cur;
 
