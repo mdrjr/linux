@@ -58,7 +58,6 @@ struct t5d_pcr {
 };
 
 struct t5d_video {
-	int used;
 	int dmx_id;
 	int fid;
 
@@ -423,6 +422,9 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 {
 	struct t5d_sw_demux *dmx = (struct t5d_sw_demux *)feed->demux;
 	int dmx_id = dmx - t5d_sw_demuxes;
+	int video_id = 0;
+	struct t5d_video *video = NULL;
+
 	int r = -1;
 	struct t5d_dump_node *d_node = NULL;
 	struct dmxdev_filter *filter = NULL;
@@ -497,8 +499,6 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 			    || (feed->pes_type == DMX_PES_VIDEO2)
 			    || (feed->pes_type == DMX_PES_VIDEO3))
 			   && (filter->params.pes.flags & DMX_ES_OUTPUT)) {
-			int video_id = 0;
-			struct t5d_video *video = NULL;
 			int buf_page_num = 0;
 			int flags = 0;
 
@@ -519,6 +519,7 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 			video->len = T5D_VIDEO_BUFFER_LEN;
 			video->w_offset = 0;
 			video->r_offset = 0;
+			video->pts = -1;
 			if (filter->params.pes.flags & DMX_OUTPUT_RAW_MODE)
 				video->v_passthrough = 1;
 			else
@@ -531,6 +532,13 @@ dmx_start_feed(struct dvb_demux_feed *feed)
 			   && (filter->params.pes.flags & DMX_ES_OUTPUT)) {
 			p.output = DMX_OUT_DECODER;
 			cb = audio_callback;
+
+			video_id = pes_type2id(feed->pes_type);
+			mutex_lock(&t5d_mutex);
+			video = &t5d_sw_demuxes[dmx_id].videos[video_id];
+			video->apts = -1;
+			mutex_unlock(&t5d_mutex);
+
 		} else {
 			p.output = DMX_OUT_TAP;
 			cb = pes_callback;
@@ -643,10 +651,21 @@ dmx_stop_feed(struct dvb_demux_feed *feed)
 		    || (feed->pes_type == DMX_PES_VIDEO2)
 		    || (feed->pes_type == DMX_PES_VIDEO3)) {
 			video_id = pes_type2id(feed->pes_type);
-
 			video = &t5d_sw_demuxes[dmx_id].videos[video_id];
 			codec_mm_free_for_dma("dmx", video->phys);
-			memset((void *)video, 0, sizeof(struct t5d_video));
+			video->buf = NULL;
+			video->phys = 0;
+			video->len = 0;
+			video->w_offset = 0;
+			video->r_offset = 0;
+			video->pts = -1;
+		} else if ((feed->pes_type == DMX_PES_AUDIO0)
+			|| (feed->pes_type == DMX_PES_AUDIO1)
+			|| (feed->pes_type == DMX_PES_AUDIO2)
+			|| (feed->pes_type == DMX_PES_AUDIO3)) {
+			video_id = pes_type2id(feed->pes_type);
+			video = &t5d_sw_demuxes[dmx_id].videos[video_id];
+			video->apts = -1;
 		}
 
 		pcr_id = pes_type2id(feed->pes_type);
