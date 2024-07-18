@@ -1,18 +1,9 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 
-kernel_module(
-    name = "media",
-    srcs = glob(
-        ["**"],
-        exclude = [
-            "BUILD.bazel",
-            "**/*.bzl",
-            "**/*.mk",
-            "**/*.bp",
-        ],
-    ),
-    outs = [
-        "amvdec_ports/amvdec_ports.ko",
+TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
+
+outs_common = [
+    "amvdec_ports/amvdec_ports.ko",
         "common/firmware/firmware.ko",
         "common/media_clock/media_clock.ko",
         "frame_provider/decoder/avs2/amvdec_avs2.ko",
@@ -22,7 +13,6 @@ kernel_module(
         "frame_provider/decoder/h264_multi/amvdec_mh264.ko",
         "frame_provider/decoder/h264_mvc/amvdec_h264mvc.ko",
         "frame_provider/decoder/h265/amvdec_h265.ko",
-        "frame_provider/decoder/h266/amvdec_h266.ko",
         "frame_provider/decoder/h265_fb/amvdec_h265_fb.ko",
         "frame_provider/decoder/mjpeg/amvdec_mmjpeg.ko",
         "frame_provider/decoder/mpeg12/amvdec_mmpeg12.ko",
@@ -32,7 +22,6 @@ kernel_module(
         "frame_provider/decoder_v4l/avs2/amvdec_avs2_v4l.ko",
         "frame_provider/decoder_v4l/avs2_fb/amvdec_avs2_fb_v4l.ko",
         "frame_provider/decoder_v4l/avs3/amvdec_avs3_v4l.ko",
-        "frame_provider/decoder_v4l/h266/amvdec_h266_v4l.ko",
         "frame_provider/decoder_v4l/avs_multi/amvdec_mavs_v4l.ko",
         "frame_provider/decoder_v4l/h264_multi/amvdec_mh264_v4l.ko",
         "frame_provider/decoder_v4l/h265/amvdec_h265_v4l.ko",
@@ -64,7 +53,27 @@ kernel_module(
         "media_sync/pts_server/pts_server.ko",
         "stream_input/parser/hw_demux/aml_hardware_dmx.ko",
         "stream_input/stream_input.ko",
-    ],
+]
+
+outs_h266 = [
+    "frame_provider/decoder/h266/amvdec_h266.ko",
+    "frame_provider/decoder_v4l/h266/amvdec_h266_v4l.ko",
+]
+
+outs = outs_common + (outs_h266 if TARGET_VENDOR_MEDIA_VVC_SUPPORT else [])
+
+kernel_module(
+    name = "media",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "BUILD.bazel",
+            "**/*.bzl",
+            "**/*.mk",
+            "**/*.bp",
+        ],
+    ),
+    outs = outs,
     kernel_build = "//common:amlogic",
     visibility = [
         "//common:__pkg__",
