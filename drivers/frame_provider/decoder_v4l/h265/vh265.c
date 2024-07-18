@@ -6507,7 +6507,10 @@ static void flush_output(struct hevc_state_s *hevc, struct PIC_s *pic)
 			} else {
 				if (hevc->i_only & 0x1
 					&& pic_display->slice_type != 2) {
+					struct aml_vcodec_ctx * ctx = hevc->v4l2_ctx;
 					pic_display->output_ready = 0;
+					pic_display->drop_mark = 1;
+					vh265_report_err_timestamp_for_decoded_frames(ctx, pic_display);
 				} else {
 					prepare_display_buf(hw_to_vdec(hevc), pic_display);
 					if (get_dbg_flag(hevc)
@@ -6872,7 +6875,10 @@ static inline void hevc_pre_pic(struct hevc_state_s *hevc,
 				} else {
 					if (hevc->i_only & 0x1
 						&& pic_display->slice_type != 2) {
+						struct aml_vcodec_ctx * ctx = hevc->v4l2_ctx;
 						pic_display->output_ready = 0;
+						pic_display->drop_mark = 1;
+						vh265_report_err_timestamp_for_decoded_frames(ctx, pic_display);
 					} else {
 						prepare_display_buf(hw_to_vdec(hevc),pic_display);
 					if (get_dbg_flag(hevc) &
