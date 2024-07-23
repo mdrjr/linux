@@ -5912,7 +5912,7 @@ static int vavs3_event_cb(int type, void *data, void *private_data)
 			(struct provider_aux_req_s *)data;
 		unsigned char index;
 		unsigned long flags;
-		struct avs3_frame_s *pic;
+		struct avs3_frame_s *pic = NULL;
 
 		if (!req->vf) {
 			req->aux_size = dec->vf_put_count;
@@ -5930,9 +5930,9 @@ static int vavs3_event_cb(int type, void *data, void *private_data)
 		}
 		unlock_buffer(dec, flags);
 
-		avs3_print(dec, PRINT_FLAG_VDEC_STATUS,
-		"%s pic 0x%p index %d =>size %d\n",
-		__func__, pic, index, req->aux_size);
+		if (pic)
+			avs3_print(dec, PRINT_FLAG_VDEC_STATUS, "%s pic 0x%p index %d =>size %d\n",
+				__func__, pic, index, req->aux_size);
 	}
 
 	return 0;
@@ -8136,6 +8136,11 @@ alloc_buffer_done:
 #endif
 
 		cur_pic = avs3_dec->cur_pic;
+
+		/*
+		 * The variable ret is initialised in avs3_bufmgr_process.
+		 */
+		/* coverity[uninit_use] */
 		if (ret == 0) {
 #ifdef AVS3_10B_MMU
 			if (dec->mmu_enable

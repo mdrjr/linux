@@ -207,6 +207,11 @@ void decoder_bmmu_box_set_mm_from_idx(
 		box->exp_num++;
 		list_add(&exp->mm_list, &box->exp_mm_list.mm_list);
 		pr_debug("add new node to expand list, idx = %d, exp_num=%d.\n", idx ,box->exp_num);
+
+		/*
+		 * Variable exp will free in decoder_bmmu_box_free finally.
+		 */
+		/* coverity[leaked_storage] */
 		return;
 	}
 }

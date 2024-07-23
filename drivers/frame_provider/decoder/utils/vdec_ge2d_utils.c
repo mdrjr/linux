@@ -412,6 +412,11 @@ int vdec_ge2d_copy_data(struct vdec_ge2d *ge2d, struct vdec_ge2d_info *ge2d_info
 	canvas_read(ge2d->cache.res[3].cid, &cd);
 	ge2d_config.dst_planes[0].addr	= cd.addr;
 	ge2d_config.dst_planes[0].w	= cd.width;
+
+	/*
+	 * Variable cd is initialised in canvas_read.
+	 */
+	/* coverity[uninit_use] */
 	ge2d_config.dst_planes[0].h	= cd.height;
 	canvas_read(ge2d->cache.res[4].cid, &cd);
 	ge2d_config.dst_planes[1].addr	= cd.addr;

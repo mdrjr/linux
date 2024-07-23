@@ -196,6 +196,11 @@ void decoder_mmu_box_set_sc_from_idx(
 		exp->sc = sc;
 		list_add(&exp->sc_list, &box->exp_sc_list.sc_list);
 		pr_debug("add new node to expand list, idx = %d, exp_num=%d.\n", idx ,box->exp_num);
+
+		/*
+		 * Variable exp will free in decoder_mmu_box_free finally.
+		 */
+		/* coverity[leaked_storage] */
 		return;
 	}
 }

@@ -1005,6 +1005,10 @@ int vdec_input_add_chunk(struct vdec_input_s *input, const char *buf,
 		input->total_wr_count += 38;
 #endif
 
+	/*
+	 * Variable chunk will free in vdec_input_release_chunk finally.
+	 */
+	/* coverity[leaked_storage] */
 	return count;
 }
 

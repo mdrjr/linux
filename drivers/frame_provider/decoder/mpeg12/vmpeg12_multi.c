@@ -1746,7 +1746,7 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 	bool pb_skip = false;
 	u32 vpts_valid = 0;
 	u32 vpts = 0;
-	checkout_pts_offset pts_info;
+	checkout_pts_offset pts_info = { 0 };
 
 	/* swap uv */
 	if (hw->is_used_v4l) {
@@ -3221,7 +3221,7 @@ static int vmpeg12_canvas_init(struct vdec_mpeg12_hw_s *hw)
 			if (vdec->vdata != NULL) {
 				struct pic_info_t *pic = NULL;
 				int index = 0;
-				struct vdec_data_buf_s data_buf;
+				struct vdec_data_buf_s data_buf = { 0 };
 				data_buf.alloc_policy = ALLOC_USER_BUF;
 				data_buf.user_buf_size = SEI_ITU_DATA_SIZE;
 

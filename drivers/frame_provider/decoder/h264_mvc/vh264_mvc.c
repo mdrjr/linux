@@ -1624,7 +1624,20 @@ static s32 vh264mvc_init(void)
 		}
 
 		ret = amvdec_loadmc_ex(VFORMAT_H264MVC, NULL, buf);
+		if (ret < 0) {
+			amvdec_disable();
+			vfree(buf);
+			decoder_dma_free_coherent(mc_cpu_handle,
+					MC_TOTAL_SIZE,
+					mc_cpu_addr, mc_dma_handle);
+			mc_cpu_addr = NULL;
+			return -EBUSY;
+		}
 
+		/*
+		 * The variable buf is initialised in amvdec_loadmc_ex.
+		 */
+		/* coverity[uninit_use] */
 		/*header*/
 		memcpy((u8 *) mc_cpu_addr, buf + 0x1000, 0x1000);
 		/*mmco*/
@@ -1632,15 +1645,7 @@ static s32 vh264mvc_init(void)
 		/*slice*/
 		memcpy((u8 *) mc_cpu_addr + 0x3000, buf + 0x4000, 0x3000);
 
-		if (ret < 0) {
-			amvdec_disable();
 
-			decoder_dma_free_coherent(mc_cpu_handle,
-					MC_TOTAL_SIZE,
-					mc_cpu_addr, mc_dma_handle);
-			mc_cpu_addr = NULL;
-			return -EBUSY;
-		}
 	}
 	vfree(buf);
 
@@ -1700,10 +1705,6 @@ static int vh264mvc_stop(void)
 	}
 
 	if (stat & STAT_VF_HOOK) {
-		ulong flags;
-
-		spin_lock_irqsave(&lock, flags);
-		spin_unlock_irqrestore(&lock, flags);
 		vf_unreg_provider(&vh264mvc_vf_prov);
 		stat &= ~STAT_VF_HOOK;
 	}

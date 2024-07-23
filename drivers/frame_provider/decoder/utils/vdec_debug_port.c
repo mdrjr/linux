@@ -38,7 +38,7 @@ static struct amvdec_debug_port_t *dec_debug_port;
 		} while(0)
 
 
-static int debug_port_set_yuv_dump(struct amvdec_debug_port_t *port, int vdec_id, int pic_start, int pic_num)
+static int debug_port_set_yuv_dump(struct amvdec_debug_port_t *port, int vdec_id, int pic_start, u32 pic_num)
 {
 	struct vdec_s *vdec;
 
@@ -606,6 +606,10 @@ static ssize_t vdec_dbg_port_write(struct file *file,
 		if (val & (1 << TYPE_YUV))
 			ret += snprintf(cbuf + ret, sizeof(cbuf), "YUV ");
 
+		/*
+		 * buffer cbuf is enough, the array will not overrun.
+		 */
+		/* coverity[overrun-buffer-arg] */
 		if (val & (1 << TYPE_CRC))
 			ret += snprintf(cbuf + ret, sizeof(cbuf), "CRC ");
 

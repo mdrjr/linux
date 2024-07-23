@@ -75,11 +75,17 @@ EXPORT_SYMBOL(register_dump_v4ldec_state_func);
 static ssize_t dump_amstream_bufs(char *buf)
 {
 	char *pbuf = buf;
-	char *tmpbuf = (char *)kzalloc(BUFF_SIZE, GFP_KERNEL);
-	char *ptmpbuf = tmpbuf;
+	char *tmpbuf;
+	char *ptmpbuf;
+
 	if (report_dev->dump_amstream_bufs_notify == NULL)
 		return 0;
 
+	tmpbuf = (char *)kzalloc(BUFF_SIZE, GFP_KERNEL);
+	if (!tmpbuf)
+		return 0;
+
+	ptmpbuf = tmpbuf;
 	ptmpbuf += report_dev->dump_amstream_bufs_notify(tmpbuf);
 
 	if (ptmpbuf - tmpbuf) {
@@ -238,6 +244,10 @@ int register_set_debug_flag_func(const char *module, set_debug_flag_func func)
 	}
 	mutex_unlock(&debug_lock);
 
+	/*
+	 * Variable node and module will free in report_module_exit finally.
+	 */
+	/* coverity[leaked_storage] */
 	return 0;
 error:
 	kfree(node->module);

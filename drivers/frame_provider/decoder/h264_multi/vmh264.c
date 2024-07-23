@@ -1452,7 +1452,7 @@ static void alloc_bmmu_buf(struct vdec_h264_hw_s *hw, int i, bool field_flag)
 	if (vdec->vdata != NULL) {
 		struct buffer_spec_s *pic = &hw->buffer_spec[i];
 		int index = 0;
-		struct vdec_data_buf_s data_buf;
+		struct vdec_data_buf_s data_buf = { 0 };
 		data_buf.alloc_policy = ALLOC_USER_BUF;
 		data_buf.user_buf_size = SEI_ITU_DATA_SIZE * ((field_flag == 0) ? 1 : 2);
 
@@ -2285,7 +2285,7 @@ static int alloc_one_buf_spec(struct vdec_h264_hw_s *hw, int i, bool field_flag)
 			if (vdec->vdata != NULL) {
 				struct buffer_spec_s *pic = &hw->buffer_spec[i];
 				int index = 0;
-				struct vdec_data_buf_s data_buf;
+				struct vdec_data_buf_s data_buf = { 0 };
 				data_buf.alloc_policy = ALLOC_USER_BUF;
 				data_buf.user_buf_size = SEI_ITU_DATA_SIZE * ((field_flag == 0) ? 1 : 2);
 
@@ -6211,7 +6211,7 @@ int set_mmu_config(struct vdec_h264_hw_s *hw)
 		int size;
 
 		fw_mmu = fw_firmare_s_creat(fw_mmu_size);
-		if (IS_ERR_OR_NULL(fw_mmu))
+		if (!fw_mmu)
 			return -ENOMEM;
 
 		size = get_firmware_data(VIDEO_DEC_H264_MULTI_MMU, fw_mmu->data);
@@ -9600,7 +9600,7 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 	INIT_WORK(&hw->timeout_work, vh264_timeout_work);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	size = get_firmware_data(VIDEO_DEC_H264_MULTI, fw->data);

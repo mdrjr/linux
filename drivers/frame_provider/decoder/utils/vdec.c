@@ -7003,7 +7003,7 @@ int vdec_post_task(post_task_handler func, void *args)
 		pr_err("%s, creat task post thread failed %ld\n",
 			__func__, PTR_ERR(parms->task));
 		kfree(parms);
-		return PTR_ERR(parms->task);
+		return -1;
 	}
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 	if (!__kthread_should_park(parms->task))
@@ -7418,8 +7418,8 @@ void set_meta_data_to_vf(struct vframe_s *vf, u32 type, void *v4l2_ctx)
 {
 	struct aml_vcodec_ctx *ctx =
 			(struct aml_vcodec_ctx *)(v4l2_ctx);
-	struct aml_meta_head_s		head;
-	struct aml_vf_base_info_s	vfb_infos;
+	struct aml_meta_head_s		head = { 0 };
+	struct aml_vf_base_info_s	vfb_infos = { 0 };
 
 	if ((ctx == NULL) || (vf == NULL))
 		return ;
@@ -7795,8 +7795,9 @@ struct firmware_s *fw_firmare_s_creat(int fw_size)
 	struct firmware_s *fw = NULL;
 
 	fw = vmalloc(sizeof(struct firmware_s) + fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw) {
 		return NULL;
+	}
 	fw->data = (char *)(fw + 1);
 
 	return fw;

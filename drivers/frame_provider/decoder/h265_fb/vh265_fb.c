@@ -4432,7 +4432,7 @@ static int alloc_buf(struct hevc_state_s *hevc)
 
 				if (vdec->vdata != NULL) {
 					int index = 0;
-					struct vdec_data_buf_s data_buf;
+					struct vdec_data_buf_s data_buf = { 0 };
 					data_buf.alloc_policy = ALLOC_AUX_BUF;
 					data_buf.aux_buf_size = AUX_DATA_SIZE1;
 
@@ -4880,7 +4880,7 @@ static void init_decode_head_hw(struct hevc_state_s *hevc)
 {
 
 	struct BuffInfo_s *buf_spec = hevc->work_space_buf;
-	unsigned int data32;
+	unsigned int data32 = 0;
 
 	int losless_comp_header_size =
 		compute_losless_comp_header_size(hevc->pic_w,
