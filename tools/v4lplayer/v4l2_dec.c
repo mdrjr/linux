@@ -1261,7 +1261,7 @@ static int config_decoder(int fd, enum vformat_e type)
 	dec_p->parms_status = V4L2_CONFIG_PARM_DECODE_CFGINFO;
 	dec_p->cfg.double_write_mode = g_dw_mode;
 
-	//dec_p->cfg.metadata_config_flag = 0x100802;
+	dec_p->cfg.metadata_config_flag = 0x4000;
 
 	/* number of extra buffer for display pipelien to run */
 	/* MPEG will use hardcoded size in driver */
