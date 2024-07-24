@@ -1953,19 +1953,19 @@ static void decomp_get_comprate_mmu(struct vdec_h264_hw_s *hw)
 }
 #endif
 
-static void hevc_sao_set_pic_buffer(struct vdec_h264_hw_s *hw,
+static int hevc_sao_set_pic_buffer(struct vdec_h264_hw_s *hw,
 			struct StorablePicture *pic) {
 	u32 mc_y_adr;
 	u32 mc_u_v_adr;
 	u32 dw_y_adr;
 	u32 dw_u_v_adr;
 	u32 canvas_addr;
-	int ret;
+	int ret = 0;
 	int dw_mode = hw->double_write_mode;
 	if (hw->is_new_pic != 1) {
 		if (is_vdec_hevc_combine())
 			WRITE_VREG(SYS_COMMAND, 0xff);
-		return;
+		return ret;
 	}
 
 #ifdef MCRCC_ENABLE
@@ -2045,9 +2045,8 @@ static void hevc_sao_set_pic_buffer(struct vdec_h264_hw_s *hw,
 	if (ret != 0) {
 		dpb_print(DECODE_ID(hw),
 		PRINT_FLAG_MMU_DETAIL, "can't alloc need mmu1,idx %d ret =%d\n",
-		pic->buf_spec_num,
-		ret);
-		return;
+		pic->buf_spec_num, ret);
+		return ret;
 	}
 
 	/*Reset SAO + Enable SAO slice_start*/
@@ -2067,9 +2066,9 @@ static void hevc_sao_set_pic_buffer(struct vdec_h264_hw_s *hw,
 		WRITE_VREG(HEVC_ASSIST_MMU_MAP_ADDR, (u32)hw->frame_mmu_map_phy_addr);
 	WRITE_VREG(SYS_COMMAND, H265_PUT_SAO_4K_SET);
 	hw->frame_busy = 1;
-	return;
-}
 
+	return ret;
+}
 
 static void hevc_set_unused_4k_buff_idx(struct vdec_h264_hw_s *hw,
 		u32 buf_spec_num)
@@ -4575,8 +4574,10 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 				h264_vdec_dw_cfg(hw, canvas_pos);
 		}
 #endif
-	} else
-		hevc_sao_set_pic_buffer(hw, pic);
+	} else {
+		if (hevc_sao_set_pic_buffer(hw, pic) != 0)
+			return -1;
+	}
 
 	if (pic->mb_aff_frame_flag)
 		hw->buffer_spec[pic->buf_spec_num].info0 = 0xf4c0;
