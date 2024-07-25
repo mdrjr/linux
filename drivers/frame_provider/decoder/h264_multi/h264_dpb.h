@@ -786,6 +786,7 @@ struct FrameStore {
 	int       index;
 #define I_FLAG			0x01
 #define IDR_FLAG		0x02
+#define NOOUTPUT_FLAG		0x08
 #define ERROR_FLAG		0x10
 #define NULL_FLAG		0x20
 #define FIELD_DISP_FLAG	0x40

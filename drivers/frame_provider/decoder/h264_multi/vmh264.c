@@ -301,8 +301,10 @@ static unsigned int i_only_flag;
 	bit[21] 1: fixed DVB loop playback cause jetter issue.
 	bit[22] 1: In streaming mode, support for discarding data.
 	bit[23] 0: set error flag on frame number gap error and drop it, 1: ignore error.
+	bit[25] 0: not output frames with errors exceeding 90%. 1: output.
 	bit[26] 0: output frame from dpb when dpb full, 1: not output frame from dpb when dpb full
 	bit[30] 1: Use driver error policy configuration and ignore the user space configuration
+	bit[31] 1: Use bit0 to decide whether to output an error frame. In mosaic mode, need to set both bit31 and bit0 to 1.
 */
 static unsigned int error_proc_policy = 0x7fCff6; /*0x1f14*/
 
@@ -3443,7 +3445,10 @@ static int post_prepare_process(struct vdec_s *vdec, struct FrameStore *frame)
 			frame->bottom_field, -1);
 	}
 
-	frame->show_frame = true;
+	if (frame->data_flag & NOOUTPUT_FLAG)
+		frame->show_frame = false;
+	else
+		frame->show_frame = true;
 
 	return 0;
 }
@@ -4720,6 +4725,11 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 			return -1;
 		}
 
+		if (ref->data_flag & NOOUTPUT_FLAG) {
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG, "not use ref\n");
+			continue;
+		}
+
 		if (ref->data_flag & NULL_FLAG)
 			hw->data_flag |= NULL_FLAG;
 #endif
@@ -4790,6 +4800,12 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 			hw->data_flag |= ERROR_FLAG;
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG, " ref error mark2\n");
 		}
+
+		if (ref->data_flag & NOOUTPUT_FLAG) {
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_ERRORFLAG_DBG, "not use ref\n");
+			continue;
+		}
+
 		if (ref->data_flag & NULL_FLAG)
 			hw->data_flag |= NULL_FLAG;
 #endif
@@ -7515,6 +7531,15 @@ static void check_decoded_pic_error(struct vdec_h264_hw_s *hw)
 		}
 	}
 
+	if (hw->send_error_frame_flag && (!(hw->error_proc_policy & (1 << 25)))) {
+		if (decode_mb_count < mb_total * 10 / 100) {
+			p->data_flag |= NOOUTPUT_FLAG;
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
+				"%s: mb_total %d decoded mb_count %d data_flag 0x%x poc %d not output\n",
+				__func__, mb_total, decode_mb_count, p->data_flag, p->poc);
+		}
+	}
+
 	if (hw->error_proc_policy & 0x100000) {
 		if ((p->data_flag & ERROR_FLAG) && (decode_mb_count < mb_total)) {
 			if (hw->ip_field_error_count > 0)
@@ -9079,12 +9104,17 @@ static void dump_bufspec(struct vdec_h264_hw_s *hw,
 	const char *caller)
 {
 	int i;
+
+	if (((h264_debug_flag & PRINT_FLAG_DUMP_BUFSPEC) == 0)
+		&& strcmp(caller, "vmh264_dump_state"))
+		return ;
+
 	dpb_print(DECODE_ID(hw), 0,
 		"%s in %s:\n", __func__, caller);
 	for (i = 0; i < BUFSPEC_POOL_SIZE; i++) {
 		if (hw->buffer_spec[i].used == -1)
 			continue;
-		dpb_print(DECODE_ID(hw), PRINT_FLAG_DUMP_BUFSPEC,
+		dpb_print(DECODE_ID(hw), 0,
 			"bufspec (%d): used %d adr 0x%x(%lx) canvas(%d) vf_ref(%d) ",
 			i, hw->buffer_spec[i].used,
 			hw->buffer_spec[i].buf_adr,
