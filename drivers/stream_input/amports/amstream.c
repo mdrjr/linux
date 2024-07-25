@@ -1717,6 +1717,10 @@ static long amstream_ioctl_get(struct port_priv_s *priv, ulong arg)
 		 sizeof(parm)))
 		r = -EFAULT;
 
+	/*
+	 * The variable parm.cmd is initialised in copy_from_user.
+	 */
+	/* coverity[uninit_use] */
 	switch (parm.cmd) {
 	case AMSTREAM_GET_SUB_LENGTH:
 		if ((this->type & PORT_TYPE_SUB) ||
@@ -1824,6 +1828,11 @@ static long amstream_ioctl_get(struct port_priv_s *priv, ulong arg)
 			delay = calculation_stream_delayed_ms(
 				PTS_TYPE_AUDIO, NULL, &avgbps);
 			if (delay >= 0)
+				/*
+				 * The variable avgbps is initialised in
+				 * calculation_stream_delayed_ms.
+				 */
+				/* coverity[uninit_use] */
 				parm.data_32 = avgbps;
 			else
 				parm.data_32 = 0;
@@ -2138,6 +2147,11 @@ static long amstream_ioctl_set(struct port_priv_s *priv, ulong arg)
 		break;
 	case AMSTREAM_SET_DV_META_WITH_EL:
 		if (priv->vdec) {
+			/*
+			 * The variable parm.data_32 is initialised in
+			 * copy_from_user.
+			 */
+			/* coverity[uninit_use_in_call] */
 			vdec_set_dv_metawithel(priv->vdec, parm.data_32);
 			if (vdec_dual(priv->vdec) && priv->vdec->slave)
 				vdec_set_dv_metawithel(priv->vdec->slave,
@@ -2322,6 +2336,10 @@ static long amstream_ioctl_get_ex(struct port_priv_s *priv, ulong arg)
 			struct am_ioctl_parm_ex *p = &parm;
 
 			amstream_adec_status(&astatus);
+			/*
+			 * The variable astatus.* is initialised in amstream_adec_status.
+			 */
+			/* coverity[uninit_use] */
 			p->astatus.channels = astatus.channels;
 			p->astatus.sample_rate = astatus.sample_rate;
 			p->astatus.resolution = astatus.resolution;
@@ -2366,6 +2384,10 @@ static long amstream_ioctl_get_ex(struct port_priv_s *priv, ulong arg)
 	}
 	/* pr_info("parm size:%zx\n", sizeof(parm)); */
 	if (r == 0) {
+		/*
+		 * The variable parm.reserved is initialised in copy_from_user.
+		 */
+		/* coverity[uninit_use_in_call] */
 		if (copy_to_user((void *)arg, &parm, sizeof(parm)))
 			r = -EFAULT;
 	}
@@ -2602,6 +2624,11 @@ static long amstream_do_ioctl_new(struct port_priv_s *priv,
 				delay = calculation_stream_delayed_ms(
 					PTS_TYPE_VIDEO, NULL, &avgbps);
 				if (delay >= 0)
+					/*
+					 * The variable avgbps is initialised in
+					 * calculation_stream_delayed_ms.
+					 */
+					/* coverity[uninit_use] */
 					av_info.dec_video_bps = avgbps;
 				else
 					av_info.dec_video_bps = 0;
@@ -2927,6 +2954,10 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 			}
 			mutex_unlock(&priv->mutex);
 
+			/*
+			 * The variable v_statistic.vstatus is initialised in vdec_status.
+			 */
+			/* coverity[uninit_use_in_call] */
 			memcpy(&para.vinfo, &v_statistic.vstatus, sizeof(struct vdec_info));
 			if (copy_to_user((void *)arg, &para, sizeof(para)))
 				r = -EFAULT;
@@ -2944,6 +2975,10 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 			struct am_io_param *p = &para;
 
 			amstream_adec_status(&astatus);
+			/*
+			 * The variable astatus.* is initialised in amstream_adec_status.
+			 */
+			/* coverity[uninit_use] */
 			p->astatus.channels = astatus.channels;
 			p->astatus.sample_rate = astatus.sample_rate;
 			p->astatus.resolution = astatus.resolution;
@@ -3105,6 +3140,11 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 				mutex_lock(&amstream_mutex);
 				if (vdec_get_debug_flags() & 0x10000000)
 					pr_info("%s, instance_id = %d\n", __func__, p_userdata_param->instance_id);
+				/*
+				 * If p_userdata_param->instance_id tainted
+				 * vdec_get_vdec_by_video_id will return NULL.
+				 */
+				/* coverity[underflow] */
 				vdec = vdec_get_vdec_by_video_id(p_userdata_param->instance_id);
 				if (vdec) {
 					if (vdec_read_user_data(vdec,
@@ -3278,6 +3318,11 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 		delay = calculation_stream_delayed_ms(PTS_TYPE_AUDIO, NULL,
 			NULL);
 		if (delay >= 0)
+			/*
+			 * The variable arg is initialised in
+			 * calculation_stream_delayed_ms.
+			 */
+			/* coverity[uninit_use] */
 			put_user(delay, (int *)arg);
 		else
 			put_user(0, (int *)arg);
