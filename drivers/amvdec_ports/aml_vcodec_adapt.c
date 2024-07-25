@@ -674,6 +674,16 @@ void vdec_set_vf_duration(s32 duration)
 	vdec_set_vf_dur(duration);
 }
 
+void vdec_set_screen_mode(struct aml_vdec_adapt *ada_ctx, u32 mode)
+{
+	struct vdec_s *vdec = ada_ctx->vdec;
+
+	if (vdec)
+		vdec->screen_mode = mode;
+
+	return;
+}
+
 int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value)
 {
 	struct vdec_s *vdec = ada_ctx->vdec;
