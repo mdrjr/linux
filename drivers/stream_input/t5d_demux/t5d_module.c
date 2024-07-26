@@ -718,12 +718,17 @@ dmx_set_hw_source(struct dmx_demux *dmx, int hw_source)
 	struct t5d_sw_demux *pdmx = (struct t5d_sw_demux *)dmx;
 	int dmx_id = pdmx - t5d_sw_demuxes;
 
+	print_dbg("%s dmx_id: %d, hw source: %d\n", __func__, dmx_id, hw_source);
+	if (hw_source < DMA_0 || hw_source > FRONTEND_TS7_1) {
+		print_err("%s invalid source: %d\n", __func__, hw_source);
+		return -EFAULT;
+	}
+
 	if (hw_source >= FRONTEND_TS0_1)
 		hw_source = FRONTEND_TS0 + (hw_source - FRONTEND_TS0_1);
 	else if (hw_source >= DMA_0_1)
 		hw_source = DMA_0 + (hw_source - DMA_0_1);
 
-	print_dbg("%s dmx_id: %d, hw source: %d\n", __func__, dmx_id, hw_source);
 	return t5d_set_demux_source(dmx_id, hw_source);
 }
 
