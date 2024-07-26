@@ -3441,6 +3441,9 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		if (hw->high_bandwidth_flag) {
 			vf->flag |= VFRAME_FLAG_HIGH_BANDWIDTH;
 		}
+		if (hw->enable_fence) {
+			vf->flag |= VFRAME_FLAG_GAME_MODE;
+		}
 
 		if (!hw->enable_fence) {
 			hw->buffer_spec[buffer_index].used = 2;

@@ -11376,6 +11376,9 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		if (hevc->high_bandwidth_flag) {
 			vf->flag |= VFRAME_FLAG_HIGH_BANDWIDTH;
 		}
+		if (hevc->enable_fence) {
+			vf->flag |= VFRAME_FLAG_GAME_MODE;
+		}
 
 		vf->width = pic->crop_w;
 		vf->height = pic->crop_h;
