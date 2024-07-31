@@ -1,10 +1,13 @@
 #Developing Version
 Major_V=6
-Minor_V=13
-DevelopingChangeId=I8a16bced65c08410e7cc23e5c1d7333c909a5a2c
+Minor_V=14
+DevelopingChangeId=I4a16e6345108c970acebc8e8ef269ff4baac5ddf
 LTS_FLAG=
 
 #history version
+#V6.14 pre-test Notes
+#DTV H264 MMU development
+#
 #V6.12 Release Notes
 #Support kernel 6.6
 #Fixed H264/MPEG2 memory pollution issue
