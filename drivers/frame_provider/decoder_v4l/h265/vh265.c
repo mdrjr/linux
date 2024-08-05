@@ -2479,30 +2479,26 @@ static int get_dynamic_buf_num_margin(struct hevc_state_s *hevc)
 static int get_triple_write_mode(struct hevc_state_s *hevc)
 {
 	u32 tw = 0x1;
-	unsigned int out;
 
-	vdec_v4l_get_tw_mode(hevc->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(hevc->v4l2_ctx, &tw);
 
 	return (tw & 0xffff);
 }
 
 static inline bool is_dw_p010(struct hevc_state_s *hevc)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(hevc->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(hevc->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }
 
 static inline bool is_tw_p010(struct hevc_state_s *hevc)
 {
-	unsigned int out, tw;
+	unsigned int tw = 0x1;
 
-	vdec_v4l_get_tw_mode(hevc->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(hevc->v4l2_ctx, &tw);
 
 	return (tw & 0x10000) ? 1 : 0;
 }
@@ -7116,6 +7112,10 @@ static void get_picture_qos_info(struct hevc_state_s *hevc)
 
 		for (i = 0; i < 3; i++)
 			for (j = i+1; j < 3; j++) {
+				/*
+				 * I and j are both positive integers currently within 3 and will not exceed the boundary.
+				*/
+				/* coverity[deref_overflow] */
 				if (a[j] < a[i]) {
 					t = a[j];
 					a[j] = a[i];
@@ -14151,7 +14151,7 @@ static bool is_available_buffer(struct hevc_state_s *hevc)
 
 	/* Wait for the buffer number negotiation to complete. */
 	if (hevc->used_buf_num == 0) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hevc->used_buf_num = pic.dpb_frames + pic.dpb_margin;

@@ -2203,23 +2203,23 @@ int av1_decode_frame_headers_and_setup(AV1Decoder *pbi, int trailing_bits_presen
 		if (buf_idx == INVALID_IDX) {
 		aom_internal_error(&cm->error, AOM_CODEC_MEM_ERROR,
 				   "Unable to find free frame buffer");
-		}
-		buf = &frame_bufs[buf_idx];
-		lock_buffer_pool(pool, flags);
-		if (aom_realloc_frame_buffer(cm, &buf->buf, seq_params->max_frame_width,
-			seq_params->max_frame_height, buf->order_hint)) {
-		decrease_ref_count(pbi, buf, pool);
-		unlock_buffer_pool(pool, flags);
-		aom_internal_error(&cm->error, AOM_CODEC_MEM_ERROR,
-				   "Failed to allocate frame buffer");
-		}
-		unlock_buffer_pool(pool, flags);
+		} else {
+			buf = &frame_bufs[buf_idx];
+			lock_buffer_pool(pool, flags);
+			if (aom_realloc_frame_buffer(cm, &buf->buf, seq_params->max_frame_width,
+				seq_params->max_frame_height, buf->order_hint)) {
+			decrease_ref_count(pbi, buf, pool);
+			aom_internal_error(&cm->error, AOM_CODEC_MEM_ERROR,
+				"Failed to allocate frame buffer");
+			}
+			unlock_buffer_pool(pool, flags);
 #ifdef ORI_CODE
-		set_planes_to_neutral_gray(seq_params, &buf->buf, 0);
+			set_planes_to_neutral_gray(seq_params, &buf->buf, 0);
 #endif
-		cm->ref_frame_map[ref_idx] = buf;
-		buf->order_hint = order_hint;
+			cm->ref_frame_map[ref_idx] = buf;
+			buf->order_hint = order_hint;
 		}
+	}
 	}
 	}
 	}

@@ -524,7 +524,11 @@ static int vc1_recycle_frame_buffer(struct vdec_vc1_hw_s *hw)
 				continue;
 			aml_buf_put_ref(&ctx->bm, aml_buf);
 			spin_lock_irqsave(&hw->lock, flags);
-
+			/*
+			 * There will no be multiple threads running in
+			 * the same vdec_vc1_hw_s context.
+			 */
+			/* coverity[thread1_overwrites_value_in_field] */
 			hw->pics[i].v4l_ref_buf_addr = 0;
 			hw->pics[i].cma_alloc_addr = 0;
 			while (hw->vf_ref[i]) {
@@ -902,12 +906,14 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 	}
 
 	if (!hw->frame_width || !hw->frame_height) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->frame_width = pic.visible_width;
 		hw->frame_height = pic.visible_height;
 		vc1_print(0, 0, "[%d] set %d x %d from IF layer\n", ctx->id,
 			hw->frame_width, hw->frame_height);
+		if (hw->frame_width == 0 || hw->frame_height == 0)
+			return -1;
 	}
 
 	hw->pics[i].v4l_ref_buf_addr = (ulong)aml_buf;
@@ -2436,7 +2442,7 @@ static s32 vvc1_init(void)
 	int fw_type = VIDEO_DEC_VC1;
 	struct vdec_vc1_hw_s *hw = &vc1_hw;
 
-	if (IS_ERR_OR_NULL(buf))
+	if (!buf)
 		return -ENOMEM;
 
 	pr_info("vvc1_init, format %d\n", vvc1_amstream_dec_info.format);

@@ -10562,7 +10562,7 @@ static void vav1_put_timer_func(struct timer_list *timer)
 				disp_laddr =
 					READ_VCBUS_REG(AFBC_BODY_BADDR) << 4;
 			} else {
-				struct canvas_s cur_canvas;
+				struct canvas_s cur_canvas = { 0 };
 
 				canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0)
 					& 0xff), &cur_canvas);
@@ -10939,7 +10939,7 @@ static s32 vav1_init_back(struct AV1HW_s *hw)
 	copy_loopbufs_ptr(&pbi->next_bk[pbi->fb_wr_pos], &pbi->fr);
 
 	fw_back = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw_back))
+	if (!fw_back)
 		return -ENOMEM;
 
 	if (get_firmware_data(VIDEO_DEC_AV1_BACK, fw_back->data) < 0) {
@@ -11020,7 +11020,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 	}
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	av1_print(hw, AOM_DEBUG_HW_MORE, "%s %d\n", __func__, __LINE__);
@@ -11067,6 +11067,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 		if (!hw->swap_virt_addr) {
 			amhevc_disable();
 			pr_err("av1 front swap ucode loaded fail.\n");
+			vfree(fw);
 			return -ENOMEM;
 		}
 

@@ -850,13 +850,15 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 	}
 
 	if (!hw->frame_width || !hw->frame_height) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->frame_width = pic.visible_width;
 		hw->frame_height = pic.visible_height;
 		debug_print(hw, 0,
 			"[%d] set %d x %d from IF layer\n", ctx->id,
 			hw->frame_width, hw->frame_height);
+		if (hw->frame_width == 0 || hw->frame_height == 0)
+			return -1;
 	}
 
 	hw->pics[i].v4l_ref_buf_addr = (ulong)aml_buf;

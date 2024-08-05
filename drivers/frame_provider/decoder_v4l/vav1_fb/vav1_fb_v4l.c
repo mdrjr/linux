@@ -1262,7 +1262,7 @@ static void timeout_process(struct AV1HW_s *hw)
 
 static int get_double_write_mode(struct AV1HW_s *hw)
 {
-	u32 dw;
+	u32 dw = 0x1;
 
 	vdec_v4l_get_dw_mode(hw->v4l2_ctx, &dw);
 
@@ -1272,10 +1272,8 @@ static int get_double_write_mode(struct AV1HW_s *hw)
 static int get_triple_write_mode(struct AV1HW_s *hw)
 {
 	u32 tw = 0x1;
-	unsigned int out;
 
-	vdec_v4l_get_tw_mode(hw->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(hw->v4l2_ctx, &tw);
 
 	return (tw & 0xffff);
 }
@@ -1284,20 +1282,18 @@ static int get_triple_write_mode(struct AV1HW_s *hw)
 
 static __inline__ bool is_dw_p010(struct AV1HW_s *hw)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(hw->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(hw->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }
 
 static __inline__ bool is_tw_p010(struct AV1HW_s *hw)
 {
-	unsigned int out, tw;
+	unsigned int tw = 0x1;
 
-	vdec_v4l_get_tw_mode(hw->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(hw->v4l2_ctx, &tw);
 
 	return (tw & 0x10000) ? 1 : 0;
 }
@@ -6511,7 +6507,7 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 	ulong nv_order = VIDTYPE_VIU_NV21;
 	int tw_mode = get_triple_write_mode(hw);
 	u32 pts_valid = 0, pts_us64_valid = 0;
-	u32 frame_size;
+	u32 frame_size = 0;
 	int i, reclac_flag = 0;
 
 	av1_print(hw, AOM_DEBUG_VFRAME, "%s index = %d\r\n", __func__, pic_config->index);
@@ -8074,36 +8070,38 @@ int av1_continue_decoding(struct AV1HW_s *hw, int obu_type)
 			cm->cur_fb_idx_mmu = av1_get_current_fbc_index(hw,
 						cm->cur_frame->buf.index);
 
-			if (cm->cur_fb_idx_mmu >= BUF_FBC_NUM_MAX)
+			if (cm->cur_fb_idx_mmu >= BUF_FBC_NUM_MAX) {
 				av1_print(hw, 0,
-				"[ERR]can't find fb(0x%lx) in afbc table\n",
-				hw->m_BUF[cm->cur_frame->buf.index].v4l_ref_buf_addr);
-
-			aml_buf = index_to_afbc_aml_buf(hw, cm->cur_fb_idx_mmu);
-			ret = av1_alloc_mmu(hw, aml_buf->fbc->mmu,
+					"[ERR]can't find fb(0x%lx) in afbc table\n",
+					hw->m_BUF[cm->cur_frame->buf.index].v4l_ref_buf_addr);
+				ret = -1;
+			} else {
+				aml_buf = index_to_afbc_aml_buf(hw, cm->cur_fb_idx_mmu);
+				ret = av1_alloc_mmu(hw, aml_buf->fbc->mmu,
 				cm->cur_fb_idx_mmu,
 				cur_pic_config->y_crop_width,
 				cur_pic_config->y_crop_height,
 				hw->aom_param.p.bit_depth,
 				hw->frame_mmu_map_addr);
-			if (ret < 0)
-				pr_err("can't alloc need mmu1,idx %d ret =%d\n",
-					cm->cur_frame->buf.index, ret);
+				if (ret < 0)
+					pr_err("can't alloc need mmu1,idx %d ret =%d\n",
+						cm->cur_frame->buf.index, ret);
 #ifdef AOM_AV1_MMU_DW
-			if (get_double_write_mode(hw) & 0x20) {
-				ret = av1_alloc_mmu_dw(hw, aml_buf->fbc->mmu_dw,
-				cm->cur_fb_idx_mmu,
-				cur_pic_config->y_crop_width,
-				cur_pic_config->y_crop_height,
-				hw->aom_param.p.bit_depth,
-				hw->dw_frame_mmu_map_addr);
-				if (ret >= 0)
-					cm->cur_fb_idx_mmu_dw = cm->cur_fb_idx_mmu;
-				else
-					pr_err("can't alloc need dw mmu1,idx %d ret =%d\n",
-					cm->cur_fb_idx_mmu, ret);
-			}
+				if (get_double_write_mode(hw) & 0x20) {
+					ret = av1_alloc_mmu_dw(hw, aml_buf->fbc->mmu_dw,
+					cm->cur_fb_idx_mmu,
+					cur_pic_config->y_crop_width,
+					cur_pic_config->y_crop_height,
+					hw->aom_param.p.bit_depth,
+					hw->dw_frame_mmu_map_addr);
+					if (ret >= 0)
+						cm->cur_fb_idx_mmu_dw = cm->cur_fb_idx_mmu;
+					else
+						pr_err("can't alloc need dw mmu1,idx %d ret =%d\n",
+						cm->cur_fb_idx_mmu, ret);
+				}
 #endif
+			}
 #ifdef DEBUG_CRC_ERROR
 			if (crc_debug_flag & 0x40)
 				mv_buffer_fill_zero(hw, &cm->cur_frame->buf);
@@ -9621,7 +9619,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 			dec_again_process(hw);
 			return IRQ_HANDLED;
 		} else {
-			struct vdec_pic_info pic;
+			struct vdec_pic_info pic = { 0 };
 
 			if (!hw->pic_list_init_done) {
 				vdec_v4l_get_pic_info(ctx, &pic);
@@ -10124,7 +10122,7 @@ static void vav1_put_timer_func(struct timer_list *timer)
 				disp_laddr =
 					READ_VCBUS_REG(AFBC_BODY_BADDR) << 4;
 			} else {
-				struct canvas_s cur_canvas;
+				struct canvas_s cur_canvas = { 0 };
 
 				canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0)
 					& 0xff), &cur_canvas);
@@ -10465,7 +10463,7 @@ static s32 vav1_init_back(struct AV1HW_s *hw)
 	copy_loopbufs_ptr(&pbi->next_bk[pbi->fb_wr_pos], &pbi->fr);
 
 	fw_back = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw_back))
+	if (!fw_back)
 		return -ENOMEM;
 
 	if (get_firmware_data(VIDEO_DEC_AV1_BACK, fw_back->data) < 0) {
@@ -10548,7 +10546,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 	}
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 #ifdef NEW_FRONT_BACK_CODE
@@ -10594,6 +10592,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 		if (!hw->swap_virt_addr) {
 			amhevc_disable();
 			pr_err("av1 front swap ucode loaded fail.\n");
+			vfree(fw);
 			return -ENOMEM;
 		}
 
@@ -10956,7 +10955,10 @@ static void av1_work_implement(struct AV1HW_s *hw)
 			int ret;
 
 			spin_lock_irqsave(&hw->wait_buf_lock, flags);
-
+			/*
+			 * There will no be multiple threads running
+			 */
+			/* coverity[thread1_overwrites_value_in_field] */
 			hw->dec_result = AOM_AV1_RESULT_NEED_MORE_BUFFER;
 			if (vdec->next_status == VDEC_STATUS_DISCONNECTED) {
 				hw->dec_result = DEC_RESULT_AGAIN;
@@ -11372,7 +11374,7 @@ static bool is_available_buffer(struct AV1HW_s *hw)
 
 	/* Wait for the buffer number negotiation to complete. */
 	if (hw->used_buf_num == 0) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->used_buf_num = pic.dpb_frames + pic.dpb_margin;

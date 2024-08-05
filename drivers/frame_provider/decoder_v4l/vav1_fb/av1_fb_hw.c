@@ -2597,7 +2597,7 @@ static void config_sao_hw_fb(struct AV1HW_s *hw, param_t* params)
 		//WRITE_VREG(HEVC_SAO_CTRL5, data32);
 		READ_WRITE_DATA16(hw, HEVC_SAO_CTRL5, 0, 16, 8);
 	} else {
-		uint32_t data;
+		uint32_t data = 0;
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7) {
 			WRITE_BACK_8(hw, HEVC_SAO_CTRL26, 0);
 		}

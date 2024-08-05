@@ -1152,7 +1152,7 @@ int pic_film_grain_run(char *fg_table_addr, u32 fgs_ctrl, u32 *fgs_data)
 int pic_film_grain_run(u32 frame_count, char *fg_table_addr, u32 fgs_ctrl, u32 *fgs_data)
 
 {
-	struct aom_film_grain_t fg_params;
+	struct aom_film_grain_t fg_params = { 0 };
 
 	if (debug_fgs & DEBUG_FGS_REGS) {
 		int i;

@@ -513,6 +513,11 @@ static int init_mmu_fb_bufstate(struct AVS2Decoder_s *dec, int mmu_fb_4k_number)
 
 	dec->fb_buf_mmu0_addr = dma_alloc_coherent(amports_get_dma_device(),
 		mmu_map_size, &tmp_phy_adr, GFP_KERNEL);
+
+	/*
+	 * tmp_phy_adr has been initialized through dma_alloc_coherent.
+	 */
+	/* coverity[uninit_use] */
 	avs2_dec->fb_buf_mmu0.buf_start = tmp_phy_adr;
 	if (dec->fb_buf_mmu0_addr == NULL) {
 		avs2_print(dec, 0, "%s: failed to alloc fb_mmu0_map\n", __func__);

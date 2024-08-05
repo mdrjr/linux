@@ -647,11 +647,19 @@ static int init_fb_bufstate(struct AV1HW_s *hw)
 	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
 		CODEC_MM_FLAGS_TVP : 0;
 
+	if (mmu_4k_number <= 0) {
+		pr_err("%s: invalid mmu_4k_number value: %d\n", __func__, mmu_4k_number);
+		return -EINVAL;
+	}
 	pbi->fb_buf_sys_imem.buf_size = IFBUF_SYS_IMEM_SIZE * hw->fb_ifbuf_num;
 	pbi->fb_buf_sys_imem_addr =
 		dma_alloc_coherent(amports_get_dma_device(),
 		pbi->fb_buf_sys_imem.buf_size,
 		&tmp_phy_adr, GFP_KERNEL);
+	/*
+	 * tmp_phy_adr has been initialized through dma_alloc_coherent.
+	 */
+	/* coverity[uninit_use] */
 	pbi->fb_buf_sys_imem.buf_start = tmp_phy_adr;
 	if (pbi->fb_buf_sys_imem_addr == NULL) {
 		pr_err("%s: failed to alloc fb_buf_sys_imem\n", __func__);
@@ -2570,7 +2578,7 @@ static void config_sao_hw_fb(struct AV1HW_s *hw, param_t* params)
 		READ_WRITE_DATA16(hw, HEVC_SAO_CTRL5, 0, 16, 8);
 
 	} else {
-		uint32_t data;
+		uint32_t data = 0;
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7) {
 			WRITE_BACK_8(hw, HEVC_SAO_CTRL26, 0);
 		}

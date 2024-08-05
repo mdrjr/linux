@@ -486,13 +486,15 @@ static int vmpeg12_v4l_alloc_buff_config_canvas(struct vdec_mpeg12_hw_s *hw, int
 	}
 
 	if (!hw->frame_width || !hw->frame_height) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->frame_width = pic.visible_width;
 		hw->frame_height = pic.visible_height;
 		debug_print(DECODE_ID(hw), 0,
 			"[%d] set %d x %d from IF layer\n", ctx->id,
 			hw->frame_width, hw->frame_height);
+		if (hw->frame_width == 0 || hw->frame_height == 0)
+			return -1;
 	}
 
 	hw->pics[i].v4l_ref_buf_addr = (ulong)aml_buf;
@@ -632,7 +634,7 @@ static void fill_frame_info(struct vdec_mpeg12_hw_s *hw, u32 slice_type,
 {
 	unsigned char a[3];
 	unsigned char i, j, t;
-	unsigned long  data;
+	unsigned long  data = 0;
 	struct vframe_qos_s *vframe_qos = &hw->vframe_qos;
 
 	vframe_qos->type = ((slice_type & PICINFO_TYPE_MASK) ==
@@ -652,6 +654,10 @@ static void fill_frame_info(struct vdec_mpeg12_hw_s *hw, u32 slice_type,
 
 	for (i = 0; i < 3; i++) {
 		for (j = i+1; j < 3; j++) {
+			/*
+			 * I and j are both positive integers currently within 3 and will not exceed the boundary.
+			 */
+			/* coverity[deref_overflow] */
 			if (a[j] < a[i]) {
 				t = a[j];
 				a[j] = a[i];
@@ -1672,7 +1678,7 @@ void vmpeg12_report_pts(struct vdec_mpeg12_hw_s *hw)
 	struct aml_vcodec_ctx *ctx =
 			(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	u32 offset = READ_VREG(MREG_FRAME_OFFSET);
-	struct checkoutptsoffset pts_st;
+	struct checkoutptsoffset pts_st = { 0 };
 	u64 dur_offset = hw->frame_dur;
 
 	dur_offset = (dur_offset << 32 ) | offset;
@@ -2384,7 +2390,7 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 				hw->dec_result = DEC_RESULT_AGAIN;
 				vdec_schedule_work(&hw->work);
 			} else {
-				struct vdec_pic_info pic;
+				struct vdec_pic_info pic = { 0 };
 
 				vdec_v4l_get_pic_info(ctx, &pic);
 				hw->buf_num = pic.dpb_frames +
@@ -2563,7 +2569,7 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 				}
 			} else {
 				if (vdec_stream_based(vdec)) {
-					struct checkoutptsoffset pts_st;
+					struct checkoutptsoffset pts_st = { 0 };
 					u64 dur_offset = hw->frame_dur;
 					dur_offset = (dur_offset << 32 ) | offset;
 					if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
@@ -2928,7 +2934,7 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 			hw->first_field_timestamp_valid = true;
 		} else if (vdec_stream_based(vdec)){
 			u32 offset = READ_VREG(MREG_FRAME_OFFSET);
-			struct checkoutptsoffset pts_st;
+			struct checkoutptsoffset pts_st = { 0 };
 			u64 dur_offset = hw->frame_dur;
 			dur_offset = (dur_offset << 32 ) | offset;
 			if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
@@ -3537,7 +3543,7 @@ static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw)
 		vmpeg12_workspace_init(hw);
 
 	if (hw->v4l_params_parsed) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		if (!hw->buf_num) {
 			vdec_v4l_get_pic_info(v4l2_ctx, &pic);
@@ -3782,7 +3788,7 @@ static s32 vmpeg12_init(struct vdec_mpeg12_hw_s *hw)
 	vmpeg12_local_init(hw);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	pr_debug("get firmware ...\n");
@@ -3856,7 +3862,11 @@ static int mpeg2_recycle_frame_buffer(struct vdec_mpeg12_hw_s *hw)
 				continue;
 			aml_buf_put_ref(&ctx->bm, aml_buf);
 			spin_lock_irqsave(&hw->lock, flags);
-
+			/*
+			 * There will no be multiple threads running in
+			 * the same vdec_mpeg12_hw_s context.
+			 */
+			/* coverity[thread1_overwrites_value_in_field] */
 			hw->pics[i].v4l_ref_buf_addr = 0;
 			hw->pics[i].cma_alloc_addr = 0;
 			while (hw->vfbuf_use[i]) {
@@ -3902,7 +3912,7 @@ static bool is_available_buffer(struct vdec_mpeg12_hw_s *hw)
 
 	/* Wait for the buffer number negotiation to complete. */
 	if (hw->buf_num == 0) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->buf_num = pic.dpb_frames + pic.dpb_margin;

@@ -1306,30 +1306,26 @@ static int get_double_write_mode(struct AVS3Decoder_s *dec)
 static int get_triple_write_mode(struct AVS3Decoder_s *dec)
 {
 	u32 tw = 0x1;
-	unsigned int out;
 
-	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &tw);
 
 	return (tw & 0xffff);
 }
 
 static __inline__ bool is_dw_p010(struct AVS3Decoder_s *dec)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(dec->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(dec->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }
 
 static __inline__ bool is_tw_p010(struct AVS3Decoder_s *dec)
 {
-	unsigned int out, tw;
+	unsigned int tw = 0x1;
 
-	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &tw);
 
 	return (tw & 0x10000) ? 1 : 0;
 }

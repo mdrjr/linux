@@ -431,7 +431,7 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 				hw->dec_result = DEC_RESULT_AGAIN;
 				vdec_schedule_work(&hw->work);
 			} else {
-				struct vdec_pic_info pic;
+				struct vdec_pic_info pic = { 0 };
 
 				if (!hw->buf_num) {
 					vdec_v4l_get_pic_info(ctx, &pic);
@@ -487,6 +487,10 @@ static irqreturn_t vmjpeg_isr_thread_fn(struct vdec_s *vdec, int irq)
 	}
 
 	vdec_profile(vdec, VDEC_PROFILE_DECODED_FRAME, CORE_MASK_VDEC_1);
+	/*
+	 * Index is not illegal, line 478 has been determined.
+	 */
+	/* coverity[overrun-local] */
 	vf->v4l_mem_handle
 		= hw->buffer_spec[index].v4l_ref_buf_addr;
 	aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
@@ -982,7 +986,7 @@ static int vmjpeg_v4l_alloc_buff_config_canvas(struct vdec_mjpeg_hw_s *hw, int i
 	}
 
 	if (!hw->frame_width || !hw->frame_height) {
-			struct vdec_pic_info pic;
+			struct vdec_pic_info pic = { 0 };
 			vdec_v4l_get_pic_info(ctx, &pic);
 			hw->frame_width = pic.visible_width;
 			hw->frame_height = pic.visible_height;
@@ -1141,7 +1145,7 @@ static int vmjpeg_hw_ctx_restore(struct vdec_mjpeg_hw_s *hw)
 	u32 endian;
 
 	if (hw->v4l_params_parsed) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		if (!hw->buf_num) {
 			vdec_v4l_get_pic_info(v4l2_ctx, &pic);
@@ -1214,7 +1218,7 @@ static s32 vmjpeg_init(struct vdec_s *vdec)
 		(struct vdec_mjpeg_hw_s *)vdec->private;
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	size = get_firmware_data(VIDEO_DEC_MJPEG_MULTI, fw->data);
@@ -1369,7 +1373,7 @@ static bool is_available_buffer(struct vdec_mjpeg_hw_s *hw)
 
 	/* Wait for the buffer number negotiation to complete. */
 	if (hw->buf_num == 0) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		vdec_v4l_get_pic_info(ctx, &pic);
 		hw->buf_num = pic.dpb_frames + pic.dpb_margin;

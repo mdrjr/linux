@@ -9925,7 +9925,7 @@ static void vav1_put_timer_func(struct timer_list *timer)
 				disp_laddr =
 					READ_VCBUS_REG(AFBC_BODY_BADDR) << 4;
 			} else {
-				struct canvas_s cur_canvas;
+				struct canvas_s cur_canvas = { 0 };
 
 				canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0)
 					& 0xff), &cur_canvas);
@@ -10203,7 +10203,7 @@ static s32 vav1_init(struct AV1HW_s *hw)
 		hw->enable_ucode_swap);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	if (hw->enable_ucode_swap) {

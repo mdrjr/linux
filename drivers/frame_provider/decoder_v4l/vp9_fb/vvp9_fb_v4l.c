@@ -2002,7 +2002,7 @@ static void timeout_process(struct VP9Decoder_s *pbi)
 
 static int get_double_write_mode(struct VP9Decoder_s *pbi)
 {
-	u32 dw;
+	u32 dw = 0x1;
 
 	vdec_v4l_get_dw_mode(pbi->v4l2_ctx, &dw);
 
@@ -2012,30 +2012,26 @@ static int get_double_write_mode(struct VP9Decoder_s *pbi)
 static int get_triple_write_mode(struct VP9Decoder_s *pbi)
 {
 	u32 tw = 0x1;
-	unsigned int out;
 
-	vdec_v4l_get_tw_mode(pbi->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(pbi->v4l2_ctx, &tw);
 
 	return (tw & 0xffff);
 }
 
 static __inline__ bool is_dw_p010(struct VP9Decoder_s *pbi)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(pbi->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(pbi->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }
 
 static __inline__ bool is_tw_p010(struct VP9Decoder_s *pbi)
 {
-	unsigned int out, tw;
+	unsigned int tw = 0x1;
 
-	vdec_v4l_get_tw_mode(pbi->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(pbi->v4l2_ctx, &tw);
 
 	return (tw & 0x10000) ? 1 : 0;
 }
@@ -4539,7 +4535,7 @@ static void config_sao_hw_fb(struct VP9Decoder_s *pbi)
 		//WRITE_VREG(HEVC_SAO_CTRL5, data32);
 		READ_WRITE_DATA16(pbi, HEVC_SAO_CTRL5, 0, 16, 8);
 	} else {
-		uint32_t data;
+		uint32_t data = 0;
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7)
 			WRITE_BACK_8(pbi, HEVC_SAO_CTRL26, 0);
 
@@ -5641,10 +5637,14 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 {
 	int size = 0;
 	int ret;
-	unsigned long tmp_adr;
+	unsigned long tmp_adr = 0;
 	dma_addr_t tmp_phy_adr;
 	int mmu_4k_number = pbi->fb_ifbuf_num * vp9_mmu_page_num(pbi, 3840, 2160, 1);
 
+	/*
+	 * mmu_4k_number will be validated within init_mmu_fb_bufstate to check its legality..
+	 */
+	/* coverity[overflow_sink] */
 	ret = init_mmu_fb_bufstate(pbi, mmu_4k_number);
 	if (ret) {
 		vp9_print(pbi, 0, "%s: failed to alloc mmu fb buffer\n", __func__);
@@ -10246,7 +10246,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 					&pbi->common.buffer_pool->frame_bufs[pic_config->v4l_buf_index].buf;
 				struct PIC_BUFFER_CONFIG_s *src_pic =
 					&pbi->common.buffer_pool->frame_bufs[pic_config->BUF_index].buf;
-				struct vdec_ge2d_info ge2d_info;
+				struct vdec_ge2d_info ge2d_info = { 0 };
 
 #ifdef NEW_FB_CODE
 				if (pbi->front_back_mode)
@@ -12143,7 +12143,7 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 				return IRQ_HANDLED;
 			} else {
 				if (!pbi->pic_list_init_done) {
-					struct vdec_pic_info pic;
+					struct vdec_pic_info pic = { 0 };
 
 					vdec_v4l_get_pic_info(ctx, &pic);
 					pbi->used_buf_num = pic.dpb_frames +
@@ -12569,7 +12569,7 @@ static void vvp9_put_timer_func(struct timer_list *timer)
 				disp_laddr =
 					READ_VCBUS_REG(AFBC_BODY_BADDR) << 4;
 			} else {
-				struct canvas_s cur_canvas;
+				struct canvas_s cur_canvas = { 0 };
 
 				canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0)
 					& 0xff), &cur_canvas);
@@ -12838,7 +12838,7 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 #ifdef NEW_FB_CODE
 	if (pbi->front_back_mode == 1 || pbi->front_back_mode == 3) {
 		fw_back = fw_firmare_s_creat(fw_size);
-		if (IS_ERR_OR_NULL(fw_back))
+		if (!fw_back)
 			return -ENOMEM;
 
 		fw_size = get_firmware_data(VIDEO_DEC_VP9_FRONT, fw->data);
@@ -12900,6 +12900,9 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 		vfree(fw);
 		pr_err("VP9: the %s fw loading failed, err: %x\n",
 			fw_tee_enabled() ? "TEE" : "local", ret);
+#ifdef NEW_FB_CODE
+		vfree(fw_back);
+#endif
 		return -EBUSY;
 	}
 
@@ -13619,6 +13622,11 @@ static int vp9_reset_frame_buffer(struct VP9Decoder_s *pbi)
 			} else
 				aml_buf_put_ref(&ctx->bm, aml_buf);
 
+			/*
+			 * There will no be multiple threads running in
+			 * the same VP9Decoder_s context.
+			 */
+			/* coverity[thread1_overwrites_value_in_field] */
 			lock_buffer_pool(cm->buffer_pool, flags);
 			frame_bufs[i].buf.cma_alloc_addr = 0;
 			frame_bufs[i].buf.vf_ref = 0;
@@ -13686,6 +13694,11 @@ static int vp9_recycle_frame_buffer(struct VP9Decoder_s *pbi)
 				}
 			}
 
+			/*
+			 * There will no be multiple threads running in
+			 * the same VP9Decoder_s context.
+			 */
+			/* coverity[thread1_overwrites_value_in_field] */
 			lock_buffer_pool(cm->buffer_pool, flags);
 
 			frame_bufs[i].buf.cma_alloc_addr = 0;

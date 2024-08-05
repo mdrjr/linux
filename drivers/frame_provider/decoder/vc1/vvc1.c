@@ -1705,7 +1705,7 @@ static s32 vvc1_init(void)
 	char *buf = vmalloc(0x1000 * 16);
 	int fw_type = VIDEO_DEC_VC1;
 
-	if (IS_ERR_OR_NULL(buf))
+	if (!buf)
 		return -ENOMEM;
 
 	pr_info("vvc1_init, format %d\n", vvc1_amstream_dec_info.format);

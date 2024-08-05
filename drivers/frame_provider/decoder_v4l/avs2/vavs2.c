@@ -1033,30 +1033,26 @@ static int get_double_write_mode_init(struct AVS2Decoder_s *dec)
 static int get_triple_write_mode(struct AVS2Decoder_s *dec)
 {
 	u32 tw = 0x1;
-	unsigned int out;
 
-	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &tw);
 
 	return (tw & 0xffff);
 }
 
 static __inline__ bool is_dw_p010(struct AVS2Decoder_s *dec)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(dec->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(dec->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }
 
 static __inline__ bool is_tw_p010(struct AVS2Decoder_s *dec)
 {
-	unsigned int out, tw;
+	unsigned int tw = 0x1;
 
-	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &out);
-	tw = out;
+	vdec_v4l_get_tw_mode(dec->v4l2_ctx, &tw);
 
 	return (tw & 0x10000) ? 1 : 0;
 }
@@ -7881,7 +7877,7 @@ static bool is_available_buffer(struct AVS2Decoder_s *dec)
 	/* Wait for the buffer number negotiation to complete. */
 	if ((dec->used_buf_num == 0) ||
 		(avs2_dec->ref_maxbuffer == 0)) {
-		struct vdec_pic_info pic;
+		struct vdec_pic_info pic = { 0 };
 
 		vdec_v4l_get_pic_info(ctx, &pic);
 		dec->used_buf_num = pic.dpb_frames + pic.dpb_margin;

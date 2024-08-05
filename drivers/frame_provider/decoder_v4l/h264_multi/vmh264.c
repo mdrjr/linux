@@ -1288,7 +1288,7 @@ static struct aml_buf *index_to_afbc_aml_buf(struct vdec_h264_hw_s *hw, int inde
 
 static int get_double_write_mode(struct vdec_h264_hw_s *hw)
 {
-	u32 dw;
+	u32 dw = 0x1;
 
 	vdec_v4l_get_dw_mode(hw->v4l2_ctx, &dw);
 

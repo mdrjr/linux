@@ -2209,13 +2209,12 @@ int av1_decode_frame_headers_and_setup(AV1Decoder *pbi, int trailing_bits_presen
           if (buf_idx == INVALID_IDX) {
             aom_internal_error(&cm->error, AOM_CODEC_MEM_ERROR,
                                "Unable to find free frame buffer");
-          }
+          } else {
           buf = &frame_bufs[buf_idx];
           lock_buffer_pool(pool, flags);
           if (aom_realloc_frame_buffer(cm, &buf->buf, seq_params->max_frame_width,
                   seq_params->max_frame_height, buf->order_hint)) {
             decrease_ref_count(pbi, buf, pool);
-            unlock_buffer_pool(pool, flags);
             aom_internal_error(&cm->error, AOM_CODEC_MEM_ERROR,
                                "Failed to allocate frame buffer");
           }
@@ -2225,6 +2224,7 @@ int av1_decode_frame_headers_and_setup(AV1Decoder *pbi, int trailing_bits_presen
 #endif
           cm->ref_frame_map[ref_idx] = buf;
           buf->order_hint = order_hint;
+          }
         }
       }
     }

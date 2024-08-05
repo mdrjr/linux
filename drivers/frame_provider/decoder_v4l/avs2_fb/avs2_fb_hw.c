@@ -528,7 +528,7 @@ static void init_fb_bufstate(struct AVS2Decoder_s *dec)
 	int ret;
 	struct avs2_decoder *avs2_dec = &dec->avs2_dec;
 	dma_addr_t tmp_phy_adr;
-	unsigned long tmp_adr;
+	unsigned long tmp_adr = 0;
 	int mmu_fb_4k_number = dec->fb_ifbuf_num * avs2_mmu_page_num(dec,
 		dec->init_pic_w, dec->init_pic_h, 1);
 

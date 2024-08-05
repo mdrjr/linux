@@ -2011,10 +2011,9 @@ static int get_double_write_mode(struct hevc_state_s *hevc)
 
 static __inline__ bool is_dw_p010(struct hevc_state_s *hevc)
 {
-	unsigned int out, dw;
+	unsigned int dw = 0x1;
 
-	vdec_v4l_get_dw_mode(hevc->v4l2_ctx, &out);
-	dw = out;
+	vdec_v4l_get_dw_mode(hevc->v4l2_ctx, &dw);
 
 	return (dw & 0x10000) ? 1 : 0;
 }

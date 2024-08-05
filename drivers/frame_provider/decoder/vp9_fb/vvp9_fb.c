@@ -4983,7 +4983,7 @@ static void config_sao_hw_fb(struct VP9Decoder_s *pbi)
 		//WRITE_VREG(HEVC_SAO_CTRL5, data32);
 		READ_WRITE_DATA16(pbi, HEVC_SAO_CTRL5, 0, 16, 8);
 	} else {
-		uint32_t data;
+		uint32_t data = 0;
 		if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_T7)
 			WRITE_BACK_8(pbi, HEVC_SAO_CTRL26, 0);
 
@@ -6069,13 +6069,17 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 	int size = 0;
 	int ret;
 	dma_addr_t tmp_phy_adr;
-	unsigned long tmp_adr;
+	unsigned long tmp_adr = 0;
 
 	int mmu_4k_number = pbi->fb_ifbuf_num * vp9_mmu_page_num(pbi, pbi->max_pic_w,
 			pbi->max_pic_h, buf_alloc_depth == 10); //hevc->bit_depth_luma == 8);
 	int mmu_map_size = ((mmu_4k_number * 4) >> 6) << 6;
 	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ? CODEC_MM_FLAGS_TVP : 0;
 
+	if (mmu_4k_number <= 0) {
+		pr_err("%s: invalid mmu_4k_number value: %d\n", __func__, mmu_4k_number);
+		return;
+	}
 	pbi->fb_buf_sys_imem.buf_size = IFBUF_SYS_IMEM_SIZE * pbi->fb_ifbuf_num;
 	pbi->fb_buf_sys_imem_addr =
 		dma_alloc_coherent(amports_get_dma_device(),
@@ -13590,7 +13594,7 @@ static void vvp9_put_timer_func(struct timer_list *timer)
 				disp_laddr =
 					READ_VCBUS_REG(AFBC_BODY_BADDR) << 4;
 			} else {
-				struct canvas_s cur_canvas;
+				struct canvas_s cur_canvas = { 0 };
 
 				canvas_read((READ_VCBUS_REG(VD1_IF0_CANVAS0)
 					& 0xff), &cur_canvas);
@@ -13902,7 +13906,7 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 #ifdef NEW_FB_CODE
 	if (pbi->front_back_mode == 1 || pbi->front_back_mode == 3) {
 		fw_back = fw_firmare_s_creat(fw_size);
-		if (IS_ERR_OR_NULL(fw_back))
+		if (!fw_back)
 			return -ENOMEM;
 
 		fw_size = get_firmware_data(VIDEO_DEC_VP9_FRONT, fw->data);
@@ -13971,6 +13975,9 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 		vfree(fw);
 		pr_err("VP9: the %s fw loading failed, err: %x\n",
 			fw_tee_enabled() ? "TEE" : "local", ret);
+#ifdef NEW_FB_CODE
+		vfree(fw_back);
+#endif
 		return -EBUSY;
 	}
 
@@ -13988,6 +13995,9 @@ static s32 vvp9_init(struct VP9Decoder_s *pbi)
 				"vvp9-irq", (void *)pbi)) {
 		pr_info("vvp9 irq register error.\n");
 		amhevc_disable();
+#ifdef NEW_FB_CODE
+		vfree(fw_back);
+#endif
 		return -ENOENT;
 	}
 
