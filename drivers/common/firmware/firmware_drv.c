@@ -560,19 +560,14 @@ static int fw_data_filter(struct firmware_s *fw,
 	struct fw_info_s *info, *tmp;
 	int cpu = fw_get_cpu(fw->head.cpu);
 
-	if (mgr->cur_cpu < cpu) {
-		kfree(fw_info);
-		kfree(fw);
+	if (mgr->cur_cpu < cpu)
 		return -1;
-	}
 
 	/* the encode fw need to ignoring filtering rules. */
 	if (fw_info->format == FIRMWARE_MAX)
 		return 0;
 
 	if (!fw_check_need_load(fw->head.format)) {
-		kfree(fw_info);
-		kfree(fw);
 		return 1;
 	}
 
@@ -588,8 +583,6 @@ static int fw_data_filter(struct firmware_s *fw,
 		/* high priority of VIDEO_FW_FILE */
 		if (info->file_type == VIDEO_FW_FILE) {
 			pr_info("the %s need to priority proc.\n",info->name);
-			kfree(fw_info);
-			kfree(fw);
 			return 1;
 		}
 
@@ -598,8 +591,6 @@ static int fw_data_filter(struct firmware_s *fw,
 			if (debug)
 				pr_info("keep the newer fw (%s) and ignore the older fw (%s).\n",
 					info->name, fw_info->name);
-			kfree(fw_info);
-			kfree(fw);
 			return 1;
 		}
 
@@ -710,7 +701,7 @@ static int fw_package_parse(struct fw_files_s *files,
 	int ret = 0;
 	struct package_info_s *pack_info;
 	struct fw_info_s *info;
-	struct firmware_s *data;
+	struct firmware_s *data, *fws_head;
 	char *pack_data;
 	int info_len, len;
 	int try_cnt = TRY_PARSE_MAX;
@@ -738,13 +729,6 @@ static int fw_package_parse(struct fw_files_s *files,
 			goto out;
 		}
 
-		data = kzalloc(FIRMWARE_SIZE, GFP_KERNEL);
-		if (data == NULL) {
-			kfree(info);
-			ret = -ENOMEM;
-			goto out;
-		}
-
 		info->file_type = files->file_type;
 		strncpy(info->src_from, files->name,
 			sizeof(info->src_from));
@@ -755,7 +739,17 @@ static int fw_package_parse(struct fw_files_s *files,
 		info->format = get_fw_format(pack_info->head.format);
 
 		len = pack_info->head.length;
-		memcpy(data, pack_info->data, len);
+		if (len > FIRMWARE_SIZE) {
+			pr_err("%s, fw data size error %d\n", __func__, len);
+			len = FIRMWARE_SIZE;
+		}
+		data = kzalloc(len, GFP_KERNEL);  //alloc firmware size for data verify
+		if (data == NULL) {
+			kfree(info);
+			ret = -ENOMEM;
+			goto out;
+		}
+		memcpy(data, pack_info->data, len); //copy pack_info_s.data
 
 		pack_data += (pack_info->head.length + info_len);
 		pack_info = (struct package_info_s *)pack_data;
@@ -768,18 +762,37 @@ static int fw_package_parse(struct fw_files_s *files,
 			goto out;
 		}
 
-		if (fw_data_filter(data, info))
+		if (fw_data_filter(data, info)) {
+			kfree(data);
+			kfree(info);
 			continue;
+		}
 
 		if (debug)
 			pr_info("adds %s to the fw list.\n", info->name);
 
-		info->data = data;
+		if (fw_tee_enabled()) {
+			fws_head = kzalloc(sizeof(struct firmware_s), GFP_KERNEL);
+			if (fws_head == NULL) {
+				kfree(data);
+				kfree(info);
+				ret = -ENOMEM;
+				goto out;
+			}
+			memcpy(fws_head, data, sizeof(struct firmware_s));
+			info->data = fws_head;
+			kfree(data);
+			data = NULL;
+		} else
+			info->data = data;
+
 		fw_add_info(info);
 	} while (try_cnt--);
 
 	/* process the fw of dup attribute. */
-	ret = fw_replace_dup_data(buf);
+	if (!fw_tee_enabled())
+		ret = fw_replace_dup_data(buf);
+
 	if (ret)
 		pr_err("replace dup fw failed.\n");
 out:
