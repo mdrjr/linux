@@ -3321,7 +3321,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 	break;
 	case AMSTREAM_IOC_GET_AUDIO_AVG_BITRATE_BPS: {
 		int delay;
-		u32 avgbps;
+		u32 avgbps = 0;
 
 		delay = calculation_stream_delayed_ms(PTS_TYPE_AUDIO, NULL,
 				&avgbps);
@@ -3333,7 +3333,7 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 	}
 	case AMSTREAM_IOC_GET_VIDEO_AVG_BITRATE_BPS: {
 		int delay;
-		u32 avgbps;
+		u32 avgbps = 0;
 
 		delay = calculation_stream_delayed_ms(PTS_TYPE_VIDEO, NULL,
 				&avgbps);

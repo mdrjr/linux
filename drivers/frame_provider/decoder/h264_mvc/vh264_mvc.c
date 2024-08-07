@@ -1634,11 +1634,11 @@ static s32 vh264mvc_init(void)
 			return -EBUSY;
 		}
 
+		/*header*/
 		/*
 		 * The variable buf is initialised in amvdec_loadmc_ex.
 		 */
-		/* coverity[uninit_use] */
-		/*header*/
+		/* coverity[uninit_use_in_call] */
 		memcpy((u8 *) mc_cpu_addr, buf + 0x1000, 0x1000);
 		/*mmco*/
 		memcpy((u8 *) mc_cpu_addr + 0x1000, buf + 0x2000, 0x2000);

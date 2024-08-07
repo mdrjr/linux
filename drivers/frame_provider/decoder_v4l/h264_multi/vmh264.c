@@ -2708,6 +2708,11 @@ int recycle_frame_buffer(struct h264_dpb_stru *p_H264_Dpb, int buf_spec_num,
 		hw->buffer_spec[buf_spec_num].vf_ref--;
 	}
 	hw->buffer_spec[buf_spec_num].used = 0;
+	/*
+	 * There will no be multiple threads running in
+	 * the same vdec_h264_hw_s context.
+	 */
+	/* coverity[thread1_overwrites_value_in_field] */
 	hw->buffer_spec[buf_spec_num].cma_alloc_addr = 0;
 	hw->buffer_spec[buf_spec_num].buf_adr = 0;
 
@@ -5340,6 +5345,10 @@ static void get_picture_qos_info(struct StorablePicture *picture)
 		get_random_bytes(&data, sizeof(unsigned long));
 		if (picture->slice_type == I_SLICE)
 			data = 0;
+		/*
+		 * The variable data is initialised in get_random_bytes
+		 */
+		/* coverity[uninit_use] */
 		a[0] = data & 0xff;
 		a[1] = (data >> 8) & 0xff;
 		a[2] = (data >> 16) & 0xff;
@@ -5875,7 +5884,7 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 	u8 *colocate_vaddr = NULL;
 	int dec_dpb_size_change = 0;
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
-	struct vdec_pic_info pic;
+	struct vdec_pic_info pic = {0};
 	int ret_is_csd_valid = 0;
 
 #ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
@@ -7099,7 +7108,7 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				struct StorablePicture *pic =
 					p_H264_Dpb->mVideo.dec_picture;
 				u32 offset = pic->offset_delimiter;
-				struct checkoutptsoffset pts_st;
+				struct checkoutptsoffset pts_st = {0};
 				u64 dur_offset = hw->frame_dur;
 				dur_offset = (dur_offset << 32) | offset;
 
@@ -7291,7 +7300,7 @@ void vh264_report_pts(struct vdec_h264_hw_s *hw)
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	u32 offset_lo, offset_hi;
 	u32 offset;
-	struct checkoutptsoffset pts_st;
+	struct checkoutptsoffset pts_st = {0};
 
 	offset_lo  = p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_LO];
 	offset_hi  = p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_HI];
@@ -9265,7 +9274,7 @@ static s32 vh264_init(struct vdec_h264_hw_s *hw)
 	INIT_WORK(&hw->timeout_work, vh264_timeout_work);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	size = get_firmware_data(VIDEO_DEC_H264_MULTI, fw->data);
@@ -10214,7 +10223,7 @@ int set_mmu_config(struct vdec_h264_hw_s *hw, struct vdec_s *vdec)
 		int fw_mmu_size = 0x1000 * 16;
 		struct firmware_s *fw_mmu = fw_firmare_s_creat(fw_mmu_size);
 		int size;
-		if (IS_ERR_OR_NULL(fw_mmu))
+		if (!fw_mmu)
 			return -ENOMEM;
 
 		size = get_firmware_data(VIDEO_DEC_H264_MULTI_MMU, fw_mmu->data);
@@ -10348,7 +10357,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
-	struct vdec_pic_info pic;
+	struct vdec_pic_info pic = {0};
 	int mb_width, mb_total;
 	int mb_height = 0;
 	int active_buffer_spec_num, dec_dpb_size;
@@ -10677,7 +10686,7 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 		if (((param1 != 0 &&
 			(hw->seq_info2_last & 0x80ffffff) != (param1 & 0x80ffffff)) || dec_dpb_size_change) &&
 			hw->seq_info2_last != 0) { /*picture size changed*/
-			struct aml_vdec_ps_infos ps;
+			struct aml_vdec_ps_infos ps = {0};
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
 				"h264 res_change\n");
 
@@ -10804,7 +10813,7 @@ static void vh264_work_implement(struct vdec_h264_hw_s *hw,
 		if (ctx->param_sets_from_ucode) {
 			if (!v4l_res_change(hw, param1, param2, param3, param4)) {
 				if (!hw->v4l_params_parsed) {
-					struct aml_vdec_ps_infos ps;
+					struct aml_vdec_ps_infos ps = {0};
 
 					dpb_print(DECODE_ID(hw),
 						PRINT_FLAG_DEC_DETAIL,
@@ -11076,7 +11085,10 @@ result_done:
 		}
 
 		h264_mmu_box_free_idx_tail(hw);
-
+		/*
+		 * The variable ctx points to hw->v4l2_ctx.
+		 */
+		/* coverity[uninit_use] */
 		ctx->decoder_status_info.decoder_count++;
 		decode_frame_count[DECODE_ID(hw)]++;
 
