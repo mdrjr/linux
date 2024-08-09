@@ -1000,7 +1000,6 @@ struct vdec_h264_hw_s {
 	bool csd_restore_flag;
 	u32 csd_restore_timeout_num;
 	u32 mb_count_threshold;
-	union param dpb_param_bak;
 };
 
 #define TIMEOUT_INIT 0
@@ -4478,7 +4477,7 @@ int config_decode_buf(struct vdec_h264_hw_s *hw, struct StorablePicture *pic)
 		 * 01 - top, 10 - bottom, 11 - frame
 		 */
 
-#ifdef ERROR_CHECK
+	#ifdef ERROR_CHECK
 		if (ref == NULL) {
 			hw->data_flag |= ERROR_FLAG;
 			pic->data_flag  |= ERROR_FLAG;
@@ -7511,6 +7510,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		int slice_header_process_status = 0;
 		int I_flag;
 		int frame_num_gap = 0;
+		union param dpb_param_bak;
 		unsigned short *p = (unsigned short *)hw->lmem_addr;
 		unsigned mb_width = hw->seq_info2 & 0xff;
 		unsigned short first_mb_in_slice;
@@ -7579,7 +7579,8 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 					vdec_schedule_work(&hw->work);
 					return IRQ_HANDLED;
 				}
-			} else {
+			}
+			else {
 				mutex_lock(&hw->pic_mutex);
 				if (p_H264_Dpb->mVideo.dec_picture) {
 					if (p_H264_Dpb->mVideo.dec_picture->colocated_buf_index >= 0) {
@@ -7604,6 +7605,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			}
 		}
 #endif
+
 		hw->reg_iqidct_control = READ_VREG(IQIDCT_CONTROL);
 		hw->reg_iqidct_control_init_flag = 1;
 		hw->reg_vcop_ctrl_reg = READ_VREG(VCOP_CTRL_REG);
@@ -7632,9 +7634,9 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			WRITE_VREG(RPM_CMD_REG, 0);
 		}
 #else
-		hw->dpb_param_bak = p_H264_Dpb->dpb_param;
+		dpb_param_bak = p_H264_Dpb->dpb_param;
 		ATRACE_COUNTER(hw->trace.decode_header_time_name, TRACE_HEADER_RPM_START);
-		for (i = 0; i < (RPM_VALUE_END-RPM_BEGIN); i += 4) {
+		for (i = 0; i < (RPM_END-RPM_BEGIN); i += 4) {
 			int ii;
 
 			for (ii = 0; ii < 4; ii++) {
@@ -7653,6 +7655,17 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			}
 		}
 		ATRACE_COUNTER(hw->trace.decode_header_time_name, TRACE_HEADER_RPM_END);
+#endif
+#ifdef DETECT_WRONG_MULTI_SLICE
+		if (p_H264_Dpb->mVideo.dec_picture &&
+				hw->multi_slice_pic_flag == 2 &&
+				(dpb_param_bak.l.data[FIRST_MB_IN_SLICE] > p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE])) {
+			dpb_print(DECODE_ID(hw), 0,
+				"decode next pic, save before, SLICE_TYPE BAK %d, SLICE_TYPE %d, FIRST_MB_IN_SLICE BAK %d, FIRST_MB_IN_SLICE %d\n",
+					dpb_param_bak.l.data[SLICE_TYPE], p_H264_Dpb->dpb_param.l.data[SLICE_TYPE],
+					dpb_param_bak.l.data[FIRST_MB_IN_SLICE], p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE]);
+			vh264_pic_done_proc(vdec);
+		}
 #endif
 		data_low = p_H264_Dpb->dpb_param.l.data[VIDEO_SIGNAL_LOW];
 		data_high = p_H264_Dpb->dpb_param.l.data[VIDEO_SIGNAL_HIGH];
@@ -7769,6 +7782,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 				hw->data_flag = NULL_FLAG;
 				goto pic_done_proc;
 		}
+
 		slice_header_process_status =
 			h264_slice_header_process(p_H264_Dpb, &frame_num_gap);
 		if (hw->mmu_enable)
@@ -7950,6 +7964,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			}
 		}
 		mutex_unlock(&hw->pic_mutex);
+
 		ATRACE_COUNTER(hw->trace.decode_time_name, DECODER_ISR_THREAD_HEAD_END);
 
 		if (slice_header_process_status == 1)
@@ -8364,21 +8379,6 @@ send_again:
 		WRITE_VREG(DPB_STATUS_REG, H264_SEI_DATA_DONE);
 		start_process_time(hw);
 		return IRQ_HANDLED;
-	}
-
-	if (dec_dpb_status == H264_SLICE_HEAD_DONE) {
-
-#ifdef DETECT_WRONG_MULTI_SLICE
-		if (p_H264_Dpb->mVideo.dec_picture &&
-				hw->multi_slice_pic_flag == 2 &&
-				(hw->dpb_param_bak.l.data[FIRST_MB_IN_SLICE] > p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE])) {
-			dpb_print(DECODE_ID(hw), 0,
-				"decode next pic, save before, SLICE_TYPE BAK %d, SLICE_TYPE %d, FIRST_MB_IN_SLICE BAK %d, FIRST_MB_IN_SLICE %d\n",
-					hw->dpb_param_bak.l.data[SLICE_TYPE], p_H264_Dpb->dpb_param.l.data[SLICE_TYPE],
-					hw->dpb_param_bak.l.data[FIRST_MB_IN_SLICE], p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE]);
-			vh264_pic_done_proc(vdec);
-		}
-#endif
 	}
 
 
@@ -9344,7 +9344,7 @@ static void wait_vmh264_search_done(struct vdec_h264_hw_s *hw)
 	u32 vld_rp = READ_VREG(VLD_MEM_VIFIFO_RP);
 	int count = 0;
 	do {
-		usleep_range(30, 30);
+		usleep_range(100, 101);
 		if (vld_rp == READ_VREG(VLD_MEM_VIFIFO_RP))
 			break;
 		if (count > 2000) {
@@ -11444,7 +11444,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	if (vdec->slave || vdec->master)
 		vdec_set_flag(vdec, VDEC_FLAG_SELF_INPUT_CONTEXT);
 #endif
-
 	if ((vdec_frame_based(vdec)) &&
 		(hw->multi_frame_unfinish)) {
 		u32 data_invalid = 0;
@@ -11619,8 +11618,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		vdec->mc_loaded = 0;
 		ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_FW_END);
 	}
-	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_START);
 	vmh264_reset_udr_mgr(hw);
+	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_START);
 	if (vh264_hw_ctx_restore(hw) < 0) {
 		vdec_schedule_work(&hw->work);
 		return;
@@ -11628,6 +11627,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	if (hw->error_proc_policy & 0x10000) {
 		hw->first_pre_frame_num = p_H264_Dpb->mVideo.pre_frame_num;
 	}
+	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END);
 	if (input_frame_based(vdec)) {
 		int decode_size = 0;
 
@@ -11680,7 +11680,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			READ_VREG(HEVC_ASSIST_FB_CTL) & (~(1 << 8)));
 	}
 
-	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_END);
 	WRITE_VREG(AV_SCRATCH_K, udebug_flag);
 	hw->stat |= STAT_TIMER_ARM;
 	mod_timer(&hw->check_timer, jiffies + CHECK_INTERVAL);

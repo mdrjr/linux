@@ -1024,7 +1024,6 @@ struct vdec_h264_hw_s {
 	u32 csd_restore_timeout_num;
 	u32 mb_count_threshold;
 	struct kref box_ref;
-	union param dpb_param_bak;
 };
 
 #define TIMEOUT_INIT 0
@@ -7916,6 +7915,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		int slice_header_process_status = 0;
 		int I_flag;
 		int frame_num_gap = 0;
+		union param dpb_param_bak;
 		/*unsigned char is_idr;*/
 		unsigned short *p = (unsigned short *)hw->lmem_addr;
 		unsigned mb_width = hw->seq_info2 & 0xff;
@@ -8071,11 +8071,11 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			/* printk("%x:%x\n", i,data32); */
 		}
 #else
-		hw->dpb_param_bak = p_H264_Dpb->dpb_param;
+		dpb_param_bak = p_H264_Dpb->dpb_param;
 
 		ATRACE_COUNTER(hw->trace.decode_header_time_name, TRACE_HEADER_RPM_START);
 
-		for (i = 0; i < (RPM_VALUE_END-RPM_BEGIN); i += 4) {
+		for (i = 0; i < (RPM_END-RPM_BEGIN); i += 4) {
 			int ii;
 
 			for (ii = 0; ii < 4; ii++) {
@@ -8098,6 +8098,18 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			}
 		}
 		ATRACE_COUNTER(hw->trace.decode_header_time_name, TRACE_HEADER_RPM_END);
+#endif
+#ifdef DETECT_WRONG_MULTI_SLICE
+
+		if (p_H264_Dpb->mVideo.dec_picture &&
+				hw->multi_slice_pic_flag == 2 &&
+				(dpb_param_bak.l.data[FIRST_MB_IN_SLICE] > p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE])) {
+			dpb_print(DECODE_ID(hw), 0,
+				"decode next pic, save before, SLICE_TYPE BAK %d, SLICE_TYPE %d, FIRST_MB_IN_SLICE BAK %d, FIRST_MB_IN_SLICE %d\n",
+					dpb_param_bak.l.data[SLICE_TYPE], p_H264_Dpb->dpb_param.l.data[SLICE_TYPE],
+					dpb_param_bak.l.data[FIRST_MB_IN_SLICE], p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE]);
+			vh264_pic_done_proc(vdec);
+		}
 #endif
 		data_low = p_H264_Dpb->dpb_param.l.data[VIDEO_SIGNAL_LOW];
 		data_high = p_H264_Dpb->dpb_param.l.data[VIDEO_SIGNAL_HIGH];
@@ -8764,21 +8776,6 @@ send_again:
 		start_process_time(hw);
 		return IRQ_HANDLED;
 	}
-	if (dec_dpb_status == H264_SLICE_HEAD_DONE) {
-
-#ifdef DETECT_WRONG_MULTI_SLICE
-		if (p_H264_Dpb->mVideo.dec_picture &&
-				hw->multi_slice_pic_flag == 2 &&
-				(hw->dpb_param_bak.l.data[FIRST_MB_IN_SLICE] > p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE])) {
-			dpb_print(DECODE_ID(hw), 0,
-				"decode next pic, save before, SLICE_TYPE BAK %d, SLICE_TYPE %d, FIRST_MB_IN_SLICE BAK %d, FIRST_MB_IN_SLICE %d\n",
-					hw->dpb_param_bak.l.data[SLICE_TYPE], p_H264_Dpb->dpb_param.l.data[SLICE_TYPE],
-					hw->dpb_param_bak.l.data[FIRST_MB_IN_SLICE], p_H264_Dpb->dpb_param.l.data[FIRST_MB_IN_SLICE]);
-			vh264_pic_done_proc(vdec);
-		}
-#endif
-	}
-
 
 
 	/* ucode debug */
@@ -9818,7 +9815,7 @@ static void wait_vmh264_search_done(struct vdec_h264_hw_s *hw)
 	u32 vld_rp = READ_VREG(VLD_MEM_VIFIFO_RP);
 	int count = 0;
 	do {
-		usleep_range(30, 30);
+		usleep_range(100, 101);
 		if (vld_rp == READ_VREG(VLD_MEM_VIFIFO_RP))
 			break;
 		if (count > 2000) {

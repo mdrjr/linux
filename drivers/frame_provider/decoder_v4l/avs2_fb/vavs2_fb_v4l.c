@@ -4331,54 +4331,20 @@ static void avs2_init_decoder_hw(struct AVS2Decoder_s *dec)
 	unsigned int decode_mode;
 	int i;
 
-	if (!efficiency_mode) {
+	data32 = READ_VREG(HEVC_PARSER_INT_CONTROL);
 
-		data32 = READ_VREG(HEVC_PARSER_INT_CONTROL);
-
-		/* set bit 31~29 to 3 if HEVC_STREAM_FIFO_CTL[29] is 1 */
-		data32 &= ~(7 << 29);
-		data32 |= (3 << 29);
-		data32 = data32 |
-			(1 << 24) |/*stream_buffer_empty_int_amrisc_enable*/
-			(1 << 22) |/*stream_fifo_empty_int_amrisc_enable*/
-			(1 << 7) |/*dec_done_int_cpu_enable*/
-			(1 << 4) |/*startcode_found_int_cpu_enable*/
-			(0 << 3) |/*startcode_found_int_amrisc_enable*/
-			(1 << 0)    /*parser_int_enable*/
-			;
-		WRITE_VREG(HEVC_PARSER_INT_CONTROL, data32);
-
-		WRITE_VREG(HEVC_SHIFT_CONTROL,
-			(6 << 20) | /* emu_push_bits  (6-bits for AVS2)*/
-			(0 << 19) | /* emu_3_enable, maybe turned on in microcode*/
-			(0 << 18) | /* emu_2_enable, maybe turned on in microcode*/
-			(0 << 17) | /* emu_1_enable, maybe turned on in microcode*/
-			(0 << 16) | /* emu_0_enable, maybe turned on in microcode*/
-			(0 << 14) | /*disable_start_code_protect*/
-			(3 << 6) | /* sft_valid_wr_position*/
-			(2 << 4) | /* emulate_code_length_sub_1*/
-			(2 << 1) | /* start_code_length_sub_1*/
-			(1 << 0)   /* stream_shift_enable*/
-			);
-
-		WRITE_VREG(HEVC_SHIFT_LENGTH_PROTECT,
-			(0 << 30) |   /*data_protect_fill_00_enable*/
-			(1 << 29)     /*data_protect_fill_ff_enable*/
-			);
-		WRITE_VREG(HEVC_CABAC_CONTROL,
-			(1 << 0)/*cabac_enable*/
-		);
-
-		WRITE_VREG(HEVC_PARSER_CORE_CONTROL,
-			(1 << 0)/* hevc_parser_core_clk_en*/
-		);
-#ifdef ENABLE_SWAP_TEST
-			WRITE_VREG(HEVC_STREAM_SWAP_TEST, 100);
-#else
-			WRITE_VREG(HEVC_STREAM_SWAP_TEST, 0);
-#endif
-	}
-	WRITE_VREG(HEVC_DEC_STATUS_REG, 0);
+	/* set bit 31~29 to 3 if HEVC_STREAM_FIFO_CTL[29] is 1 */
+	data32 &= ~(7 << 29);
+	data32 |= (3 << 29);
+	data32 = data32 |
+		(1 << 24) |/*stream_buffer_empty_int_amrisc_enable*/
+		(1 << 22) |/*stream_fifo_empty_int_amrisc_enable*/
+		(1 << 7) |/*dec_done_int_cpu_enable*/
+		(1 << 4) |/*startcode_found_int_cpu_enable*/
+		(0 << 3) |/*startcode_found_int_amrisc_enable*/
+		(1 << 0)    /*parser_int_enable*/
+		;
+	WRITE_VREG(HEVC_PARSER_INT_CONTROL, data32);
 
 	data32 = READ_VREG(HEVC_SHIFT_STATUS);
 	data32 = data32 |
@@ -4387,22 +4353,47 @@ static void avs2_init_decoder_hw(struct AVS2Decoder_s *dec)
 	(1 << 0)/*startcode_check_on*/
 	;
 	WRITE_VREG(HEVC_SHIFT_STATUS, data32);
+	WRITE_VREG(HEVC_SHIFT_CONTROL,
+		(6 << 20) | /* emu_push_bits  (6-bits for AVS2)*/
+		(0 << 19) | /* emu_3_enable, maybe turned on in microcode*/
+		(0 << 18) | /* emu_2_enable, maybe turned on in microcode*/
+		(0 << 17) | /* emu_1_enable, maybe turned on in microcode*/
+		(0 << 16) | /* emu_0_enable, maybe turned on in microcode*/
+		(0 << 14) | /*disable_start_code_protect*/
+		(3 << 6) | /* sft_valid_wr_position*/
+		(2 << 4) | /* emulate_code_length_sub_1*/
+		(2 << 1) | /* start_code_length_sub_1*/
+		(1 << 0)   /* stream_shift_enable*/
+		);
+
+	WRITE_VREG(HEVC_SHIFT_LENGTH_PROTECT,
+		(0 << 30) |   /*data_protect_fill_00_enable*/
+		(1 << 29)     /*data_protect_fill_ff_enable*/
+		);
+	WRITE_VREG(HEVC_CABAC_CONTROL,
+		(1 << 0)/*cabac_enable*/
+	);
+
+	WRITE_VREG(HEVC_PARSER_CORE_CONTROL,
+		(1 << 0)/* hevc_parser_core_clk_en*/
+	);
+
+	WRITE_VREG(HEVC_DEC_STATUS_REG, 0);
 
 	/*Initial IQIT_SCALELUT memory -- just to avoid X in simulation*/
-	if (is_rdma_enable()) {
-		WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) & (~(1<<1))));
+	if (is_rdma_enable())
 		rdma_back_end_work(dec->rdma_phy_adr, RDMA_SIZE);
-	} else {
-		if (efficiency_mode)
-			WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) | (1<<1)));
-		else {
-			WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) & (~(1<<1))));
-			WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR, 0);/*cfg_p_addr*/
-			for (i = 0; i < 1024; i++)
+	else {
+		WRITE_VREG(HEVC_IQIT_SCALELUT_WR_ADDR, 0);/*cfg_p_addr*/
+		for (i = 0; i < 1024; i++)
 			WRITE_VREG(HEVC_IQIT_SCALELUT_DATA, 0);
-		}
 	}
 
+#ifdef ENABLE_SWAP_TEST
+	WRITE_VREG(HEVC_STREAM_SWAP_TEST, 100);
+#else
+	WRITE_VREG(HEVC_STREAM_SWAP_TEST, 0);
+#endif
 	if (!dec->m_ins_flag)
 		decode_mode = DECODE_MODE_SINGLE;
 	else if (vdec_frame_based(hw_to_vdec(dec)))
@@ -7221,16 +7212,11 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			get_rpm_param(
 				&dec->avs2_dec.param);
 		} else {
-			if (efficiency_mode) {
-				memcpy(dec->avs2_dec.param.l.data, dec->rpm_ptr,
-					(RPM_VALID_END - RPM_BEGIN) * sizeof(dec->rpm_ptr[0]));
-			} else {
-				for (i = 0; i < (RPM_VALID_END - RPM_BEGIN); i += 4) {
-					int ii;
-					for (ii = 0; ii < 4; ii++)
-						dec->avs2_dec.param.l.data[i + ii] =
-							dec->rpm_ptr[i + 3 - ii];
-				}
+			for (i = 0; i < (RPM_VALID_END - RPM_BEGIN); i += 4) {
+				int ii;
+				for (ii = 0; ii < 4; ii++)
+					dec->avs2_dec.param.l.data[i + ii] =
+						dec->rpm_ptr[i + 3 - ii];
 			}
 		}
 #ifdef SANITY_CHECK
@@ -9624,17 +9610,19 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		//vdec->mc_loaded = 1;
 		vdec->mc_type = VFORMAT_AVS2;
 	}
-	/*
-		HEVC_EFFICIENCY_MODE_BACK
-		bit[0] 1: open efficiency mode, 0: close efficiency mode
-	*/
-	if (efficiency_mode) {
-		WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) | (1<<0)));
-	} else {
-		WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) & (~(1<<0))));
-	}
+
 #ifdef NEW_FB_CODE
 	if (dec->front_back_mode) {
+
+		/*
+			HEVC_EFFICIENCY_MODE_BACK
+			bit[0] 1: open efficiency mode, 0: close efficiency mode
+		*/
+		if (efficiency_mode) {
+			WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) | (1<<0)));
+		} else {
+			WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) & (~(1<<0))));
+		}
 		avs2_hw_init(dec, 1, 0);
 		if (dec->front_back_mode == 1)
 			config_bufstate_front_hw(avs2_dec);
