@@ -86,7 +86,7 @@ void vdec_set_vf_duration(s32 duration);
 
 void vdec_set_screen_mode(struct aml_vdec_adapt *ada_ctx, u32 mode);
 
-void vdec_write_stream_data(struct aml_vdec_adapt *ada_ctx, u32 addr, u32 size);
+void vdec_write_stream_data(struct aml_vdec_adapt *ada_ctx, dos_addr_t addr, u32 size);
 
 void vdec_write_stream_data_inner(struct aml_vdec_adapt *ada_ctx, char *addr, u32 size, u64 timestamp);
 

@@ -177,7 +177,7 @@ int stbuf_change_size(struct stream_buf_s *buf, int size, bool is_secure)
 
 int stbuf_fetch_init(void)
 {
-	pr_debug("[%s]fetchbuf:%llx-%px, fetchbuf_cnt:%d\n",
+	pr_debug("[%s]fetchbuf:%lx-%px, fetchbuf_cnt:%d\n",
 			__func__, fetchbuf.paddr, fetchbuf.vaddr, atomic_read(&fetchbuf.ref));
 
 	if (fetchbuf.paddr) {
@@ -214,7 +214,7 @@ EXPORT_SYMBOL(stbuf_fetch_init);
 void stbuf_fetch_release(void)
 {
 	atomic_dec(&fetchbuf.ref);
-	pr_debug("[%s]fetchbuf:%llx-%px, fetchbuf_cnt:%d\n",
+	pr_debug("[%s]fetchbuf:%lx-%px, fetchbuf_cnt:%d\n",
 			__func__, fetchbuf.paddr, fetchbuf.vaddr, atomic_read(&fetchbuf.ref));
 
 	if (!atomic_read(&fetchbuf.ref)) {
@@ -268,7 +268,7 @@ u32 stbuf_level(struct stream_buf_s *buf)
 	return _READ_ST_REG(LEVEL);
 }
 
-u32 stbuf_rp(struct stream_buf_s *buf)
+u64 stbuf_rp(struct stream_buf_s *buf)
 {
 	if ((buf->type == BUF_TYPE_HEVC) || (buf->type == BUF_TYPE_VIDEO)) {
 		if (buf->no_parser)
@@ -286,7 +286,7 @@ u32 stbuf_rp(struct stream_buf_s *buf)
 	return _READ_ST_REG(RP);
 }
 
-u32 stbuf_wp(struct stream_buf_s *buf)
+u64 stbuf_wp(struct stream_buf_s *buf)
 {
 	if ((buf->type == BUF_TYPE_HEVC) || (buf->type == BUF_TYPE_VIDEO)) {
 		if (buf->no_parser)
@@ -342,7 +342,7 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 {
 	s32 r;
 	u32 dummy;
-	u32 addr32;
+	dos_addr_t addr;
 
 	VDEC_PRINT_FUN_LINENO(__func__, __LINE__);
 
@@ -352,7 +352,7 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 		if (r < 0)
 			return r;
 	}
-	addr32 = buf->buf_start & 0xffffffff;
+	addr = buf->buf_start;
 	buf->use_ptsserv = SINGLE_PTS_SERVER_DECODER_LOOKUP;
 	init_waitqueue_head(&buf->wq);
 
@@ -363,10 +363,10 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 	if ((buf->type == BUF_TYPE_VIDEO) || (buf->type == BUF_TYPE_HEVC)) {
 		if (vdec) {
 			if (vdec_stream_based(vdec))
-				vdec_set_input_buffer(vdec, addr32,
+				vdec_set_input_buffer(vdec, addr,
 						buf->buf_size);
 			else
-				return vdec_set_input_buffer(vdec, addr32,
+				return vdec_set_input_buffer(vdec, addr,
 						buf->buf_size);
 		}
 	}
@@ -377,10 +377,10 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 		return 0;
 	if (has_hevc_vdec() && buf->type == BUF_TYPE_HEVC) {
 		CLEAR_VREG_MASK(HEVC_STREAM_CONTROL, 1);
-		WRITE_VREG(HEVC_STREAM_START_ADDR, addr32);
-		WRITE_VREG(HEVC_STREAM_END_ADDR, addr32 + buf->buf_size);
-		WRITE_VREG(HEVC_STREAM_RD_PTR, addr32);
-		WRITE_VREG(HEVC_STREAM_WR_PTR, addr32);
+		WRITE_VREG(HEVC_STREAM_START_ADDR, addr);
+		WRITE_VREG(HEVC_STREAM_END_ADDR, addr + buf->buf_size);
+		WRITE_VREG(HEVC_STREAM_RD_PTR, addr);
+		WRITE_VREG(HEVC_STREAM_WR_PTR, addr);
 
 		return 0;
 	}
@@ -408,23 +408,23 @@ s32 stbuf_init(struct stream_buf_s *buf, struct vdec_s *vdec)
 	}
 
 	if (buf->type == BUF_TYPE_SUBTITLE) {
-		WRITE_PARSER_REG(PARSER_SUB_RP, addr32);
-		WRITE_PARSER_REG(PARSER_SUB_START_PTR, addr32);
+		WRITE_PARSER_REG(PARSER_SUB_RP, addr);
+		WRITE_PARSER_REG(PARSER_SUB_START_PTR, addr);
 		WRITE_PARSER_REG(PARSER_SUB_END_PTR,
-					   addr32 + buf->buf_size - 8);
+					   addr + buf->buf_size - 8);
 
 		return 0;
 	}
 
-	_WRITE_ST_REG(START_PTR, addr32);
-	_WRITE_ST_REG(CURR_PTR, addr32);
-	_WRITE_ST_REG(END_PTR, addr32 + buf->buf_size - 8);
+	_WRITE_ST_REG(START_PTR, addr);
+	_WRITE_ST_REG(CURR_PTR, addr);
+	_WRITE_ST_REG(END_PTR, addr + buf->buf_size - 8);
 
 	_SET_ST_REG_MASK(CONTROL, MEM_BUFCTRL_INIT);
 	_CLR_ST_REG_MASK(CONTROL, MEM_BUFCTRL_INIT);
 
 	_WRITE_ST_REG(BUF_CTRL, MEM_BUFCTRL_MANUAL);
-	_WRITE_ST_REG(WP, addr32);
+	_WRITE_ST_REG(WP, addr);
 
 	_SET_ST_REG_MASK(BUF_CTRL, MEM_BUFCTRL_INIT);
 	_CLR_ST_REG_MASK(BUF_CTRL, MEM_BUFCTRL_INIT);
@@ -504,7 +504,7 @@ void stbuf_release(struct stream_buf_s *buf)
 }
 EXPORT_SYMBOL(stbuf_release);
 
-u32 stbuf_sub_rp_get(void)
+dos_addr_t stbuf_sub_rp_get(void)
 {
 	return READ_PARSER_REG(PARSER_SUB_RP);
 }
@@ -515,35 +515,35 @@ void stbuf_sub_rp_set(unsigned int sub_rp)
 	return;
 }
 
-u32 stbuf_sub_wp_get(void)
+dos_addr_t stbuf_sub_wp_get(void)
 {
 	return READ_PARSER_REG(PARSER_SUB_WP);
 }
 
-u32 stbuf_sub_start_get(void)
+dos_addr_t stbuf_sub_start_get(void)
 {
 	return READ_PARSER_REG(PARSER_SUB_START_PTR);
 }
 
-u32 parser_get_wp(struct stream_buf_s *vb)
+dos_addr_t parser_get_wp(struct stream_buf_s *vb)
 {
 	return READ_PARSER_REG(PARSER_VIDEO_WP);
 }
 EXPORT_SYMBOL(parser_get_wp);
 
-void parser_set_wp(struct stream_buf_s *vb, u32 val)
+void parser_set_wp(struct stream_buf_s *vb, dos_addr_t val)
 {
 	WRITE_PARSER_REG(PARSER_VIDEO_WP, val);
 }
 EXPORT_SYMBOL(parser_set_wp);
 
-u32 parser_get_rp(struct stream_buf_s *vb)
+dos_addr_t parser_get_rp(struct stream_buf_s *vb)
 {
 	return READ_PARSER_REG(PARSER_VIDEO_RP);
 }
 EXPORT_SYMBOL(parser_get_rp);
 
-void parser_set_rp(struct stream_buf_s *vb, u32 val)
+void parser_set_rp(struct stream_buf_s *vb, dos_addr_t val)
 {
 	WRITE_PARSER_REG(PARSER_VIDEO_RP, val);
 }

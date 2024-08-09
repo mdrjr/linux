@@ -703,7 +703,7 @@ void aml_vdec_recycle_dec_resource(struct aml_vcodec_ctx * ctx,
 		ctx->vdec_recycle_dec_resource(ctx->ada_ctx->vdec->private, aml_buf);
 }
 
-void vdec_dump_strea_data(struct aml_vdec_adapt *ada_ctx, u32 addr, u32 size)
+void vdec_dump_strea_data(struct aml_vdec_adapt *ada_ctx, dos_addr_t addr, u32 size)
 {
 	char file_name[64] = {0};
 	ulong buf_start = ada_ctx->vdec->vbuf.buf_start;
@@ -724,9 +724,9 @@ void vdec_dump_strea_data(struct aml_vdec_adapt *ada_ctx, u32 addr, u32 size)
 		dump(file_name, stbuf_vaddr, first_size);
 
 		codec_mm_unmap_phyaddr(stbuf_vaddr);
-		pr_info("dump es buffer (%x, %u)\n", addr, first_size);
+		pr_info("dump es buffer (%lx, %u)\n", addr, first_size);
 	} else {
-		pr_err("es buffer (%x, %u) vmap fail\n", addr, first_size);
+		pr_err("es buffer (%lx, %u) vmap fail\n", addr, first_size);
 	}
 
 	if (second_size) {
@@ -744,7 +744,7 @@ void vdec_dump_strea_data(struct aml_vdec_adapt *ada_ctx, u32 addr, u32 size)
 	}
 }
 
-void vdec_write_stream_data(struct aml_vdec_adapt *ada_ctx, u32 addr, u32 size)
+void vdec_write_stream_data(struct aml_vdec_adapt *ada_ctx, dos_addr_t addr, u32 size)
 {
 	struct stream_buffer_metainfo stbuf_data = { 0 };
 	stbuf_data.stbuf_pktaddr = addr;
@@ -787,7 +787,7 @@ void vdec_write_stream_data_inner(struct aml_vdec_adapt *ada_ctx, char *addr,
 	}
 
 	v4l_dbg(ada_ctx->ctx, V4L_DEBUG_CODEC_INPUT,
-		"VC1 input: es(add data size %d) -> stbuf(addr 0x%lx wp 0x%x) timestamp: %llu\n",
+		"VC1 input: es(add data size %d) -> stbuf(addr 0x%lx wp 0x%lx) timestamp: %llu\n",
 		size, ada_ctx->vdec->vbuf.buf_start, ada_ctx->vdec->vbuf.buf_wp, timestamp);
 }
 
