@@ -984,6 +984,9 @@ ssize_t dump_cma_and_sys_memsize(struct aml_vcodec_ctx *ctx, char *buf)
 			planes = aml_buf->planes_tw;
 	}
 
+	vf->flag |= (ctx->config.parm.dec.cfg.low_latency_mode == 7) ?
+		VFRAME_FLAG_GAME_MODE : 0;
+
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
 		"OUT_BUFF (%s, st:%d, seq:%d, idx:%d) vb:(%d, %px), vf:(%d, %px), ts:%llu, flag: 0x%x "
 		"Y:(%lx, %u) C/U:(%lx, %u) V:(%lx, %u)\n",
