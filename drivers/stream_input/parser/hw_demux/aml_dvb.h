@@ -320,6 +320,8 @@ struct aml_dvb {
 	unsigned long        sub_pages;
 	unsigned long        sub_pages_map;
 	int                  sub_buf_len;
+	struct mutex mutex;
+	int memory_optimize;
 };
 
 

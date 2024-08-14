@@ -1125,6 +1125,37 @@ static ssize_t tso_source_store(KV_CLASS_CONST struct class *class,
 	return size;
 }
 
+/*Show the memory_optimize*/
+static ssize_t memory_optimize_show(KV_CLASS_CONST struct class *class,
+			       KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
+{
+	struct aml_dvb *dvb = &aml_dvb_device;
+	ssize_t ret = 0;
+	char *src;
+
+	if (dvb->memory_optimize)
+		src = "1";
+	else
+		src = "0";
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", src);
+	return ret;
+}
+
+/*Set memory_optimize*/
+static ssize_t memory_optimize_store(KV_CLASS_CONST struct class *class,
+				KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf,
+				size_t size)
+{
+	struct aml_dvb *dvb = &aml_dvb_device;
+
+	if (!strncmp("0", buf, 1))
+	    dvb->memory_optimize = 0;
+	else if (!strncmp("1", buf, 1))
+	    dvb->memory_optimize = 1;
+
+	return size;
+}
+
 /*Show PCR*/
 #define DEMUX_PCR_FUNC_DECL(i)  \
 static ssize_t demux##i##_pcr_show(KV_CLASS_CONST struct class *class,  \
@@ -2020,6 +2051,8 @@ static CLASS_ATTR_RW(hw_setting);
 static CLASS_ATTR_RW(source);
 static CLASS_ATTR_RW(demux_reset_all_flag);
 static CLASS_ATTR_RW(tso_source);
+static CLASS_ATTR_RW(memory_optimize);
+
 #define DEMUX_SOURCE_ATTR_PCR(i)\
 	static CLASS_ATTR_RO(demux##i##_pcr)
 #define DEMUX_SOURCE_ATTR_DECL(i)\
@@ -2151,6 +2184,7 @@ static struct attribute *aml_stb_class_attrs[] = {
 	STB_ATTR(first_audio_pts),
 	STB_ATTR(clear_av),
 	STB_ATTR(demux_state),
+	STB_ATTR(memory_optimize),
 #define DEMUX_PCR(i) \
 	STB_ATTR(demux##i##_pcr)
 	DEMUX_PCR(0),
@@ -2344,6 +2378,7 @@ static int aml_dvb_probe(struct platform_device *pdev)
 	memset(advb, 0, sizeof(aml_dvb_device));
 
 	spin_lock_init(&advb->slock);
+	mutex_init(&advb->mutex);
 
 	advb->dev = &pdev->dev;
 	advb->pdev = pdev;
@@ -2380,7 +2415,22 @@ static int aml_dvb_probe(struct platform_device *pdev)
 			advb->ca_device_num = DSC_DEV_COUNT;
 		}
 	}
+	/*config memory_optimize, if config equal 1,
+	then use cma memory dynamically, default use 0*/
+	{
+		char buf[32];
+		u32 value;
 
+		memset(buf, 0, 32);
+		snprintf(buf, sizeof(buf), "memory_optimize");
+		ret = of_property_read_u32(pdev->dev.of_node, buf, &value);
+		if (!ret) {
+			pr_inf("%s: 0x%x\n", buf, value);
+			advb->memory_optimize = value;
+		} else {
+			advb->memory_optimize = 0;
+		}
+	}
 	if (get_cpu_type() < MESON_CPU_MAJOR_ID_TL1) {
 		advb->ts_in_total_count = 3;
 		advb->s2p_total_count = 2;
