@@ -10366,7 +10366,7 @@ static int vmh264_get_ps_info(struct vdec_h264_hw_s *hw,
 	ps->dpb_size		= active_buffer_spec_num;
 	ps->field = (!hw->is_interlace) && frame_mbs_only_flag ?
 		V4L2_FIELD_NONE : V4L2_FIELD_INTERLACED;
-	ps->field 		= hw->high_bandwidth_flag ?
+	ps->field 		= (hw->high_bandwidth_flag && !ctx->enable_di_post) ?
 		V4L2_FIELD_NONE : ps->field;
 	ps->field = check_force_interlace(hw, frame_width, frame_height) ?
 		V4L2_FIELD_INTERLACED : ps->field;
