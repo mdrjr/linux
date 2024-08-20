@@ -24,6 +24,10 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
+
+#include <stddef.h>
+#include <stdint.h>
+
 #include "dec_slt_res.h"
 #include "vcodec.h"
 
@@ -76,7 +80,10 @@ int osd_blank(char *path, int cmd)
 
     if (fd >= 0) {
         sprintf(bcmd, "%d", cmd);
-        write(fd, bcmd, strlen(bcmd));
+        ssize_t bytes = write(fd, bcmd, strlen(bcmd));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         return 0;
     }
@@ -92,7 +99,10 @@ int set_tsync_enable(int enable)
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
         sprintf(bcmd, "%d", enable);
-        write(fd, bcmd, strlen(bcmd));
+        ssize_t bytes = write(fd, bcmd, strlen(bcmd));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         return 0;
     }
@@ -163,7 +173,10 @@ int set_display_axis(int recovery)
             sprintf(str, "2048 %d %d %d %d %d %d %d",
                     axis[1], axis[2], axis[3], axis[4], axis[5], axis[6], axis[7]);
         }
-        write(fd, str, strlen(str));
+        ssize_t bytes = write(fd, str, strlen(str));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         return 0;
     }
@@ -1194,7 +1207,10 @@ int set_cmd(const char *str, const char *path)
     int fd;
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
-        write(fd, str, strlen(str));
+        ssize_t bytes = write(fd, str, strlen(str));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         printf("[success]: %s > %s\n", str, path);
         return 0;

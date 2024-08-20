@@ -20,8 +20,12 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <vcodec.h>
-#include <dec_slt_res.h>
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "dec_slt_res.h"
+#include "vcodec.h"
 
 #define READ_SIZE       (64 * 1024)
 #define EXTERNAL_PTS    (1)
@@ -62,7 +66,10 @@ int set_tsync_enable(int enable)
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
         sprintf(bcmd, "%d", enable);
-        write(fd, bcmd, strlen(bcmd));
+        ssize_t bytes = write(fd, bcmd, strlen(bcmd));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         return 0;
     }
@@ -75,7 +82,10 @@ int set_cmd(const char *str, const char *path)
     int fd;
     fd = open(path, O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd >= 0) {
-        write(fd, str, strlen(str));
+        ssize_t bytes = write(fd, str, strlen(str));
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         close(fd);
         printf("[success]: %s > %s\n", str, path);
         return 0;
@@ -87,7 +97,10 @@ int set_cmd(const char *str, const char *path)
 bool is_video_file_type_ivf(FILE *fp, int video_type, char *buffer)
 {
     if (fp && video_type == VFORMAT_AV1) {
-        fread(buffer, 1, 4, fp);
+        ssize_t bytes = fread(buffer, 1, 4, fp);
+        if (bytes == -1) {
+            printf("write error, bytes: %d", bytes);
+        }
         fseek(fp, 0, SEEK_SET);
         if ((buffer[0] == 0x44) &&
             (buffer[1] == 0x4B) &&

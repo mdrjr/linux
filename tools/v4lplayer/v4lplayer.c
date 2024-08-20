@@ -25,6 +25,8 @@
 #include <semaphore.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <stdint.h>
+
 #include "vcodec_utils.h"
 #include "v4l2_dec.h"
 

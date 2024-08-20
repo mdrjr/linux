@@ -22,8 +22,6 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,6 +30,8 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdint.h>
+
 #include "vcodec.h"
 
 #define u32 unsigned int
@@ -122,8 +122,31 @@ int main(int argc, char *argv[])
 
 	printf("%zu %zu %zu \n",sizeof(struct vframe_comm_s),
 		sizeof(struct vframe_counter_s),sizeof(struct av_param_mvdec_t));
-	system("mkdir -p /data/tmp/mvdec");
-	system("rm /data/tmp/mvdec/vdec*");
+	int status = system("mkdir -p /data/tmp/mvdec");
+	if (status == -1) {
+		// Handle error: system call failed
+		printf("system call (mkdir -p /data/tmp/mvdec) failed %d\n", __LINE__);
+	} else {
+		// Optionally handle specific command exit status
+		int exit_status = WEXITSTATUS(status);
+		if (exit_status != 0) {
+			// Handle specific command failure
+			printf("system call (mkdir -p /data/tmp/mvdec) failed %d\n", __LINE__);
+		}
+	}
+
+	status = system("rm /data/tmp/mvdec/vdec*");
+	if (status == -1) {
+		// Handle error: system call failed
+		printf("system call (mkdir -p /data/tmp/mvdec) failed %d\n", __LINE__);
+	} else {
+		// Optionally handle specific command exit status
+		int exit_status = WEXITSTATUS(status);
+		if (exit_status != 0) {
+			// Handle specific command failure
+			printf("system call (mkdir -p /data/tmp/mvdec) failed %d\n", __LINE__);
+		}
+	}
 
 	for (i=0; i<9; i++) {
 		vfp[i] = NULL;
