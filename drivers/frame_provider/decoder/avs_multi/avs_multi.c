@@ -223,6 +223,7 @@ firmware_sel
 static int firmware_sel;
 static int disable_longcabac_trans = 1;
 static int pre_decode_buf_level = 0x800;
+static int without_display_mode;
 
 static struct vframe_s *vavs_vf_peek(void *);
 static struct vframe_s *vavs_vf_get(void *);
@@ -1208,20 +1209,25 @@ static int vavs_canvas_init(struct vdec_avs_hw_s *hw)
 		decbuf_size = 0x300000;
 	}
 
+	if (is_vdec_hevc_combine()) {
+		// config fix stride
+		WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | canvas_width));
+	}
+
 	for (i = 0; i < hw->vf_buf_num_used; i++) {
 		unsigned canvas;
 		if (vdec->parallel_dec == 1) {
 			unsigned tmp;
+			if (canvas_y(hw->canvas_spec[i]) == 0xff) {
+				tmp = vdec->get_canvas_ex(CORE_MASK_VDEC_1, vdec->id);
+				hw->canvas_spec[i] &= ~0xff;
+				hw->canvas_spec[i] |= tmp;
+			}
 			if (canvas_u(hw->canvas_spec[i]) == 0xff) {
 				tmp = vdec->get_canvas_ex(CORE_MASK_VDEC_1, vdec->id);
 				hw->canvas_spec[i] &= ~(0xffff << 8);
 				hw->canvas_spec[i] |= tmp << 8;
 				hw->canvas_spec[i] |= tmp << 16;
-			}
-			if (canvas_y(hw->canvas_spec[i]) == 0xff) {
-				tmp = vdec->get_canvas_ex(CORE_MASK_VDEC_1, vdec->id);
-				hw->canvas_spec[i] &= ~0xff;
-				hw->canvas_spec[i] |= tmp;
 			}
 			canvas = hw->canvas_spec[i];
 		} else {
@@ -1266,24 +1272,26 @@ static int vavs_canvas_init(struct vdec_avs_hw_s *hw)
 			if (hw->m_ins_flag) {
 
 				hw->canvas_config[i][0].phy_addr =
-				buf_start;
+					buf_start;
 				hw->canvas_config[i][0].width =
-				canvas_width;
+					canvas_width;
 				hw->canvas_config[i][0].height =
-				canvas_height;
+					canvas_height;
 				hw->canvas_config[i][0].block_mode =
 					vdec->canvas_mode;
-				hw->canvas_config[i][0].endian = 0;
+				hw->canvas_config[i][0].endian =
+					(vdec->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;;
 
 				hw->canvas_config[i][1].phy_addr =
-				buf_start + decbuf_y_size;
+					buf_start + decbuf_y_size;
 				hw->canvas_config[i][1].width =
-				canvas_width;
+					canvas_width;
 				hw->canvas_config[i][1].height =
-				canvas_height / 2;
+					canvas_height / 2;
 				hw->canvas_config[i][1].block_mode =
 					vdec->canvas_mode;
-				hw->canvas_config[i][1].endian = 0;
+				hw->canvas_config[i][1].endian =
+					(vdec->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;;
 			} else {
 #ifdef NV21
 				canvas_config(canvas_base + canvas_num * i + 0,
@@ -1408,6 +1416,8 @@ static void vavs_recover(struct vdec_avs_hw_s *hw)
 	SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 17);
 #endif
 	CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+	if (is_vdec_hevc_combine())
+		CLEAR_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
 
 #ifdef PIC_DC_NEED_CLEAR
 	CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 31);
@@ -1568,6 +1578,40 @@ static void vavs_restore_regs(struct vdec_avs_hw_s *hw)
 
 }
 
+static void config_canvas_hevc(struct vdec_avs_hw_s *hw)
+{
+	uint data32 = 0, endian = 0;
+	struct vdec_s *vdec = hw_to_vdec(hw);
+
+	WRITE_VREG(HEVCD_MCRCC_CTL1, 0x2); // reset mcrcc
+
+	// program canvas0
+	WRITE_VREG(HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, (0 << 8) | (0 << 1) | 0);
+	data32 = READ_VREG(HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+	data32 = data32 & 0xffff;
+	data32 = data32 | (data32 << 16);
+	WRITE_VREG(HEVCD_MCRCC_CTL2, data32);
+
+	// program canvas1
+	WRITE_VREG(HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, (16 << 8) | (1 << 1) | 0);
+	data32 = READ_VREG(HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+	data32 = data32 & 0xffff;
+	data32 = data32 | (data32 << 16);
+	WRITE_VREG(HEVCD_MCRCC_CTL3, data32);
+	WRITE_VREG(HEVCD_MCRCC_CTL1, 0xff0); // enable mcrcc progressive-mode
+
+	data32 = READ_VREG(HEVCD_IPP_AXIIF_CONFIG);
+	data32 &= (~0x3f);
+	// [5:4] -- address_format 00:linear 01:32x32 10:64x32
+	data32 |= (vdec->canvas_mode << 4);
+	if (vdec->canvas_mode == CANVAS_BLKMODE_LINEAR)
+		endian = 7;
+	data32 |= (1 << 3) | endian;
+	WRITE_VREG(HEVCD_IPP_AXIIF_CONFIG, data32);
+
+	WRITE_VREG(HEVCD_IPP_DYN_CACHE, 0x2b); // enable new mcrcc
+}
+
 static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 {
 	int r = 0;
@@ -1594,6 +1638,17 @@ static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 	WRITE_VREG_BITS(VLD_MEM_VIFIFO_CONTROL, 2, MEM_FIFO_CNT_BIT, 2);
 	WRITE_VREG_BITS(VLD_MEM_VIFIFO_CONTROL,	8, MEM_LEVEL_CNT_BIT, 6);
 	/*************************************************************/
+
+	if (is_vdec_hevc_combine()) {
+		WRITE_VREG(HEVCD_IPP_TOP_CNTL, (0 << 1) | (1 << 0));
+		WRITE_VREG(HEVCD_IPP_TOP_CNTL, (1 << 1) | (0 << 0));
+
+		WRITE_VREG(HEVCD_MPP_VDEC_MCR_CTL, (1 << 4) | 1);
+		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, 1 << 31);
+
+		SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 18);
+	}
+
 	if (hw->m_ins_flag) {
 		int i;
 		u32 index = -1;
@@ -1640,7 +1695,8 @@ static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 					hw->canvas_config[i][0].height,
 					CANVAS_ADDR_NOWRAP,
 					hw->canvas_config[i][0].block_mode,
-					0, VDEC_1);
+					hw->canvas_config[i][0].endian,
+					VDEC_1);
 
 				config_cav_lut_ex(canvas_u(hw->canvas_spec[i]),
 					hw->canvas_config[i][1].phy_addr,
@@ -1648,8 +1704,31 @@ static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 					hw->canvas_config[i][1].height,
 					CANVAS_ADDR_NOWRAP,
 					hw->canvas_config[i][1].block_mode,
-					0, VDEC_1);
+					hw->canvas_config[i][1].endian,
+					VDEC_1);
+
+				if (is_vdec_hevc_combine()) {
+					WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR,
+						(canvas_y(hw->canvas_spec[i]) << 8) | (1 << 1));
+					WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_DATA,
+						hw->canvas_config[i][0].phy_addr >> 5);
+
+					WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR,
+						(canvas_u(hw->canvas_spec[i]) << 8) | (1 << 1));
+					WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_DATA,
+						hw->canvas_config[i][1].phy_addr >> 5);
+
+					WRITE_VREG(HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR,
+						(canvas_y(hw->canvas_spec[i]) << 7) | 1);
+					WRITE_VREG(HEVCD_MPP_ANC_CANVAS_DATA_ADDR,
+						(canvas_u(hw->canvas_spec[i]) << 8) | canvas_y(hw->canvas_spec[i]));
+				}
 			}
+		}
+
+		if (is_vdec_hevc_combine()) {
+			WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR, 0x1);
+			config_canvas_hevc(hw);
 		}
 	} else {
 		r = vavs_canvas_init(hw);
@@ -1717,6 +1796,8 @@ static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 	SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 17);
 #endif
 	CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 16);
+	if (is_vdec_hevc_combine())
+		CLEAR_VREG_MASK(HEVCD_IPP_AXIIF_CONFIG, 1 << 12);
 
 	CLEAR_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 31);
 	if (hw->m_ins_flag && start_decoding_delay > 0)
@@ -2932,6 +3013,8 @@ void (*callback)(struct vdec_s *, void *, int),
 	hw->run_count++;
 	run_count[DECODE_ID(hw)] = hw->run_count;
 	vdec_reset_core(vdec);
+	if (is_vdec_hevc_combine())
+		WRITE_VREG(HEVC_CORE_ENABLE, 0);
 #if DEBUG_MULTI_FLAG > 0
 	}
 #endif
@@ -3277,7 +3360,7 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 
 			debug_print(hw, PRINT_FLAG_PTS,
 				"interlace1 vf->pts = %d, vf->pts_us64 = %lld, pts_valid = %d\n", vf->pts, vf->pts_us64, pts_valid);
-			if (hw->pics[buffer_index].error_flag) {
+			if (hw->pics[buffer_index].error_flag || without_display_mode) {
 				vavs_vf_put(vf, hw);
 			} else {
 				vdec_vframe_ready(vdec, vf);
@@ -3374,7 +3457,8 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 			debug_print(hw, PRINT_FLAG_PTS,
 				"interlace2 vf->pts = %d, vf->pts_us64 = %lld, pts_valid = %d\n", vf->pts, vf->pts_us64, pts_valid);
 
-			if (hw->pics[buffer_index].error_flag) {
+			decoder_do_frame_check(hw_to_vdec(hw), vf);
+			if (hw->pics[buffer_index].error_flag || without_display_mode) {
 				vavs_vf_put(vf, hw);
 			} else {
 				vdec_vframe_ready(vdec, vf);
@@ -3490,10 +3574,10 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 				}
 			}
 
-			if (hw->pics[buffer_index].error_flag) {
+			decoder_do_frame_check(hw_to_vdec(hw), vf);
+			if (hw->pics[buffer_index].error_flag || without_display_mode) {
 				vavs_vf_put(vf, hw);
 			} else {
-				decoder_do_frame_check(hw_to_vdec(hw), vf);
 				vdec_vframe_ready(vdec, vf);
 				kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 				ATRACE_COUNTER(hw->pts_name, vf->pts);
@@ -5020,6 +5104,8 @@ module_param(pre_decode_buf_level, int, 0664);
 MODULE_PARM_DESC(pre_decode_buf_level,
 				"\n ammvdec_mavs pre_decode_buf_level\n");
 
+module_param(without_display_mode, uint, 0664);
+MODULE_PARM_DESC(without_display_mode, "\n without_display_mode\n");
 
 #ifdef DEBUG_MULTI_WITH_AUTOMODE
 module_param(debug_flag2, uint, 0664);

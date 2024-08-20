@@ -3,6 +3,7 @@ MEDIA_MODULE_PATH := $(dir $(mkfile_path))
 VERSION_CONTROL_CFLAGS := $(shell ${MEDIA_MODULE_PATH}/version_control.sh)
 TARGET_VENDOR_MEDIA_VVC_SUPPORT := true
 
+PRODUCT_FULL_DIR ?= ${MAIN_FOLDER}/${PROJECT_CONFIG_DIR}
 ifeq (${wildcard ${PRODUCT_FULL_DIR}/media_modules.build.config.trunk.mk},)
 ${info "media_modules use default config"}
 MEDIA_MODULES_CFLAGS = ""
