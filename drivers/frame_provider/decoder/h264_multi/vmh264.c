@@ -2113,6 +2113,7 @@ static void release_cur_decoding_buf(struct vdec_h264_hw_s *hw)
 		release_picture(p_H264_Dpb,
 			p_H264_Dpb->mVideo.dec_picture);
 		p_H264_Dpb->mVideo.dec_picture->data_flag &= ~ERROR_FLAG;
+		p_H264_Dpb->mVideo.dec_picture->data_flag &= ~NULL_FLAG;
 		p_H264_Dpb->mVideo.dec_picture = NULL;
 		if (hw->mmu_enable &&
 			hw->dec_result != DEC_RESULT_TIMEOUT)
@@ -3320,14 +3321,18 @@ static int post_prepare_process(struct vdec_s *vdec, struct FrameStore *frame)
 			((frame->is_used == 1 && frame->top_field)
 			|| (frame->is_used == 2 && frame->bottom_field))) {
 			if (hw->i_only) {
-				if (frame->is_used == 1)
+				if (frame->is_used == 1) {
+					frame->offset_delimiter = frame->top_field->offset_delimiter;
 					dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 						"%s   No bottom_field !!  frame_num %d  used %d\n",
 						__func__, frame->frame_num, frame->is_used);
-				if (frame->is_used == 2)
+				}
+				if (frame->is_used == 2) {
+					frame->offset_delimiter = frame->bottom_field->offset_delimiter;
 					dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 						"%s   No top_field !!  frame_num %d  used %d\n",
 						__func__, frame->frame_num, frame->is_used);
+				}
 			}
 			else {
 				frame->data_flag |= ERROR_FLAG;
@@ -8318,11 +8323,10 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		I_flag = (p_H264_Dpb->dpb_param.l.data[SLICE_TYPE] == I_Slice)
 			? I_FLAG : 0;
 
-		if ((hw->i_only & 0x2) && (I_flag & I_FLAG))
+		if (hw->i_only & 0x2)
 			flush_dpb(p_H264_Dpb);
 
-		if ((hw->i_only & 0x2) && (!(I_flag & I_FLAG)) &&
-			(p_H264_Dpb->mSlice.structure == FRAME)) {
+		if ((hw->i_only & 0x2) && (!(I_flag & I_FLAG))) {
 				hw->data_flag = NULL_FLAG;
 				goto pic_done_proc;
 		}
