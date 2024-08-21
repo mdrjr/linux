@@ -75,8 +75,6 @@ void vdec_module_exit(void);
 #define DEC_FLAG_HEVC_WORKAROUND 0x01
 
 #define VDEC_FIFO_ALIGN 8
-#define VDEC_DBG_ENABLE_TIME_DEBUG (0x400)
-#define VDEC_DBG_ENABLE_HW_TIME_DEBUG (0x2000)
 
 enum vdec_type_e {
 	VDEC_1 = 0,
@@ -220,6 +218,7 @@ extern void vdec_power_reset(void);
 extern int rate_time_avg_cnt;
 extern int rate_time_avg_threshold_hi;
 extern int rate_time_avg_threshold_lo;
+extern u32 decoder_bw_config;
 
 /*irq num as same as .dts*/
 
@@ -348,6 +347,8 @@ enum vformat_t;
 #define VDEC_DBG_CANVAS_STATUS	(0x4)
 #define VDEC_DBG_DETAIL_INFO	(0x8)
 #define VDEC_DBG_ENABLE_FENCE	(0x100)
+#define VDEC_DBG_ENABLE_TIME_DEBUG (0x400)
+#define VDEC_DBG_ENABLE_HW_TIME_DEBUG (0x4000)
 
 #define ALLOC_AUX_BUF         0x1
 #define ALLOC_USER_BUF        0x2
@@ -575,6 +576,8 @@ struct vdec_s {
 	u64 back_run2cb_time;
 	u64 front_run2cb_time;
 	char vdec_stuck_state_name[32];
+	u64 last_bw[8];
+	char bandwidth_name[32];
 };
 
 #define CODEC_MODE(a, b, c, d)\
@@ -824,6 +827,8 @@ extern bool vdec_core_with_input(unsigned long mask);
 extern void vdec_core_finish_run(struct vdec_s *vdec, unsigned long mask);
 
 extern u32 vdec_get_debug(void);
+
+extern void aml_get_all_channel_grant(u64 *channel_grant);
 
 #ifdef VDEC_DEBUG_SUPPORT
 extern void vdec_set_step_mode(void);

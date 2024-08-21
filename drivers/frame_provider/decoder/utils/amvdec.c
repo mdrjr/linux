@@ -1097,6 +1097,8 @@ void amhevc_start(void)
 		SET_VREG_MASK(HEVC_WRRSP_LMEM, (7 << 25));
 		WRITE_VREG(HEVC_MPSR, 0x0001);
 	}
+	if (is_support_bandwidth_msr() && (decoder_bw_config & 0xf))
+		WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x3);
 }
 EXPORT_SYMBOL(amhevc_start);
 

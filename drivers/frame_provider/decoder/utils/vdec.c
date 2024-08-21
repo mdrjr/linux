@@ -132,6 +132,9 @@ static int one_pack_multi_f_set_align_size = 0;
  * 0x2  : always reload firmware.
  * 0x4  : vdec canvas debug enable
  * 0x100: enable vdec fence.
+ * 0x400: enable run2cb time (Currently using)
+ * 0x4000: enable hw time    (Currently using)
+ * 0x8000: enable ddr BW     (Currently using)
  */
 #define VDEC_DBG_SCHED_PRIO	(0x1)
 #define VDEC_DBG_ALWAYS_LOAD_FW	(0x2)
@@ -141,6 +144,7 @@ static int one_pack_multi_f_set_align_size = 0;
 #define VDEC_DBG_STUCK_STATE_DEBUG (0x800)
 #define VDEC_DBG_ENABLE_CODE_RATE_DEBUG (0x1000)
 #define VDEC_DBG_AUTO_CLK_GATE_DISABLE (0x2000)
+#define VDEC_DBG_DDR_BW_DEBUG (0x8000)
 
 #define FRAME_BASE_PATH_DI_V4LVIDEO_0 (29)
 #define FRAME_BASE_PATH_DI_V4LVIDEO_1 (30)
@@ -209,6 +213,14 @@ int frame_fps = 60;
 int code_rate_avg_threshold_hi = 130;
 int rate_time_avg_threshold_hi = 16700;
 int rate_time_avg_threshold_lo = 16700;
+
+/*
+ *[3:0]  0: s6 use DMC.
+ *       1: s6 use HEVC path monitor.
+ *[7:4]  Configure the DMC VDEC PORT.
+ *[11:8] Configure the DMC HEVC PORT.
+ */
+u32 decoder_bw_config = 0x321;
 
 static int mmu_copy_enable = 1;
 
@@ -2712,6 +2724,114 @@ void vdec_vframe_dirty(struct vdec_s *vdec, struct vframe_chunk_s *chunk)
 }
 EXPORT_SYMBOL(vdec_vframe_dirty);
 
+#define FIXED_POINT_SCALE (1024 * 1024)
+#define FIXED_POINT_SCALE_LOG2 20
+#define FLOAT_TO_FIXED(x) ((int)((x) * FIXED_POINT_SCALE))
+#define FIXED_TO_FLOAT(x) ((float)(x) / FIXED_POINT_SCALE)
+
+static void vdec_get_ddr_bandwidth(struct vdec_s *vdec)
+{
+	if (is_support_bandwidth_msr() && (decoder_bw_config & 0xf)) {
+		if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6) &&
+			vdec->format < VFORMAT_HEVC) {
+			u64 db_port[24] = {0}, bw_sum = 0, bandwidth_data = 0;
+			int i;
+			const char* db_port_name[3] = {
+				"HEVC_B",
+				"HEVC_F",
+				"VDEC"
+			};
+
+			aml_get_all_channel_grant(db_port);
+
+			for (i = 0; i < 3; i++) {
+				if (db_port[i+6] - vdec->last_bw[i] < 0)
+					bandwidth_data = db_port[i+6] + U64_MAX -vdec->last_bw[i];
+				else
+					bandwidth_data = db_port[i+6] - vdec->last_bw[i];
+				bw_sum += bandwidth_data;
+				if (vdec_get_debug() & VDEC_DBG_DDR_BW_DEBUG)
+					pr_info("vdec ddr_bandwidth %s bw  %llu \n", db_port_name[i], bandwidth_data);
+				vdec->last_bw[i] = db_port[i+6];
+			}
+
+			ATRACE_COUNTER(vdec->bandwidth_name, bw_sum);
+		} else {
+			u32 req_count, ddr3_count, ddr4_count;
+			u32 ddr4_amend_wf_counte, ddr4_amend_wb_counte, ddr4_amend_counter, scale;
+
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0); // Disable monitor and set rd_idx to 0
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x12 << 4);
+			req_count = READ_VREG(HEVC_PATH_MONITOR_DATA);
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x13<<4);
+			ddr3_count = READ_VREG(HEVC_PATH_MONITOR_DATA);
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x14<<4);
+			ddr4_count = READ_VREG(HEVC_PATH_MONITOR_DATA);
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x15<<4);
+			ddr4_amend_wf_counte = READ_VREG(HEVC_PATH_MONITOR_DATA);
+			WRITE_VREG(HEVC_PATH_MONITOR_CTRL, 0x16<<4);
+			ddr4_amend_wb_counte = READ_VREG(HEVC_PATH_MONITOR_DATA);
+			ddr4_amend_counter = ddr4_amend_wf_counte + ddr4_amend_wb_counte;
+			if (ddr4_count < 70000)
+				scale = 0;
+			else
+				scale = (ddr4_count * FLOAT_TO_FIXED(0.000001)) + FLOAT_TO_FIXED(16.884);
+			ddr4_count = ddr4_count + ((ddr4_amend_counter * scale) >> FIXED_POINT_SCALE_LOG2);
+			if (vdec_get_debug() & VDEC_DBG_DDR_BW_DEBUG)
+				pr_info("vdec ddr_bandwidth req_count_total %u ddr3_count_total %u ddr4_count_total %u ddr4_amend_wf_counte %u ddr4_amend_wb_counte %u ddr4_count_total_scale %u\n",
+					req_count, ddr3_count, ddr4_count, ddr4_amend_wf_counte, ddr4_amend_wb_counte, ddr4_count);
+
+			ATRACE_COUNTER(vdec->bandwidth_name, req_count);
+		}
+	} else {
+		u64 db_port[24] = {0}, bw_sum = 0;
+		int i;
+		int port_vdec = ((decoder_bw_config >> 4) & 0xf);
+		int port_hevc = ((decoder_bw_config >> 8) & 0xf);
+		const char* db_port_name[3] = {
+			"HEVC_B",
+			"HEVC_F",
+			"VDEC"
+		};
+
+		aml_get_all_channel_grant(db_port);
+
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S6) {
+			u64 bandwidth_data;
+			for (i = 0; i < 3; i++) {
+				if (db_port[i+6] - vdec->last_bw[i] < 0)
+					bandwidth_data = db_port[i+6] + U64_MAX -vdec->last_bw[i];
+				else
+					bandwidth_data = db_port[i+6] - vdec->last_bw[i];
+				bw_sum += bandwidth_data;
+				if (vdec_get_debug() & VDEC_DBG_DDR_BW_DEBUG)
+					pr_info("vdec ddr_bandwidth %s bw  %llu \n", db_port_name[i], bandwidth_data);
+				vdec->last_bw[i] = db_port[i+6];
+			}
+		} else {
+			u64 vdec_bandwidth_data = 0, hevc_bandwidth_data = 0;
+			if (db_port[port_hevc] - vdec->last_bw[port_hevc] < 0)
+				hevc_bandwidth_data = db_port[port_hevc] + U64_MAX - vdec->last_bw[port_hevc];
+			else
+				hevc_bandwidth_data = db_port[port_hevc] - vdec->last_bw[port_hevc];
+
+			if (db_port[port_vdec] - vdec->last_bw[port_vdec] < 0)
+				vdec_bandwidth_data = db_port[port_vdec] + U64_MAX - vdec->last_bw[port_vdec];
+			else
+				vdec_bandwidth_data = db_port[port_vdec] - vdec->last_bw[port_vdec];
+
+			if (vdec_get_debug() & VDEC_DBG_DDR_BW_DEBUG)
+				pr_info("vdec ddr_bandwidth vdec core bw %llu, hevc core bw %llu \n",
+					vdec_bandwidth_data, hevc_bandwidth_data);
+			bw_sum = vdec_bandwidth_data + hevc_bandwidth_data;
+			vdec->last_bw[port_vdec] = db_port[port_vdec];
+			vdec->last_bw[port_hevc] = db_port[port_hevc];
+		}
+
+		ATRACE_COUNTER(vdec->bandwidth_name, bw_sum);
+	}
+}
+
 void vdec_code_rate(struct vdec_s *vdec, uint32_t size)
 {
 	int i = 0;
@@ -2724,6 +2844,8 @@ void vdec_code_rate(struct vdec_s *vdec, uint32_t size)
 	}
 	ATRACE_COUNTER(vdec->frame_size, size);
 	ATRACE_COUNTER(vdec->frame_code_rate_name, vdec->code_rate[i]);
+
+	vdec_get_ddr_bandwidth(vdec);
 
 	vdec->decoded_count++;
 }
@@ -3350,6 +3472,8 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k, bool is_v4l)
 			"decode_%s_spend_time_avg-%d", is_support_dual_core()?"hw_front":"hw", vdec->id);
 	snprintf(vdec->decode_hw_back_spend_time_avg, sizeof(vdec->decode_hw_back_spend_time_avg),
 		"decode_hw_back_spend_time_avg-%d", vdec->id);
+	snprintf(vdec->bandwidth_name, sizeof(vdec->bandwidth_name),
+		"vdec_total_bandwidth-%d", vdec->id);
 	/*
 	 *todo: VFM patch control should be configurable,
 	 * for now all stream based input uses default VFM path.
@@ -5599,6 +5723,7 @@ void hevc_reset_core(struct vdec_s *vdec)
 	if (vdec_get_debug() & VDEC_DBG_AUTO_CLK_GATE_DISABLE) {
 		hevc_auto_clk_gate_disable();
 	}
+
 }
 EXPORT_SYMBOL(hevc_reset_core);
 
@@ -8247,6 +8372,9 @@ MODULE_PARM_DESC(rate_time_avg_threshold_lo, "\n rate_time_avg_threshold_lo\n");
 
 module_param(mediasync_add_di, uint, 0664);
 MODULE_PARM_DESC(mediasync_add_di, "\n mediasync_add_di\n");
+
+module_param(decoder_bw_config, uint, 0664);
+MODULE_PARM_DESC(decoder_bw_config, "\n decoder_bw_config\n");
 
 module_param(mediasync_add_amlvideo2, uint, 0664);
 MODULE_PARM_DESC(mediasync_add_amlvideo2, "\n mediasync_add_amlvideo2\n");

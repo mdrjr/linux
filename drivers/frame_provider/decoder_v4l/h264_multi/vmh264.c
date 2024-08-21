@@ -1000,6 +1000,7 @@ struct vdec_h264_hw_s {
 	bool csd_restore_flag;
 	u32 csd_restore_timeout_num;
 	u32 mb_count_threshold;
+	u32 stream_size;
 };
 
 #define TIMEOUT_INIT 0
@@ -11084,6 +11085,22 @@ result_done:
 			READ_VREG(VLD_MEM_VIFIFO_RP));
 		mutex_lock(&hw->chunks_mutex);
 		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
+		if (hw->dpb.dec_dpb_status == H264_PIC_DATA_DONE) {
+			u32 size;
+			if (vdec_frame_based(vdec)) {
+				size = hw->chunk_size - (READ_VREG(VIFF_BIT_CNT) >> 3);
+				if (size == 0)
+					vdec_code_rate(vdec, hw->chunk_size);
+				else
+					vdec_code_rate(vdec, size);
+			} else if (vdec_stream_based(vdec)) {
+				size = hw->stream_size - (READ_VREG(VIFF_BIT_CNT) >> 3);
+				if (size == 0)
+					vdec_code_rate(vdec, hw->stream_size);
+				else
+					vdec_code_rate(vdec, size);
+			}
+		}
 		hw->chunk = NULL;
 		mutex_unlock(&hw->chunks_mutex);
 		if (ctx->es_free)
@@ -11197,6 +11214,22 @@ result_done:
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
 			"%s, DEC_RESULT_UNFINISH\n", __func__);
 		amvdec_stop();
+		if (hw->dpb.dec_dpb_status == H264_PIC_DATA_DONE) {
+			u32 size;
+			if (vdec_frame_based(vdec)) {
+				size = hw->chunk_size - (READ_VREG(VIFF_BIT_CNT) >> 3);
+				if (size == 0)
+					vdec_code_rate(vdec, hw->chunk_size);
+				else
+					vdec_code_rate(vdec, size);
+			} else if (vdec_stream_based(vdec)) {
+				size = hw->stream_size - (READ_VREG(VIFF_BIT_CNT) >> 3);
+				if (size == 0)
+					vdec_code_rate(vdec, hw->stream_size);
+				else
+					vdec_code_rate(vdec, size);
+			}
+		}
 
 		{
 			if (hw->error_proc_policy & 0x8000) {
@@ -11572,7 +11605,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			hw->reserved_byte,
 			hw->reserved_byte*8);
 
-		vdec_code_rate(vdec, hw->consume_byte);
 		data_invalid = vdec_offset_prepare_input(vdec, hw->consume_byte, hw->chunk_offset, hw->chunk_size);
 		hw->chunk_offset = (hw->chunk_offset + hw->consume_byte) - data_invalid;
 		hw->chunk_size = (hw->chunk_size - hw->consume_byte) + data_invalid;
@@ -11603,10 +11635,9 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			(hw->chunk != NULL)) {
 			hw->chunk_offset = hw->chunk->offset;
 			hw->chunk_size = hw->chunk->size;
-			vdec_code_rate(vdec, hw->chunk_size);
 		}
 		if (vdec_stream_based(vdec))
-			vdec_code_rate(vdec, size);
+			hw->stream_size = size;
 		WRITE_VREG(AV_SCRATCH_1, 0); // reuse the register AV_SCRATCH_1 to store the reserved bit_cnt for one packet multi-frame
 	}
 

@@ -492,6 +492,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_vp9_adapt_prob_hw_mode = true,
 		.is_support_p010 = true,
 		.is_support_monitor = true,
+		.is_support_bandwidth_msr = true,
 		.hevc_stream_extra_shift = 8,
 		.vdec_max_resolution = RESOLUTION_4K,
 		.hevc_max_resolution = RESOLUTION_4K,
@@ -519,6 +520,7 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 		.is_support_monitor = true,
 		.hevc_stream_extra_shift = 8,
 		.is_vdec_hevc_combine = true,
+		.is_support_bandwidth_msr = false,
 		.vdec_max_resolution = RESOLUTION_1080P,
 		.hevc_max_resolution = RESOLUTION_1080P,
 		.fmt_support_flags = FMT_VDEC_ALL | FMT_HEVC_VP9_AV1,
@@ -1253,6 +1255,12 @@ inline bool is_support_monitor(void)
 }
 EXPORT_SYMBOL(is_support_monitor);
 
+inline bool is_support_bandwidth_msr(void)
+{
+	return (platform_dos_dev->is_support_bandwidth_msr);
+}
+EXPORT_SYMBOL(is_support_bandwidth_msr);
+
 inline bool is_support_mmu_copy(void)
 {
 	return (platform_dos_dev->is_support_mmu_copy);
@@ -1344,6 +1352,7 @@ void pr_dos_infos(void)
 	pr_info("support mmu copy    : %d\n", is_support_mmu_copy());
 	pr_info("support dos axi ctrl: %d\n", is_support_axi_ctrl());
 	pr_info("support monitor     : %d\n", is_support_monitor());
+	pr_info("hevc support get bandwidth   : %d\n", is_support_bandwidth_msr());
 	pr_info("support format      : 0x%x\n", platform_dos_dev->fmt_support_flags);
 	pr_info("hevc_stream_extra_shift_bytes: %d\n", get_hevc_stream_extra_shift_bytes());
 	pr_info("mjpeg endian rematch: %d\n", is_mjpeg_endian_rematch());
