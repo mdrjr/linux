@@ -349,6 +349,7 @@ enum vformat_t;
 #define VDEC_DBG_ENABLE_FENCE	(0x100)
 #define VDEC_DBG_ENABLE_TIME_DEBUG (0x400)
 #define VDEC_DBG_ENABLE_HW_TIME_DEBUG (0x4000)
+#define VDEC_DBG_ENABLE_PRINT_TIME_DEBUG (0x10000)
 
 #define ALLOC_AUX_BUF         0x1
 #define ALLOC_USER_BUF        0x2
