@@ -1988,30 +1988,6 @@ ulong get_addr(struct vb2_buffer *vb, int i)
 		vb2_dma_contig_plane_dma_addr(vb, i);
 }
 
-static void aml_uvm_buf_delay_free(struct uvm_buf_obj *obj)
-{
-	struct mua_buffer *mbuf;
-	struct aml_vcodec_ctx *ctx = obj->arg;
-
-	mbuf = container_of(obj, struct mua_buffer, base);
-	if (!mbuf)
-		return;
-
-	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-		"%s ion buffer:%px/%px, dbuf:%px/%px\n",
-		__func__, mbuf->ibuffer[0], mbuf->ibuffer[1],
-		mbuf->idmabuf[0], mbuf->idmabuf[1]);
-
-	if (mbuf->idmabuf[0]) {
-		dma_buf_put(mbuf->idmabuf[0]);
-	}
-	if (mbuf->idmabuf[1]) {
-		dma_buf_put(mbuf->idmabuf[1]);
-	}
-
-	aml_media_mem_free(mbuf);
-}
-
 static void aml_uvm_copy_sgt(struct sg_table *dst_table,
 			     struct sg_table *src_table)
 {
@@ -2206,7 +2182,6 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	ua		= handle->ua;
 	ua->obj->arg	= ctx;
 	ua->obj->dev	= dev;
-	ua->free	= aml_uvm_buf_delay_free;
 
 	if (ctx->alloc_type) {
 		ibuf		= idbuf->priv;
