@@ -435,7 +435,7 @@ static struct BuffInfo_s amvenc_buffspec[] = {
 			.buf_start = 0xb00000,
 			.buf_size = 0x300000,
 		},
-		.assit = {
+		.assist = {
 			.buf_start = 0xe10000,
 			.buf_size = 0xc0000,
 		},
@@ -471,10 +471,15 @@ const char *ucode_name[] = {
 	"ga_h264_enc_cabac",
 };
 
+static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
+static DEFINE_SEMAPHORE(s_vpu_sem);
+static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
+
 static void dma_flush(u32 buf_start, u32 buf_size);
 static void cache_flush(u32 buf_start, u32 buf_size);
 static int enc_dma_buf_get_phys(struct enc_dma_cfg *cfg, unsigned long *addr);
 static void enc_dma_buf_unmap(struct enc_dma_cfg *cfg);
+static s32 enc_free_buffers(struct file *filp);
 
 //static struct canvas_status_s canvas_stat[CANVAS_MAX_SIZE];
 //static struct canvas_status_s mdec_cav_stat[MDEC_CAV_LUT_MAX];
@@ -880,7 +885,7 @@ static void avc_init_reference_buffer(s32 canvas)
 
 static void avc_init_assit_buffer(struct encode_wq_s *wq)
 {
-	WRITE_HREG(MEM_OFFSET_REG, wq->mem.assit_buffer_offset);
+	WRITE_HREG(MEM_OFFSET_REG, wq->mem.assist_buffer_offset);
 }
 
 /*deblock buffer setting, same as INI_CANVAS*/
@@ -978,10 +983,10 @@ static void avc_buffspec_init(struct encode_wq_s *wq)
 		wq->mem.bufspec.dec1_y.buf_start +
 		canvas_width * canvas_height;
 	wq->mem.bufspec.dec1_uv.buf_size = canvas_width * canvas_height / 2;
-	wq->mem.assit_buffer_offset = start_addr +
-		wq->mem.bufspec.assit.buf_start;
-	enc_pr(LOG_INFO, "assit_buffer_offset is 0x%x, wq: %p.\n",
-		wq->mem.assit_buffer_offset, (void *)wq);
+	wq->mem.assist_buffer_offset = start_addr +
+		wq->mem.bufspec.assist.buf_start;
+	enc_pr(LOG_INFO, "assist_buffer_offset is 0x%x, wq: %p.\n",
+		wq->mem.assist_buffer_offset, (void *)wq);
 	/*output stream buffer config*/
 	wq->mem.BitstreamStart = start_addr +
 		wq->mem.bufspec.bitstream.buf_start;
@@ -2869,7 +2874,7 @@ s32 amvenc_loadmc(const char *p, struct encode_wq_s *wq)
 		&encode_manager.this_pdev->dev,
 		mc_addr, MC_SIZE, DMA_TO_DEVICE);
 
-	/* mc_addr_map = wq->mem.assit_buffer_offset; */
+	/* mc_addr_map = wq->mem.assist_buffer_offset; */
 	/* mc_addr = ioremap_wc(mc_addr_map, MC_SIZE); */
 	/* memcpy(mc_addr, p, MC_SIZE); */
 	enc_pr(LOG_ALL, "address 0 is 0x%x\n", *((u32 *)mc_addr));
@@ -3752,6 +3757,7 @@ static s32 amvenc_avc_release(struct inode *inode, struct file *file)
 
 	if (wq) {
 		enc_pr(LOG_DEBUG, "avc release, wq:%p\n", (void *)wq);
+		enc_free_buffers(file);
 		destroy_encode_work_queue(wq);
 	}
 	return 0;
@@ -3769,6 +3775,13 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 	s32 canvas = -1;
 	struct canvas_s dst;
 	u32 cpuid;
+	struct encdrv_buffer_t buf;
+	struct encdrv_buffer_pool_t *pool, *n;
+	struct encdrv_buffer_t vb;
+	struct encdrv_buffer_pool_t *vbp;
+	bool find = false;
+	u32 cached = 0;
+
 	memset(&dst, 0, sizeof(struct canvas_s));
 	switch (cmd) {
 	case AMVENC_AVC_IOC_GET_ADDR:
@@ -3850,7 +3863,24 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 		else
 			clock_level = 5;
 		*/
-		avc_buffspec_init(wq);
+		r = down_interruptible(&s_vpu_sem);
+		if (r == 0) {
+			vbp = kzalloc(sizeof(*vbp), GFP_KERNEL);
+			if (!vbp) {
+				up(&s_vpu_sem);
+				return -ENOMEM;
+			}
+			avc_buffspec_init(wq);
+			vbp->vb.phys_addr = wq->mem.buf_start;
+			vbp->vb.size = wq->mem.buf_size;
+			vbp->filp = file;
+
+			spin_lock(&s_vpu_lock);
+			list_add(&vbp->list, &s_vbp_head);
+			spin_unlock(&s_vpu_lock);
+
+			up(&s_vpu_sem);
+		}
 		complete(&encode_manager.event.request_in_com);
 		addr_info[1] = wq->mem.bufspec.dct.buf_start;
 		addr_info[2] = wq->mem.bufspec.dct.buf_size;
@@ -3871,9 +3901,39 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 				"avc flush cache error, wq: %p.\n", (void *)wq);
 			return -1;
 		}
+		if (((addr_info[0] >> 31) > 0) || \
+			((addr_info[1] >> 31) > 0) || \
+			((addr_info[2] >> 31) > 0) || \
+			(addr_info[2] <= addr_info[1])) {
+			enc_pr(LOG_ERROR, "avc flush cache param error, addr_info[0](0x%x), addr_info[1](0x%x), addr_info[2](0x%x)\n", addr_info[0], addr_info[1], addr_info[2]);
+			return -1;
+		}
 		buf_start = getbuffer(wq, addr_info[0]);
-		dma_flush(buf_start + addr_info[1],
-			addr_info[2] - addr_info[1]);
+		buf.phys_addr = buf_start + addr_info[1];
+		buf.size = addr_info[2] - addr_info[1];
+		spin_lock(&s_vpu_lock);
+		list_for_each_entry_safe(pool, n,
+			&s_vbp_head, list) {
+			if (pool->filp == file) {
+				vb = pool->vb;
+				if ((vb.phys_addr <= buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						> buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						>= buf.phys_addr + buf.size)
+					&& find == false){
+					cached = vb.cached;
+					find = true;
+					break;
+				}
+			}
+		}
+		spin_unlock(&s_vpu_lock);
+		//if (find && cached)
+		if (find)
+			dma_flush(
+				(u32)buf.phys_addr,
+				(u32)buf.size);
 		break;
 	case AMVENC_AVC_IOC_FLUSH_DMA:
 		if (copy_from_user(addr_info, (void *)arg,
@@ -3882,9 +3942,40 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 				"avc flush dma error, wq:%p.\n", (void *)wq);
 			return -1;
 		}
+		if (((addr_info[0] >> 31) > 0) || \
+			((addr_info[1] >> 31) > 0) || \
+			((addr_info[2] >> 31) > 0) || \
+			(addr_info[2] <= addr_info[1])) {
+			enc_pr(LOG_ERROR, "avc flush dma param error, addr_info[0](0x%x), addr_info[1](0x%x), addr_info[2](0x%x)\n", addr_info[0], addr_info[1], addr_info[2]);
+			return -1;
+		}
 		buf_start = getbuffer(wq, addr_info[0]);
-		cache_flush(buf_start + addr_info[1],
-			addr_info[2] - addr_info[1]);
+		buf.phys_addr = buf_start + addr_info[1];
+		buf.size = addr_info[2] - addr_info[1];
+
+		spin_lock(&s_vpu_lock);
+		list_for_each_entry_safe(pool, n,
+			&s_vbp_head, list) {
+			if (pool->filp == file) {
+				vb = pool->vb;
+				if ((vb.phys_addr <= buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						> buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						>= buf.phys_addr + buf.size)
+					&& find == false){
+					cached = vb.cached;
+					find = true;
+					break;
+				}
+			}
+		}
+		spin_unlock(&s_vpu_lock);
+		//if (find && cached)
+		if (find)
+			cache_flush(
+				(u32)buf.phys_addr,
+				(u32)buf.size);
 		break;
 	case AMVENC_AVC_IOC_GET_BUFFINFO:
 		put_user(wq->mem.buf_size, (u32 *)arg);
@@ -3977,7 +4068,7 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 			addr_info[0] = 0;
 			addr_info[1] = 0;
 		}
-		dma_flush(dst.addr, dst.width * dst.height * 3 / 2);
+		//dma_flush(dst.addr, dst.width * dst.height * 3 / 2);
 		r = copy_to_user((u32 *)arg, addr_info, 2 * sizeof(u32));
 		break;
 	case AMVENC_AVC_IOC_MAX_INSTANCE:
@@ -5174,6 +5265,25 @@ static void enc_dma_buf_unmap(struct enc_dma_cfg *cfg)
 	enc_pr(LOG_DEBUG, "enc_dma_buffer_unmap fd %d\n",fd);
 }
 
+static s32 enc_free_buffers(struct file *filp)
+{
+	struct encdrv_buffer_pool_t *pool, *n;
+	struct encdrv_buffer_t vb;
+
+	enc_pr(LOG_DEBUG, "enc_free_buffers\n");
+	list_for_each_entry_safe(pool, n, &s_vbp_head, list) {
+		if (pool->filp == filp) {
+			vb = pool->vb;
+			if (vb.phys_addr) {
+				spin_lock(&s_vpu_lock);
+				list_del(&pool->list);
+				spin_unlock(&s_vpu_lock);
+				kfree(pool);
+			}
+		}
+	}
+	return 0;
+}
 
 module_param(fixed_slice_cfg, uint, 0664);
 MODULE_PARM_DESC(fixed_slice_cfg, "\n fixed_slice_cfg\n");

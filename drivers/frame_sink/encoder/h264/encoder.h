@@ -252,7 +252,7 @@ struct BuffInfo_s {
 	struct Buff_s dec0_uv;
 	struct Buff_s dec1_y;
 	struct Buff_s dec1_uv;
-	struct Buff_s assit;
+	struct Buff_s assist;
 	struct Buff_s bitstream;
 	struct Buff_s scale_buff;
 	struct Buff_s dump_info;
@@ -270,8 +270,8 @@ struct encode_meminfo_s {
 	u32 dct_buff_start_addr;
 	u32 dct_buff_end_addr;
 
-	/*microcode assitant buffer*/
-	u32 assit_buffer_offset;
+	/*microcode assistant buffer*/
+	u32 assist_buffer_offset;
 
 	u32 scaler_buff_start_addr;
 
@@ -391,6 +391,22 @@ struct encode_manager_s {
 	struct Buff_s reserve_mem;
 	struct encode_event_s event;
 	struct tasklet_struct encode_tasklet;
+};
+
+struct encdrv_buffer_t {
+	u32 size;
+	u32 cached;
+	ulong phys_addr;
+	ulong base; /* kernel logical address in use kernel */
+	ulong virt_addr; /* virtual user space address */
+};
+
+
+/* To track the allocated memory buffer */
+struct encdrv_buffer_pool_t {
+	struct list_head list;
+	struct encdrv_buffer_t vb;
+	struct file *filp;
 };
 
 extern s32 encode_wq_add_request(struct encode_wq_s *wq);
