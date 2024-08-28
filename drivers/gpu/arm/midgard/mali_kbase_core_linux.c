@@ -531,31 +531,31 @@ static struct kbase_device *to_kbase_device(struct device *dev)
  * @kbdev: Kbase device.
  * @pdev:  Platform device of the kbase device
  *
- * Read interrupt number and flag for 'JOB', 'MMU' and 'GPU' interrupts
+ * Read interrupt number and flag for 'job', 'mmu' and 'gpu' interrupts
  * from the device tree and fill them into the struct of the kbase device.
  *
- * Return: 0 on successful reading of all the entries JOB, MMU and GPU interrupts.
+ * Return: 0 on successful reading of all the entries job, mmu and gpu interrupts.
  *         -EINVAL on failure for all other cases.
  *
  */
 static int get_irqs(struct kbase_device *kbdev, struct platform_device *pdev)
 {
 	int i;
-	static const char *const irq_names_caps[] = { "JOB", "MMU", "GPU" };
+	static const char *const irq_names_caps[] = { "job", "mmu", "gpu" };
 
 	for (i = 0; i < ARRAY_SIZE(irq_names_caps); i++) {
 		struct irq_data *irqdata;
 		int irq;
 
-		/* We recommend using Upper case for the irq names in dts, but if
-		 * there are devices in the world using Lower case then we should
-		 * avoid breaking support for them. So try using names in Upper case
-		 * first then try using Lower case names. If both attempts fail then
+		/* We recommend using Lower case for the irq names in dts, but if
+		 * there are devices in the world using Upper case then we should
+		 * avoid breaking support for them. So try using names in Lower case
+		 * first then try using Upper case names. If both attempts fail then
 		 * we assume there is no IRQ resource specified for the GPU.
 		 */
 		irq = platform_get_irq_byname(pdev, irq_names_caps[i]);
 		if (irq < 0) {
-			static const char *const irq_names[] = { "job", "mmu", "gpu" };
+			static const char *const irq_names[] = { "JOB", "MMU", "GPU" };
 
 			irq = platform_get_irq_byname(pdev, irq_names[i]);
 		}

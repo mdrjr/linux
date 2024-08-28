@@ -825,15 +825,12 @@
 			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "JOB", "MMU", "GPU";
+			interrupt-names = "job", "mmu", "gpu";
 
 			clocks = <&clock CLK_G3D>;
 			clock-names = "core";
 			power-domains = <&g3d_pd>;
 			operating-points-v2 = <&gpu_opp_table>;
-
-	        //system-coherency = <0>;
-	        //power_policy = "always_on";
 
 			status = "disabled";
 			#cooling-cells = <2>;
