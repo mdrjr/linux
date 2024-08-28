@@ -2437,6 +2437,7 @@ static int vidioc_decoder_reqbufs(struct file *file, void *priv,
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"wait post frame to upper finish timeout.\n");
 			}
+			aml_buf_put_dma(&ctx->bm);
 		}
 		vb2_queue_release(q);
 	}
