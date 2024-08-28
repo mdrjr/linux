@@ -989,6 +989,7 @@ static void dec_dmc_port_ctrl(bool dmc_on, u32 target)
 			if ((cpu_type >= AM_MESON_CPU_MAJOR_ID_G12A) &&
 				(cpu_type != AM_MESON_CPU_MAJOR_ID_T5W) &&
 				(cpu_type != AM_MESON_CPU_MAJOR_ID_TXHD2) &&
+				(cpu_type != AM_MESON_CPU_MAJOR_ID_S1A) &&
 				(cpu_type != AM_MESON_CPU_MAJOR_ID_T6D))
 				mask |= (1 << 8); /*hevcb */
 		}
@@ -5713,7 +5714,6 @@ void hevc_reset_core(struct vdec_s *vdec)
 	case AM_MESON_CPU_MAJOR_ID_SC2:
 	case AM_MESON_CPU_MAJOR_ID_S4:
 	case AM_MESON_CPU_MAJOR_ID_S4D:
-	case AM_MESON_CPU_MAJOR_ID_S1A:
 		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
 				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<12)|(1<<13))));
 		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
@@ -5733,6 +5733,12 @@ void hevc_reset_core(struct vdec_s *vdec)
 				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~(1<<12)));
 		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
 				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | (1<<12));
+		break;
+	case AM_MESON_CPU_MAJOR_ID_S1A:
+		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) & (~((1<<1)|(1<<5))));
+		WRITE_RESET_REG(P_RESETCTRL_RESET5_LEVEL,
+				READ_RESET_REG(P_RESETCTRL_RESET5_LEVEL) | ((1<<1)|(1<<5)));
 		break;
 	default:
 		break;
