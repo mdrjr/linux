@@ -1979,6 +1979,46 @@ static void avc_prot_init(struct encode_wq_s *wq,
 	u32 pic_width_in_mb;
 	u32 slice_qp;
 
+	u32 ted_lambda_m16_array[52]= {4, 4, 5, 5, 6, 7, 7, 8, 9, 10,
+	                                12, 13, 15, 17, 19, 21, 23, 26, 30, 33,
+						            37, 42, 47, 53, 59, 66, 74, 83, 94, 105,
+						            118, 132, 149, 167, 187, 210, 236, 265, 297, 334,
+						            375, 421, 472, 530, 595, 668, 749, 841, 944, 1060, 1189, 1335};
+
+	u32 ted_lambda_qp = IDR ? wq->quant_tbl_i4[0] : wq->quant_tbl_me[0] ;
+	u32 ted_lambda = ted_lambda_m16_array[(ted_lambda_qp & 0xff)];
+
+	u32 ted_adv_4x4x4_weight = (5 * ted_lambda) >> 4 ;
+	u32 ted_adv_8x8_weight   = (1 * ted_lambda) >> 4 ;
+	u32 ted_adv_16x16_weight = (1 * ted_lambda) >> 4 ;
+	u32 ted_adv_16_8_weight  = (5 * ted_lambda) >> 4 ;
+	u32 ted_adv_skip_weight = 0 ;
+	u32 ted_me_weight = (2 * ted_lambda) >> 4;
+
+	u32 ted_i4_ipred_weight_most = (1 * ted_lambda) >> 4 ;
+	u32 ted_i4_ipred_weight_else = (4 * ted_lambda) >> 4 ;
+	u32 ted_i16_ipred_weight_h   = (6 * ted_lambda) >> 4 ;
+	u32 ted_i16_ipred_weight_v   = (6 * ted_lambda) >> 4 ;
+	u32 ted_i16_ipred_weight_dc  = (7 * ted_lambda) >> 4 ;
+	u32 ted_c_ipred_weight_h     = (3 * ted_lambda) >> 4 ;
+	u32 ted_c_ipred_weight_v     = (5 * ted_lambda) >> 4 ;
+	u32 ted_c_ipred_weight_dc    = (1 * ted_lambda) >> 4 ;
+
+	u32 ted_i16_weight = (0) >> 4;
+	u32 ted_i4_weight  = (1 * ted_lambda) >> 4 ;
+
+	u16 ted_mvd_bits[512];
+	u32 ted_mvd_weight[64];
+	u32 ted_v3_mv_sad[64];
+	//u32 m = 0 ;
+	if (ted_i4_ipred_weight_most > 255) ted_i4_ipred_weight_most = 255 ;
+	if (ted_i4_ipred_weight_else > 255) ted_i4_ipred_weight_else = 255 ;
+	if (ted_i16_ipred_weight_h   > 255) ted_i16_ipred_weight_h   = 255 ;
+	if (ted_i16_ipred_weight_v   > 255) ted_i16_ipred_weight_v   = 255 ;
+	if (ted_i16_ipred_weight_dc  > 255) ted_i16_ipred_weight_dc  = 255 ;
+	if (ted_c_ipred_weight_h     > 255) ted_c_ipred_weight_h     = 255 ;
+	if (ted_c_ipred_weight_v     > 255) ted_c_ipred_weight_v     = 255 ;
+	if (ted_c_ipred_weight_dc    > 255) ted_c_ipred_weight_dc    = 255 ;
 	pic_width  = wq->pic.encoder_width;
 	pic_height = wq->pic.encoder_height;
 	pic_mb_nr  = 0;
@@ -2047,10 +2087,10 @@ static void avc_prot_init(struct encode_wq_s *wq,
 
 	if (request != NULL) {
 		WRITE_HREG(HCODEC_IE_WEIGHT,
-			(request->i16_weight << 16) |
-			(request->i4_weight << 0));
+			(ted_i16_weight << 16) |
+			(ted_i4_weight << 0));
 		WRITE_HREG(HCODEC_ME_WEIGHT,
-			(request->me_weight << 0));
+			(ted_me_weight << 0));
 		WRITE_HREG(HCODEC_SAD_CONTROL_0,
 			/* ie_sad_offset_I16 */
 			(request->i16_weight << 16) |
@@ -2070,10 +2110,11 @@ static void avc_prot_init(struct encode_wq_s *wq,
 		wq->i16_weight = request->i16_weight;
 	} else {
 		WRITE_HREG(HCODEC_IE_WEIGHT,
-			(I16MB_WEIGHT_OFFSET << 16) |
-			(I4MB_WEIGHT_OFFSET << 0));
+			(ted_i16_weight << 16) |
+			(ted_i4_weight << 0));
+		// 	(ME_WEIGHT_OFFSET << 0));
 		WRITE_HREG(HCODEC_ME_WEIGHT,
-			(ME_WEIGHT_OFFSET << 0));
+			(ted_me_weight << 0));
 		WRITE_HREG(HCODEC_SAD_CONTROL_0,
 			/* ie_sad_offset_I16 */
 			(I16MB_WEIGHT_OFFSET << 16) |
@@ -2093,14 +2134,14 @@ static void avc_prot_init(struct encode_wq_s *wq,
 	WRITE_HREG(HCODEC_ADV_MV_CTL0,
 		(ADV_MV_LARGE_16x8 << 31) |
 		(ADV_MV_LARGE_8x16 << 30) |
-		(ADV_MV_8x8_WEIGHT << 16) |   /* adv_mv_8x8_weight */
+		(ted_adv_8x8_weight << 16) |   /* adv_mv_8x8_weight */
 		/* adv_mv_4x4x4_weight should be set bigger */
-		(ADV_MV_4x4x4_WEIGHT << 0));
+		(ted_adv_4x4x4_weight << 0));
 	WRITE_HREG(HCODEC_ADV_MV_CTL1,
 		/* adv_mv_16x16_weight */
-		(ADV_MV_16x16_WEIGHT << 16) |
+		(ted_adv_16x16_weight << 16) |
 		(ADV_MV_LARGE_16x16 << 15) |
-		(ADV_MV_16_8_WEIGHT << 0));  /* adv_mv_16_8_weight */
+		(ted_adv_16_8_weight << 0));  /* adv_mv_16_8_weight */
 
 	hcodec_prog_qtbl(wq);
 	if (IDR) {
@@ -2646,14 +2687,14 @@ static void avc_prot_init(struct encode_wq_s *wq,
 			(V3_FORCE_SKIP_SAD_1 << 12) |
 			(V3_FORCE_SKIP_SAD_0 << 0));
 		WRITE_HREG(HCODEC_V3_SKIP_WEIGHT,
-			(V3_SKIP_WEIGHT_1 << 16) |
-			(V3_SKIP_WEIGHT_0 << 0));
+			(ted_adv_skip_weight << 16) |
+			(ted_adv_skip_weight << 0));
 		WRITE_HREG(HCODEC_V3_L1_SKIP_MAX_SAD,
 			(V3_LEVEL_1_F_SKIP_MAX_SAD << 16) |
 			(V3_LEVEL_1_SKIP_MAX_SAD << 0));
 		WRITE_HREG(HCODEC_V3_L2_SKIP_WEIGHT,
 			(V3_FORCE_SKIP_SAD_2 << 16) |
-			(V3_SKIP_WEIGHT_2 << 0));
+			(ted_adv_skip_weight << 0));
 		if (request != NULL) {
 			unsigned int off1, off2;
 
@@ -2713,21 +2754,52 @@ static void avc_prot_init(struct encode_wq_s *wq,
 	if (get_cpu_type() >= MESON_CPU_MAJOR_ID_GXTVBB) {
 		int i;
 		/* MV SAD Table */
+		for ( i=0; i<512; i++ )
+		{
+			if     (i <   1)  ted_mvd_bits[i] = 1 ;
+			else if(i <   2)  ted_mvd_bits[i] = 3 ;
+			else if(i <   4)  ted_mvd_bits[i] = 5 ;
+			else if(i <   8)  ted_mvd_bits[i] = 7 ;
+			else if(i <  16)  ted_mvd_bits[i] = 9 ;
+			else if(i <  32)  ted_mvd_bits[i] = 11;
+			else if(i <  64)  ted_mvd_bits[i] = 13;
+			else if(i < 128)  ted_mvd_bits[i] = 15;
+			else if(i < 256)  ted_mvd_bits[i] = 17;
+			else              ted_mvd_bits[i] = 19;
+		}
+		for ( i=0; i<16; i++ )
+		{
+			ted_mvd_weight[i]    = ((ted_mvd_bits[(i+1)*16] - 1) * ted_lambda) >> 4;
+			ted_mvd_weight[16+i] = ((ted_mvd_bits[(i+1)*8] - 1) * ted_lambda) >> 4;
+
+			ted_mvd_weight[32+i] = ((ted_mvd_bits[i+1] - 1) * ted_lambda) >> 4;
+			ted_mvd_weight[48+i] = ((ted_mvd_bits[i+1] - 1) * ted_lambda) >> 4;
+		}
+
+		for ( i=0; i<64; i++ )
+		{
+			if (ted_mvd_weight[i] >= 4096)
+				ted_mvd_weight[i] = 4095;
+
+			ted_v3_mv_sad[i] = (v3_mv_sad[i] & 0xfffff000) | ted_mvd_weight[i] ;
+		}
+
 		for (i = 0; i < 64; i++)
 			WRITE_HREG(HCODEC_V3_MV_SAD_TABLE,
-				v3_mv_sad[i]);
+				ted_v3_mv_sad[i]);
 
 		/* IE PRED SAD Table*/
 		WRITE_HREG(HCODEC_V3_IPRED_TYPE_WEIGHT_0,
-			(C_ipred_weight_H << 24) |
-			(C_ipred_weight_V << 16) |
-			(I4_ipred_weight_else << 8) |
-			(I4_ipred_weight_most << 0));
+			(ted_c_ipred_weight_h     << 24) |
+			(ted_c_ipred_weight_v     << 16) |
+			(ted_i4_ipred_weight_else <<  8) |
+			(ted_i4_ipred_weight_most <<  0) );
 		WRITE_HREG(HCODEC_V3_IPRED_TYPE_WEIGHT_1,
-			(I16_ipred_weight_DC << 24) |
-			(I16_ipred_weight_H << 16) |
-			(I16_ipred_weight_V << 8) |
-			(C_ipred_weight_DC << 0));
+			(ted_i16_ipred_weight_dc << 24) |
+			(ted_i16_ipred_weight_h  << 16) |
+			(ted_i16_ipred_weight_v  << 8 ) |
+			(ted_c_ipred_weight_dc   << 0) );
+
 		WRITE_HREG(HCODEC_V3_LEFT_SMALL_MAX_SAD,
 			(v3_left_small_max_me_sad << 16) |
 			(v3_left_small_max_ie_sad << 0));
