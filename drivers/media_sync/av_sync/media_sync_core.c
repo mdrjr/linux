@@ -696,26 +696,14 @@ static long mediasync_ins_delete(MediaSyncManager* pSyncManage) {
 	return ret;
 }
 
-static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
+static long mediasync_ins_init_videoinfo(mediasync_ins* pInstance) {
 	if (pInstance == NULL)
 		return -1;
-	pInstance->mSyncInfo.state = MEDIASYNC_INIT;
-	pInstance->mSyncInfo.firstAframeInfo.framePts = -1;
-	pInstance->mSyncInfo.firstAframeInfo.frameSystemTime = -1;
+
 	pInstance->mSyncInfo.firstVframeInfo.framePts = -1;
 	pInstance->mSyncInfo.firstVframeInfo.frameSystemTime = -1;
-	pInstance->mSyncInfo.firstDmxPcrInfo.framePts = -1;
-	pInstance->mSyncInfo.firstDmxPcrInfo.frameSystemTime = -1;
-	pInstance->mSyncInfo.refClockInfo.framePts = -1;
-	pInstance->mSyncInfo.refClockInfo.frameSystemTime = -1;
-	pInstance->mSyncInfo.curAudioInfo.framePts = -1;
-	pInstance->mSyncInfo.curAudioInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.curVideoInfo.framePts = -1;
 	pInstance->mSyncInfo.curVideoInfo.frameSystemTime = -1;
-	pInstance->mSyncInfo.curDmxPcrInfo.framePts = -1;
-	pInstance->mSyncInfo.curDmxPcrInfo.frameSystemTime = -1;
-	pInstance->mSyncInfo.queueAudioInfo.framePts = -1;
-	pInstance->mSyncInfo.queueAudioInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.queueVideoInfo.framePts = -1;
 	pInstance->mSyncInfo.queueVideoInfo.frameSystemTime = -1;
 
@@ -728,6 +716,25 @@ static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
 	pInstance->mVideoDiscontinueInfo.isDiscontinue = 0;
 	pInstance->mSyncInfo.firstVideoPacketsInfo.framePts = -1;
 	pInstance->mSyncInfo.firstVideoPacketsInfo.frameSystemTime = -1;
+
+	pInstance->mVideoInfo.cacheSize = -1;
+	pInstance->mVideoInfo.cacheDuration = -1;
+	pInstance->mSyncInfo.pauseVideoInfo.framePts = -1;
+	pInstance->mSyncInfo.pauseVideoInfo.frameSystemTime = -1;
+
+	return 0;
+}
+
+static long mediasync_ins_init_audioinfo(mediasync_ins* pInstance) {
+	if (pInstance == NULL)
+		return -1;
+
+	pInstance->mSyncInfo.firstAframeInfo.framePts = -1;
+	pInstance->mSyncInfo.firstAframeInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.curAudioInfo.framePts = -1;
+	pInstance->mSyncInfo.curAudioInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.queueAudioInfo.framePts = -1;
+	pInstance->mSyncInfo.queueAudioInfo.frameSystemTime = -1;
 
 	pInstance->mSyncInfo.audioPacketsInfo.packetsSize = -1;
 	pInstance->mSyncInfo.audioPacketsInfo.duration= -1;
@@ -744,26 +751,12 @@ static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
 
 	pInstance->mAudioInfo.cacheSize = -1;
 	pInstance->mAudioInfo.cacheDuration = -1;
-	pInstance->mVideoInfo.cacheSize = -1;
-	pInstance->mVideoInfo.cacheDuration = -1;
-	pInstance->mPauseResumeFlag = 0;
-	pInstance->mSpeed.mNumerator = 100;
-	pInstance->mSpeed.mDenominator = 100;
-	pInstance->mPcrSlope.mNumerator = 100;
-	pInstance->mPcrSlope.mDenominator = 100;
-	pInstance->mAVRef = 0;
-	pInstance->mPlayerInstanceId = -1;
-
-	pInstance->mSyncInfo.pauseVideoInfo.framePts = -1;
-	pInstance->mSyncInfo.pauseVideoInfo.frameSystemTime = -1;
 	pInstance->mSyncInfo.pauseAudioInfo.framePts = -1;
 	pInstance->mSyncInfo.pauseAudioInfo.frameSystemTime = -1;
-
 	pInstance->mAudioFormat.channels = -1;
 	pInstance->mAudioFormat.datawidth = -1;
 	pInstance->mAudioFormat.format = -1;
 	pInstance->mAudioFormat.samplerate = -1;
-	pInstance->mCacheFrames = 0;
 
 	pInstance->mAudioSwitch.mOn = 0;
 	pInstance->mAudioSwitch.mSetByUser = 0;
@@ -771,6 +764,31 @@ static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
 	pInstance->mAudioSwitch.mSystemTimeUs = -1;
 	pInstance->mAudioSwitch.mReserved[0] = 0;
 	pInstance->mAudioSwitch.mReserved[1] = 0;
+
+	return 0;
+}
+
+static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
+	if (pInstance == NULL)
+		return -1;
+	pInstance->mSyncInfo.state = MEDIASYNC_INIT;
+	mediasync_ins_init_videoinfo(pInstance);
+	mediasync_ins_init_audioinfo(pInstance);
+	pInstance->mSyncInfo.firstDmxPcrInfo.framePts = -1;
+	pInstance->mSyncInfo.firstDmxPcrInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.refClockInfo.framePts = -1;
+	pInstance->mSyncInfo.refClockInfo.frameSystemTime = -1;
+	pInstance->mSyncInfo.curDmxPcrInfo.framePts = -1;
+	pInstance->mSyncInfo.curDmxPcrInfo.frameSystemTime = -1;
+
+	pInstance->mPauseResumeFlag = 0;
+	pInstance->mSpeed.mNumerator = 100;
+	pInstance->mSpeed.mDenominator = 100;
+	pInstance->mPcrSlope.mNumerator = 100;
+	pInstance->mPcrSlope.mDenominator = 100;
+	pInstance->mAVRef = 0;
+	pInstance->mPlayerInstanceId = -1;
+	pInstance->mCacheFrames = 0;
 	return 0;
 }
 
@@ -1035,8 +1053,17 @@ long mediasync_ins_unbinder(MediaSyncManager* pSyncManage, s32 sStreamType) {
 	ref = pInstance->mRef;
 	syncIndex = pInstance->mSyncIndex;
 
-	if (pInstance->mRef > 0 && pInstance->mAVRef == 0)
-		mediasync_ins_reset_l(pInstance);
+	if (pInstance->mRef > 0) {
+		if (pInstance->mAVRef > 0) {
+			if (pInstance->mHasAudio == 0) {
+				mediasync_ins_init_audioinfo(pInstance);
+			} else if (pInstance->mHasVideo == 0) {
+				mediasync_ins_init_videoinfo(pInstance);
+			}
+		} else if (pInstance->mAVRef == 0) {
+			mediasync_ins_reset_l(pInstance);
+		}
+	}
 
 	if (pInstance->mRef <= 0)
 		mediasync_ins_delete(pSyncManage);
