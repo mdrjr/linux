@@ -20,6 +20,7 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					esp8089.dtbo		\
 					sdio.dtbo		\
 					fanspeed-full.dtbo	\
+					pps-gpio_p7.dtbo	\
 					pps-gpio_p11.dtbo	\
 					pps-gpio_p12.dtbo	\
 					pwm_ab.dtbo		\
@@ -29,7 +30,10 @@ dtbo-$(CONFIG_ARCH_MESON64_ODROIDC4) += spi0.dtbo		\
 					pwm_b-backlight.dtbo	\
 					gpio-joystick0.dtbo	\
 					gpio-joystick1.dtbo	\
-					display_vu7c.dtbo
+					display_vu7c.dtbo	\
+					dht11.dtbo	\
+					weather_board_zero.dtbo \
+					circuitpython.dtbo
 
 targets	+= $(dtbo-y)
 always	:= $(dtbo-y)
