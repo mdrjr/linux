@@ -290,8 +290,8 @@ struct vdec_vc1_hw_s {
 	u32 dynamic_buf_num_margin;
 	u32 cur_duration;
 	u32 canvas_mode;
-	u32 last_wp;
-	u32 last_rp;
+	dos_addr_t last_wp;
+	dos_addr_t last_rp;
 	int dec_result;
 	volatile bool reset_flag;
 	volatile bool remove_flag;
@@ -471,7 +471,7 @@ static void vc1_set_rp(void) {
 
 	spin_lock_irqsave(&vc1_rp_lock, flags);
 	STBUF_WRITE(&vdec->vbuf, set_rp,
-		(u32)READ_VREG(VLD_MEM_VIFIFO_RP));
+		((u32)READ_VREG(VLD_MEM_VIFIFO_RP) | stream_prefix_get()));
 	spin_unlock_irqrestore(&vc1_rp_lock, flags);
 }
 
@@ -1659,7 +1659,7 @@ static irqreturn_t vvc1_isr_thread_handler(int irq, void *dev_id)
 	if (debug_tag != 0) {
 		vc1_print(0, 0, "%s: dbg%x: %x, wp 0x%x, rp 0x%x\n", __func__,
 			debug_tag, READ_VREG(DEBUG_REG2),
-			READ_VREG(VLD_MEM_VIFIFO_WP), READ_VREG(VLD_MEM_VIFIFO_RP));
+			READ_VREG(VLD_MEM_VIFIFO_WP) | stream_prefix_get(), READ_VREG(VLD_MEM_VIFIFO_RP) | stream_prefix_get());
 		WRITE_VREG(DEBUG_REG1, 0);
 		return IRQ_HANDLED;
 	}
@@ -2153,7 +2153,7 @@ static int vvc1_workspace_init(void)
 {
 	int ret;
 	u32 alloc_size;
-	unsigned long buf_start;
+	dos_addr_t buf_start;
 
 	/* workspace mem */
 	alloc_size = WORKSPACE_SIZE;
@@ -2166,6 +2166,8 @@ static int vvc1_workspace_init(void)
 
 	/* calculate workspace offset */
 	buf_offset = buf_start - DCAC_BUFF_START_ADDR;
+
+	vdec_prefix_config(PREFIX_ADDR(buf_start));
 
 	return 0;
 }
@@ -2385,14 +2387,14 @@ static void error_do_work(struct work_struct *work)
 static void vvc1_put_timer_func(struct timer_list *timer)
 {
 	struct vdec_vc1_hw_s *hw = &vc1_hw;
-	u32 wp, rp, size;
+	dos_addr_t wp, rp, size;
 
 	if (READ_VREG(VC1_SOS_COUNT) > 10)
 		schedule_work(&error_wd_work);
 
 	vc1_set_rp();
-	wp = READ_VREG(VLD_MEM_VIFIFO_WP);
-	rp = READ_VREG(VLD_MEM_VIFIFO_RP);
+	wp = READ_VREG(VLD_MEM_VIFIFO_WP) | stream_prefix_get();
+	rp = READ_VREG(VLD_MEM_VIFIFO_RP) | stream_prefix_get();
 	size = (wp >= rp) ? (wp - rp) : (wp + vdec->vbuf.buf_size - rp);
 
 	/* notify eos after setting EOS */
@@ -2414,7 +2416,7 @@ static void vvc1_put_timer_func(struct timer_list *timer)
 		vdec_schedule_work(&hw->work);
 	}
 
-	vc1_print(0, VC1_DEBUG_DETAIL, "%s wp 0x%x rp 0x%x level %d \n", __func__, wp, rp, size);
+	vc1_print(0, VC1_DEBUG_DETAIL, "%s wp 0x%lx rp 0x%lx level %d \n", __func__, wp, rp, size);
 
 	if (frame_dur > 0 && saved_resolution !=
 		frame_width * frame_height * (96000 / frame_dur))
