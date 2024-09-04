@@ -115,6 +115,7 @@ MODULE_IMPORT_NS(DMA_BUF);
 //#define USEC_PER_SEC 1000000
 
 #define INVALID_IDX -1
+#define DEMUX_ES_MAGIC_NUM 0x5a5a5a5a
 
 #define call_void_memop(vb, op, args...)				\
 	do {								\
@@ -1621,12 +1622,12 @@ static void aml_vdec_worker(struct work_struct *work)
 	if (ctx->stream_mode &&
 		!(ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G ||
 		ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)) {
-		struct dmabuf_dmx_sec_es_data *es_data = (struct dmabuf_dmx_sec_es_data *)aml_vb->dma_buf;
+		struct dmx_dma_buf_sec_es_data *es_data = (struct dmx_dma_buf_sec_es_data *)aml_vb->dma_buf;
 		int offset = vb->planes[0].data_offset;
 		buf.addr = es_data->data_start + offset;
 		buf.size = vb->planes[0].bytesused - offset;
 		buf.dbuf = vb->planes[0].dbuf;
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_INPUT, "stream update wp 0x%lx + sz 0x%x offset 0x%x ori start 0x%x ts %llu\n",
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_INPUT, "stream update wp 0x%lx + sz 0x%x offset 0x%x ori start 0x%llx ts %llu\n",
 			buf.addr, buf.size, offset, es_data->data_start, vb->timestamp);
 	} else {
 		buf.addr	= aml_vb->addr ? aml_vb->addr : sg_dma_address(aml_vb->out_sgt->sgl);
@@ -4465,13 +4466,20 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	if (ctx->stream_mode &&
 		!(ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G ||
 		ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)) {
-		struct dmabuf_dmx_sec_es_data *es_data;
+		struct dmx_dma_buf_sec_es_data *es_data;
+		void *dma_es_buf = vb->planes[0].dbuf->priv;
 
-		if (dmabuf_manage_get_type(vb->planes[0].dbuf) != DMA_BUF_TYPE_DMX_ES) {
-			pr_err("not DMA_BUF_TYPE_DMX_ES\n");
+		if (!dma_es_buf) {
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+				"dma_es_buf is NULL\n");
 			return;
 		}
-		es_data = (struct dmabuf_dmx_sec_es_data *)dmabuf_manage_get_info(vb->planes[0].dbuf, DMA_BUF_TYPE_DMX_ES);
+		es_data = (struct dmx_dma_buf_sec_es_data *)dma_es_buf;
+		if (es_data->magic_num != DEMUX_ES_MAGIC_NUM) {
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+				"es_data check fail magic_num:%d\n", es_data->magic_num);
+			return;
+		}
 		buf->dma_buf = (void *)es_data;
 	}
 	v4l2_m2m_buf_queue(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
@@ -4494,7 +4502,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	if (ctx->stream_mode &&
 		!(ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_G ||
 		ctx->output_pix_fmt == V4L2_PIX_FMT_VC1_ANNEX_L)) {
-		struct dmabuf_dmx_sec_es_data *es_data = (struct dmabuf_dmx_sec_es_data *)buf->dma_buf;
+		struct dmx_dma_buf_sec_es_data *es_data = (struct dmx_dma_buf_sec_es_data *)buf->dma_buf;
 		int offset = vb->planes[0].data_offset;
 		if (ctx->set_ext_buf_flg == false) {
 			v4l2_set_ext_buf_addr(ctx->ada_ctx, es_data, offset);
@@ -4506,7 +4514,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		src_mem.size = vb->planes[0].bytesused - offset;
 		src_mem.dbuf = vb->planes[0].dbuf;
 
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_INPUT, "update wp 0x%lx + sz 0x%x offset 0x%x ori start 0x%x pts %llu\n",
+		v4l_dbg(ctx, V4L_DEBUG_CODEC_INPUT, "update wp 0x%lx + sz 0x%x offset 0x%x ori start 0x%llx pts %llu\n",
 			src_mem.addr, src_mem.size, offset, es_data->data_start, vb->timestamp);
 
 	} else {

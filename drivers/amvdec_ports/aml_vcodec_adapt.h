@@ -22,7 +22,11 @@
 
 #include <linux/amlogic/media/utils/vformat.h>
 #include <linux/amlogic/media/utils/amstream.h>
-#include <linux/amlogic/media/codec_mm/dmabuf_manage.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#include <linux/dvb/aml_dmx_ext.h>
+#else
+#include <linux/dvb/dmx.h>
+#endif
 #include "../stream_input/amports/streambuf.h"
 #include "../frame_provider/decoder/utils/vdec_input.h"
 #include "aml_vcodec_drv.h"
@@ -90,7 +94,7 @@ void vdec_write_stream_data(struct aml_vdec_adapt *ada_ctx, dos_addr_t addr, u32
 
 void vdec_write_stream_data_inner(struct aml_vdec_adapt *ada_ctx, char *addr, u32 size, u64 timestamp);
 
-void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmabuf_dmx_sec_es_data *es_data, int offset);
+void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmx_dma_buf_sec_es_data *es_data, int offset);
 
 int vdec_set_trickmode_adapt(struct aml_vdec_adapt *ada_ctx, u32 value);
 

@@ -812,7 +812,7 @@ void v4l2_set_rp_addr(struct aml_vdec_adapt *ada_ctx, struct dma_buf *dbuf)
 	es_data->buf_rp = rp_addr;
 }
 #endif
-void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmabuf_dmx_sec_es_data *es_data, int offset)
+void v4l2_set_ext_buf_addr(struct aml_vdec_adapt *ada_ctx, struct dmx_dma_buf_sec_es_data *es_data, int offset)
 {
 	struct vdec_s *vdec = ada_ctx->vdec;
 	u32 buf_size = 0;
