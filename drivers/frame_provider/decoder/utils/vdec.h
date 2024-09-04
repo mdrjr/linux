@@ -828,7 +828,13 @@ extern void vdec_core_finish_run(struct vdec_s *vdec, unsigned long mask);
 
 extern u32 vdec_get_debug(void);
 
+#if IS_ENABLED(CONFIG_AMLOGIC_DDR_BANDWIDTH)
 extern void aml_get_all_channel_grant(u64 *channel_grant);
+#else
+static inline void aml_get_all_channel_grant(u64 *channel_grant)
+{
+}
+#endif
 
 #ifdef VDEC_DEBUG_SUPPORT
 extern void vdec_set_step_mode(void);
