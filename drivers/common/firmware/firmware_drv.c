@@ -112,6 +112,18 @@ bool fw_tee_enabled(void)
 }
 EXPORT_SYMBOL(fw_tee_enabled);
 
+/*for encoder: Some chips do not support tee loading encoder firmware*/
+bool enc_support_tee_load_fw(void)
+{
+	if ((get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_G12B) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_TL1) ||
+		(get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_SM1)) {
+		return false;
+	}
+
+	return true;
+}
+
 extern unsigned long long g_fw_mask;
 void fw_get_format_from_dtb(void)
 {
@@ -771,7 +783,7 @@ static int fw_package_parse(struct fw_files_s *files,
 		if (debug)
 			pr_info("adds %s to the fw list.\n", info->name);
 
-		if (fw_tee_enabled()) {
+		if (fw_tee_enabled() && enc_support_tee_load_fw()) {
 			fws_head = kzalloc(sizeof(struct firmware_s), GFP_KERNEL);
 			if (fws_head == NULL) {
 				kfree(data);
@@ -790,7 +802,7 @@ static int fw_package_parse(struct fw_files_s *files,
 	} while (try_cnt--);
 
 	/* process the fw of dup attribute. */
-	if (!fw_tee_enabled())
+	if (!(fw_tee_enabled() && enc_support_tee_load_fw()))
 		ret = fw_replace_dup_data(buf);
 
 	if (ret)
