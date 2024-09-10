@@ -1045,7 +1045,7 @@
 };
 
 &gpu {
-	//mali-supply = <&buck4_reg>;
+	mali-supply = <&buck4_reg>;
 	status = "okay";
 };
 

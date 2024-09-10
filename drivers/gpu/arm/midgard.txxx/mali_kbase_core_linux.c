@@ -899,19 +899,19 @@ static int assign_irqs(struct platform_device *pdev)
 		return -ENODEV;
 
 	/* 3 IRQ resources */
-        for (i = 0; i < ARRAY_SIZE(irq_names_caps); i++) {
+        for (i = 0; i < ARRAY_SIZE(irq_names); i++) {
 
-                /* We recommend using Upper case for the irq names in dts, but if
-                 * there are devices in the world using Lower case then we should
-                 * avoid breaking support for them. So try using names in Upper case
-                 * first then try using Lower case names. If both attempts fail then
+                /* We recommend using Lower case for the irq names in dts, but if
+                 * there are devices in the world using Upper case then we should
+                 * avoid breaking support for them. So try using names in Lower case
+                 * first then try using Upper case names. If both attempts fail then
                  * we assume there is no IRQ resource specified for the GPU.
                  */
-                irq = platform_get_irq_byname(pdev, irq_names_caps[i]);
+                irq = platform_get_irq_byname(pdev, irq_names[i]);
                 if (irq < 0) {
-                        irq = platform_get_irq_byname(pdev, irq_names[i]);
+                        irq = platform_get_irq_byname(pdev, irq_names_caps[i]);
 						if(irq < 0) {
-    	                    dev_err(kbdev->dev, "No IRQ resource '%s'\n", irq_names_caps[i]);
+	                    dev_err(kbdev->dev, "No IRQ resource '%s'\n", irq_names[i]);
 	                        return irq;
 						}
 				}
