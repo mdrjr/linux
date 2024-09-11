@@ -580,6 +580,7 @@ struct vdec_s {
 	u64 last_bw[8];
 	char bandwidth_name[32];
 	bool reset_input_flag;
+	bool input_underrun;
 };
 
 #define CODEC_MODE(a, b, c, d)\
@@ -906,6 +907,8 @@ unsigned long vdec_canvas_lock(void);
 int vdec_get_core_nr(void);
 
 bool vdec_has_single_mode(void);
+
+void vdec_set_input_underrun(struct vdec_s *vdec, bool set);
 
 int vdec_post_task(post_task_handler func, void *args);
 
