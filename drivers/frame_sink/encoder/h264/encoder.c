@@ -472,7 +472,12 @@ const char *ucode_name[] = {
 };
 
 static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
-static DEFINE_SEMAPHORE(s_vpu_sem);
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
+	static DEFINE_SEMAPHORE(s_vpu_sem);
+#else
+	static DEFINE_SEMAPHORE(s_vpu_sem, 1);
+#endif
+
 static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
 
 static void dma_flush(u32 buf_start, u32 buf_size);
