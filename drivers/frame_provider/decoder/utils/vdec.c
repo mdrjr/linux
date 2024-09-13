@@ -6485,6 +6485,13 @@ s32 vdec_request_threaded_irq(enum vdec_irq_num num,
 		vdec_core->isr_context[num].dev_isr = handler;
 		vdec_core->isr_context[num].dev_threaded_isr = thread_fn;
 		vdec_core->isr_context[num].dev_id = dev;
+
+		if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T3X) {
+			if (num_online_cpus() > 1)
+				irq_set_affinity_hint(res_irq, cpumask_of(1));
+		} else {
+			irq_set_affinity_hint(res_irq, get_cpu_mask(num_online_cpus()));
+		}
 		ret = request_threaded_irq(res_irq,
 			vdec_isr,
 			vdec_thread_isr,

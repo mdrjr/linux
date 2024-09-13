@@ -2021,6 +2021,7 @@ struct hevc_state_s {
 	struct completion complete;
 	u32 data_size_bak;
 	u32 data_offset_bak;
+	bool check_suffix_data;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -11539,10 +11540,13 @@ muti_output:
 				 && (frmbase_multi_slice == 1)) {
 				hevc->consume_byte = READ_VREG(HEVC_SHIFT_BYTE_COUNT) - 8;
 				hevc->dec_result = DEC_RESULT_UNFINISH;
+				if (efficiency_mode)
+					hevc->check_suffix_data = true;
 			} else {
 				hevc->data_size = 0;
 				hevc->data_offset = 0;
 				hevc->dec_result = DEC_RESULT_DONE;
+				hevc->check_suffix_data = false;
 			}
 
 			if ((!input_stream_based(vdec) &&
@@ -11653,7 +11657,12 @@ force_output:
 				}
 			}
 			ATRACE_COUNTER(hevc->trace.decode_time_name, DECODER_ISR_THREAD_EDN);
-			vh265_work_implement(hevc, vdec, 0);
+			if (hevc->check_suffix_data && dec_status == HEVC_DECPIC_DATA_DONE) {
+				WRITE_VREG(HEVC_DEC_STATUS_REG, HEVC_ACTION_DONE);
+				start_process_time(hevc);
+				return IRQ_HANDLED;
+			} else
+				vh265_work_implement(hevc, vdec, 0);
 		}
 
 		return IRQ_HANDLED;
@@ -12581,6 +12590,14 @@ static irqreturn_t vh265_isr(int irq, void *data)
 			WRITE_VREG(HEVC_DEC_STATUS_REG, 0);
 			return IRQ_HANDLED;
 		}
+	}
+
+	if (dec_status == HEVC_SLICE_SEGMENT_DONE && hevc->check_suffix_data) {
+		hevc->check_suffix_data = false;
+
+		hevc->dec_result = DEC_RESULT_UNFINISH;
+		vdec_schedule_work(&hevc->work);
+		return IRQ_HANDLED;
 	}
 	ATRACE_COUNTER(hevc->trace.decode_time_name, DECODER_ISR_END);
 	return IRQ_WAKE_THREAD;
@@ -14397,7 +14414,7 @@ static void vh265_work_implement(struct hevc_state_s *hevc,
 			int i;
 		hevc->dec_again_cnt = 0;
 		decode_frame_count[hevc->index]++;
-		if (hevc->multi_frame_flag)
+		if (hevc->check_suffix_data)
 			goto done_end;
 
 #ifdef DETREFILL_ENABLE
@@ -15144,6 +15161,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 		(hevc->dec_result == DEC_RESULT_UNFINISH)) {
 		u32 res_byte = hevc->data_size - hevc->consume_byte;
 
+		hevc->data_offset_bak = hevc->data_offset;
+		hevc->data_size_bak = hevc->data_size;
 		hevc_print(hevc, PRINT_FLAG_VDEC_DETAIL,
 			"%s before, consume 0x%x, size 0x%x, offset 0x%x, res 0x%x\n", __func__,
 			hevc->consume_byte, hevc->data_size, hevc->data_offset + hevc->consume_byte, res_byte);
@@ -15182,8 +15201,6 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			(hevc->chunk != NULL)) {
 			hevc->data_offset = hevc->chunk->offset;
 			hevc->data_size = r;
-			hevc->data_offset_bak = hevc->chunk->offset;
-			hevc->data_size_bak = r;
 		}
 		hevc->multi_frame_flag = 0;
 		WRITE_VREG(HEVC_WAIT_FLAG, 0);
@@ -15334,6 +15351,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	if (is_vcpu_clk_set())
 		WRITE_VREG(HEVC_DECODE_COUNT, hevc->decode_idx);
 	hevc->init_flag = 1;
+	hevc->check_suffix_data = false;
 
 	if (hevc->pic_list_init_flag == 3)
 		init_pic_list_hw(hevc);
