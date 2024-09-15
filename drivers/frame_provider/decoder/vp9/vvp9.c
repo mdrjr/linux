@@ -11930,6 +11930,10 @@ static void run_front(struct vdec_s *vdec)
 	} else {
 		WRITE_VREG(HEVC_EFFICIENCY_MODE, (READ_VREG(HEVC_EFFICIENCY_MODE) & (~(1<<1))));
 	}
+
+	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_S7) //disable OW module auto cg on HEVC top for S7
+		SET_VREG_MASK(HEVC_SAO_CTRL11, (1 << 28));
+
 	if (vp9_hw_ctx_restore(pbi) < 0) {
 		vdec_schedule_work(&pbi->work);
 		return;
