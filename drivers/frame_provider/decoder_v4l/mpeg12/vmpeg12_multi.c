@@ -1970,6 +1970,44 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 			v4l2_ctx->current_timestamp = pic->last_timestamp;
 			vdec_v4l_post_error_frame_event(v4l2_ctx);
 		}
+
+		if (vdec_stream_based(vdec)) {
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = (u64)vf->duration;
+
+			if (i == 0) {
+				if ((info & PICINFO_TYPE_MASK) == PICINFO_TYPE_I)
+					frame_type = KEYFRAME_FLAG;
+				else if ((info & PICINFO_TYPE_MASK) == PICINFO_TYPE_P)
+					frame_type = PFRAME_FLAG;
+				else
+					frame_type = BFRAME_FLAG;
+
+				dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | pic->offset;
+				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+					vf->pts = pts_st.pts;
+					vf->pts_us64 = pts_st.pts_64;
+					vf->timestamp = pts_st.pts_64;
+				} else {
+					vf->pts = 0;
+					vf->pts_us64 = 0;
+					vf->timestamp = 0;
+				}
+			} else if (i > 0) {
+				pts_st.offset = -1;
+				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+					vf->pts = pts_st.pts;
+					vf->pts_us64 = pts_st.pts_64;
+					vf->timestamp = pts_st.pts_64;
+				} else {
+					vf->pts = 0;
+					vf->pts_us64 = 0;
+					vf->timestamp = 0;
+				}
+			}
+		}
+
 		vf->type_original = vf->type;
 
 		if ((error_skip(hw, pic->buffer_info, vf)) ||
@@ -2571,21 +2609,18 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 				if (vdec_stream_based(vdec)) {
 					struct checkoutptsoffset pts_st = { 0 };
 					u64 dur_offset = hw->frame_dur;
-					dur_offset = (dur_offset << 32 ) | offset;
-					if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
+
+					dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;
+					if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 						new_pic->pts_valid = true;
 						new_pic->pts = pts_st.pts;
-						if (hw->first_field_timestamp_valid)
-							new_pic->last_timestamp = hw->first_field_timestamp;
-						else
-							new_pic->last_timestamp = pts_st.pts_64;
-						hw->first_field_timestamp_valid = false;
+						new_pic->pts64 = pts_st.pts_64;
 						new_pic->timestamp = pts_st.pts_64;
-
-						debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
-							"stream checkout pts is%lx\n", new_pic->pts);
 					} else {
 						new_pic->pts_valid = false;
+						new_pic->pts = 0;
+						new_pic->pts64 = 0;
+						new_pic->timestamp = 0;
 					}
 				}
 			}
@@ -2603,22 +2638,18 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 				if (vdec_stream_based(vdec)) {
 					struct checkoutptsoffset pts_st;
 					u64 dur_offset = hw->frame_dur;
-					dur_offset = (dur_offset << 32 ) | offset;
-					if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
+
+					dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;
+					if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 						new_pic->pts_valid = true;
 						new_pic->pts = pts_st.pts;
-
-						if (hw->first_field_timestamp_valid)
-							new_pic->last_timestamp = hw->first_field_timestamp;
-						else
-							new_pic->last_timestamp = pts_st.pts_64;
-						hw->first_field_timestamp_valid = false;
-
+						new_pic->pts64 = pts_st.pts_64;
 						new_pic->timestamp = pts_st.pts_64;
-						debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
-							"stream checkout pts is%lx\n", new_pic->pts);
 					} else {
 						new_pic->pts_valid = false;
+						new_pic->pts = 0;
+						new_pic->pts64 = 0;
+						new_pic->timestamp = 0;
 					}
 				}
 			}
@@ -2712,7 +2743,7 @@ static irqreturn_t vmpeg12_isr_thread_handler(struct vdec_s *vdec, int irq)
 		}
 
 		debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
-			"mmpeg12: disp_pic=%d(%c), ind=%d, offst=%x, poc %d, pts=(%d,%lld,%lld)(%d)\n",
+			"mmpeg12: disp_pic=%d(%c), ind=%d, offst=%x, poc %d, pts=(%d,%lld,%llu)(%d)\n",
 			hw->disp_num, GET_SLICE_TYPE(info), index, disp_pic->offset, disp_pic->poc,
 			disp_pic->pts, disp_pic->pts64,
 			disp_pic->timestamp, disp_pic->pts_valid);

@@ -4992,7 +4992,7 @@ static int aml_vdec_try_s_v_ctrl(struct v4l2_ctrl *ctrl)
 			if (ret < 0) {
 				v4l_dbg(ctx, 0, "%s Alloc pts server fail!\n", __func__);
 			}
-			ptsserver_set_mode(ctx->ptsserver_id, true);
+
 			ctx->pts_serves_ops = get_pts_server_ops();
 			if (ctx->pts_serves_ops == NULL) {
 				v4l_dbg(ctx, 0, "%s pts_serves_ops is NULL!\n", __func__);

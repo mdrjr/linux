@@ -10044,44 +10044,6 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 			vf->pts_us64 = pic->pts64;
 			vf->timestamp = pic->timestamp;
 		}
-#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-		else if (vdec->master == NULL) {
-#else
-		else {
-#endif
-#endif
-			hevc_print(hevc, H265_DEBUG_OUT_PTS,
-				"call pts_lookup_offset_us64(0x%x)\n",
-				stream_offset);
-			if (vdec->is_v4l || (vdec->vbuf.no_parser == 0) || (vdec->vbuf.use_ptsserv)) {
-				struct checkoutptsoffset pts_st;
-				u64 dur_offset = hevc->frame_dur;
-				dur_offset = (dur_offset << 32 ) | stream_offset;
-				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
-					vf->pts = pts_st.pts;
-					vf->pts_us64 = pts_st.pts_64;
-					vf->timestamp = pts_st.pts_64;
-#ifdef DEBUG_PTS
-					hevc->pts_hit++;
-#endif
-				} else {
-#ifdef DEBUG_PTS
-					hevc->pts_missed++;
-#endif
-					vf->pts = 0;
-					vf->pts_us64 = 0;
-				}
-			}
-
-#ifdef MULTI_INSTANCE_SUPPORT
-#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
-		} else {
-			vf->pts = 0;
-			vf->pts_us64 = 0;
-		}
-#else
-		}
-#endif
 #endif
 
 		if (pts_unstable && (hevc->frame_dur > 0))
@@ -10259,11 +10221,38 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 			vf->pts = 0;
 			vf->pts_us64 = 0;
 		}
-		if (!vdec->is_v4l && !vdec->vbuf.use_ptsserv && vdec_stream_based(vdec)) {
-			vf->pts_us64 = stream_offset;
-			vf->pts = 0;
-		}
 
+		if (vdec_stream_based(vdec)) {
+			/* lookup by decoder */
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = vf->duration;
+
+			if (slice_type == I_SLICE)
+				frame_type = KEYFRAME_FLAG;
+			else if (slice_type == P_SLICE)
+				frame_type = PFRAME_FLAG;
+			else
+				frame_type = BFRAME_FLAG;
+
+			dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | stream_offset;
+
+			if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+				vf->pts = pts_st.pts;
+				vf->pts_us64 = pts_st.pts_64;
+				vf->timestamp = pts_st.pts_64;
+#ifdef DEBUG_PTS
+				hevc->pts_hit++;
+#endif
+			} else {
+#ifdef DEBUG_PTS
+				hevc->pts_missed++;
+#endif
+				vf->pts = 0;
+				vf->pts_us64 = 0;
+				vf->timestamp = 0;
+			}
+		}
 		vf->src_fmt.play_id = vdec->inst_cnt;
 
 		vf->width = vf->width /

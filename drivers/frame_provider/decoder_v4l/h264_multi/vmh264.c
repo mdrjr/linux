@@ -3667,17 +3667,43 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		vf->sar_height = hw->height_aspect_ratio;
 		vf->dec_set_screen_mode = vdec->screen_mode;
 
-		if (!vdec->is_v4l && !vdec->vbuf.use_ptsserv && vdec_stream_based(vdec)) {
-			/* offset for tsplayer pts lookup */
+		if (vdec_stream_based(vdec)) {
+			/* lookup by decoder */
+			u64 frame_type = 0;
+			struct checkoutptsoffset pts_st;
+			u64 dur_offset = (u64)vf->duration;
+
+			if (slice_type == I_SLICE)
+				frame_type = KEYFRAME_FLAG;
+			else if (slice_type == P_SLICE)
+				frame_type = PFRAME_FLAG;
+			else
+				frame_type = BFRAME_FLAG;
 			if (i == 0) {
-				vf->pts_us64 = (((u64)vf->duration << 32) &
-					0xffffffff00000000) | offset;
-				vf->pts = 0;
+				dur_offset = ((dur_offset << 32 | (frame_type << 62)) & 0xffffffff00000000) | offset;
+				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+					vf->pts = pts_st.pts;
+					vf->pts_us64 = pts_st.pts_64;
+					vf->timestamp = pts_st.pts_64;
+				} else {
+					vf->pts = 0;
+					vf->pts_us64 = 0;
+					vf->timestamp = 0;
+				}
 			} else {
-				vf->pts_us64 = (u64)-1;
-				vf->pts = 0;
+				dur_offset = -1;
+				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
+					vf->pts = pts_st.pts;
+					vf->pts_us64 = pts_st.pts_64;
+					vf->timestamp = pts_st.pts_64;
+				} else {
+					vf->pts = 0;
+					vf->pts_us64 = 0;
+					vf->timestamp = 0;
+				}
 			}
 		}
+
 		atomic_add(1, &hw->vf_pre_count);
 		vdec_vframe_ready(hw_to_vdec(hw), vf);
 
@@ -3710,7 +3736,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		}
 
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
-			"%s: index %d poc %d frame_type %d dur %d type %x pts %d(0x%x), pts64 %lld(0x%x) ts %lld(0x%x)\n",
+			"%s: index %d poc %d frame_type %d dur %d type %x pts %d(0x%x), pts64 %lld(0x%x) ts %llu(0x%x)\n",
 			__func__, vf->index, frame->poc, vf->frame_type, vf->duration, vf->type, vf->pts, vf->pts,
 			vf->pts_us64, vf->pts_us64, vf->timestamp, vf->timestamp);
 
@@ -7177,38 +7203,35 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				pic->pts = 0;
 				pic->pts64 = 0;
 #endif
-		} else {
+			} else {
 				struct StorablePicture *pic =
 					p_H264_Dpb->mVideo.dec_picture;
 				u32 offset = pic->offset_delimiter;
 				struct checkoutptsoffset pts_st = {0};
 				u64 dur_offset = hw->frame_dur;
-				dur_offset = (dur_offset << 32) | offset;
+				u32 vpts_valid = 0;
+				u32 vpts = 0;
 
 				vdec_count_info(&hw->gvs, 0,offset);
 				pic->pic_size = (hw->start_bit_cnt - READ_VREG(VIFF_BIT_CNT)) >> 3;
-				if (ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
-					pic->pts = 0;
-					pic->pts64 = 0;
-					pic->timestamp = 0;
-#ifdef MH264_USERDATA_ENABLE
-					vmh264_udc_fill_vpts(hw,
-						p_H264_Dpb->mSlice.slice_type,
-						pic->pts, 0);
-#endif
+
+				dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;;
+				if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
+					vpts_valid = 1;
+					vpts = pts_st.pts;
 				} else {
-#ifdef MH264_USERDATA_ENABLE
-
-					pic->pts = pts_st.pts;
-					pic->pts64 = pts_st.pts_64;
-					pic->timestamp = pts_st.pts_64;
-
-					vmh264_udc_fill_vpts(hw,
-						p_H264_Dpb->mSlice.slice_type,
-						pic->pts, 1);
-#endif
+					vpts_valid = 0;
+					vpts = 0;
 				}
-	}
+
+#ifdef MH264_USERDATA_ENABLE
+				dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
+						"%s: id = %x, offset: %x, vpts: %d, vpts_valid %d\n",
+						__func__, vdec->pts_server_id, offset, vpts, vpts_valid);
+
+				vmh264_udc_fill_vpts(hw, p_H264_Dpb->mSlice.slice_type, vpts, vpts_valid);
+#endif
+			}
 
 			check_decoded_pic_error(hw);
 
