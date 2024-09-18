@@ -5473,7 +5473,7 @@ static int avs2_prepare_display_buf(struct AVS2Decoder_s *dec)
 #endif
 			avs2_print(dec, AVS2_DBG_BUFMGR_DETAIL,
 					"%s: pic %p stream_offset 0x%x, poc %d, cuva_data_size %d, signal_type:0x%x vf:%p\n",
-					__func__, pic, pic->stream_offset, 0/*pic->poc*/, pic->cuva_data_size, vf->signal_type, vf);
+					__func__, pic, pic->stream_offset, pic->poc, pic->cuva_data_size, vf->signal_type, vf);
 
 			if (get_dbg_flag(dec) & AVS2_DBG_HDR_INFO) {
 				u32 i;
@@ -6229,7 +6229,8 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 			}
 		}
 		goto irq_handled_exit;
-	} else if (dec_status == HEVC_DECPIC_DATA_DONE) {
+	} else if ((dec_status == HEVC_DECPIC_DATA_DONE)
+		|| (dec_status == HEVC_DECPIC_DATA_ERROR)) {
 		if (efficiency_mode) {
 			if (!wait_for_completion_timeout(&dec->complete, msecs_to_jiffies(34)))
 				avs2_print(dec, 0, "!!!wait for completion timeout %d\n", __LINE__);
@@ -6238,6 +6239,10 @@ static irqreturn_t vavs2_isr_thread_fn(int irq, void *data)
 		dec->start_decoding_flag |= 0x3;
 		vdec_profile(hw_to_vdec(dec), VDEC_PROFILE_DECODED_FRAME, CORE_MASK_HEVC);
 		if (dec->m_ins_flag) {
+			if (dec_status == HEVC_DECPIC_DATA_ERROR &&
+				(dec->avs2_dec.hc.cur_pic != NULL))
+				dec->avs2_dec.hc.cur_pic->error_mark = 1;
+
 			set_cuva_data(dec);
 			update_decoded_pic(dec);
 			check_pic_error(dec, dec->avs2_dec.hc.cur_pic);
