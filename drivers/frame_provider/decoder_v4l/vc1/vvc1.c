@@ -504,6 +504,7 @@ static int vc1_recycle_frame_buffer(struct vdec_vc1_hw_s *hw)
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	struct aml_buf *aml_buf;
+	ulong phy_addr;
 	ulong flags;
 	int i;
 
@@ -514,22 +515,18 @@ static int vc1_recycle_frame_buffer(struct vdec_vc1_hw_s *hw)
 			aml_buf = (struct aml_buf *)hw->pics[i].v4l_ref_buf_addr;
 
 			vc1_print(0, VC1_DEBUG_DETAIL,
-				"%s buf idx: %d dma addr: 0x%lx fb idx: %d vf_ref %d ref_use %d\n",
+				"%s buf idx: %d dma addr: 0x%lx vf_ref %d ref_use %d\n",
 				__func__, i, hw->pics[i].cma_alloc_addr,
-				aml_buf->index,
 				hw->vf_ref[i],
 				hw->ref_use[i]);
-			if ((ctx->vpp_is_need || ctx->enable_di_post) &&
-				hw->interlace_flag &&
-				hw->vf_ref[i] < 2)
-				continue;
-			aml_buf_put_ref(&ctx->bm, aml_buf);
+
 			spin_lock_irqsave(&hw->lock, flags);
 			/*
 			 * There will no be multiple threads running in
 			 * the same vdec_vc1_hw_s context.
 			 */
 			/* coverity[thread1_overwrites_value_in_field] */
+			phy_addr = hw->pics[i].cma_alloc_addr;
 			hw->pics[i].v4l_ref_buf_addr = 0;
 			hw->pics[i].cma_alloc_addr = 0;
 			while (hw->vf_ref[i]) {
@@ -537,6 +534,14 @@ static int vc1_recycle_frame_buffer(struct vdec_vc1_hw_s *hw)
 				hw->vf_ref[i]--;
 			}
 			spin_unlock_irqrestore(&hw->lock, flags);
+
+			if (ctx->enable_di_post  &&
+				hw->interlace_flag) {
+					aml_buf_put_free_dmabuf(&ctx->bm, phy_addr, 0, true);
+					continue;
+			}
+
+			aml_buf_put_ref(&ctx->bm, aml_buf);
 
 			break;
 		}
@@ -599,6 +604,9 @@ static bool is_available_buffer(struct vdec_vc1_hw_s *hw)
 
 		return false;
 	}
+
+	if (aml_buf_dmabuf_slot_occupied(&ctx->bm))
+		return false;
 
 	if (((hw->interlace_flag) &&
 		atomic_read(&ctx->vpp_cache_num) > 1) ||
@@ -900,6 +908,8 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	int endian = (hw->canvas_mode == CANVAS_BLKMODE_LINEAR) ? 7 : 0;
+	struct aml_buf *sub0_buf, *sub1_buf;
+	int j;
 
 	if (!aml_buf) {
 		vc1_print(0, 0, "%s not get aml_buf \n", __func__);
@@ -936,6 +946,18 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = decbuf_y_size;
 		aml_buf->planes[1].bytes_used = decbuf_uv_size;
+	}
+
+	for (j = 0; j < aml_buf->num_planes; j++) {
+		if (aml_buf->sub_buf[0]) {
+			sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+			sub0_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
+
+		if (aml_buf->sub_buf[1]) {
+			sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+			sub1_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
 	}
 
 	if (is_vdec_hevc_combine()) {
@@ -992,6 +1014,9 @@ static int v4l_alloc_buff_config_canvas(struct vdec_vc1_hw_s *hw, int i)
 		canvas_width, canvas_height,
 		vc1_canvas_config[i][0].block_mode,
 		vc1_canvas_config[i][0].endian);
+
+	if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+		aml_buf_get_dmabuf_ref(&ctx->bm, hw->pics[i].cma_alloc_addr, true);
 
 	aml_buf_get_ref(&ctx->bm, aml_buf);
 	if ((ctx->vpp_is_need || ctx->enable_di_post) &&
@@ -1095,11 +1120,14 @@ static void vc1_reset_frame_buffer(struct vdec_vc1_hw_s *hw)
 	for (i = 0; i < hw->vf_buf_num_used; i++) {
 		if (hw->pics[i].v4l_ref_buf_addr) {
 			aml_buf = (struct aml_buf *)hw->pics[i].v4l_ref_buf_addr;
-			if (hw->interlace_flag) {
-				aml_buf_put_ref(&ctx->bm, aml_buf);
-				aml_buf_put_ref(&ctx->bm, aml_buf);
-			} else
-				aml_buf_put_ref(&ctx->bm, aml_buf);
+
+			if (!(ctx->enable_di_post && hw->interlace_flag)) {
+				if (hw->interlace_flag) {
+					aml_buf_put_ref(&ctx->bm, aml_buf);
+					aml_buf_put_ref(&ctx->bm, aml_buf);
+				} else
+					aml_buf_put_ref(&ctx->bm, aml_buf);
+			}
 
 			spin_lock_irqsave(&hw->lock, flags);
 			hw->pics[i].v4l_ref_buf_addr = 0;
@@ -1238,6 +1266,8 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	struct aml_buf *aml_buf = NULL;
+	struct aml_buf *sub0_buf = NULL;
+	struct aml_buf *sub1_buf = NULL;
 
 	if (!hw->pics[buffer_index].v4l_ref_buf_addr) {
 		vc1_print(0, 0, "%s do not get aml_buf! \n", __func__);
@@ -1246,6 +1276,13 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 
 	vc1_print(0, VC1_DEBUG_DETAIL, "%s: buffer_info 0x%x, index %d, picture_type %d\n",
 					__func__, reg, buffer_index, picture_type);
+
+	aml_buf = (struct aml_buf *)pic->v4l_ref_buf_addr;
+	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+
+	if (ctx->enable_di_post && hw->interlace_flag)
+		aml_buf_set_unbind_dmabuf(&ctx->bm, sub1_buf);
 
 	if (hw->interlace_flag &&
 		(ctx->vpp_is_need || ctx->enable_di_post)) { /* interlace */
@@ -1333,7 +1370,6 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		hw->vfbuf_use[buffer_index]++;
 		hw->vf_ref[buffer_index]++;
 		vf->v4l_mem_handle = hw->pics[buffer_index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->pts_us64 = pts_us64;
 		vf->timestamp = pts_us64;
 
@@ -1359,7 +1395,8 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		kfifo_put(&display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(MODULE_NAME, vf->pts);
 
-		if (ctx->is_stream_off) {
+		if (ctx->is_stream_off && !(ctx->enable_di_post  &&
+				hw->interlace_flag)) {
 			vvc1_vf_put(vvc1_vf_get(vdec), vdec);
 		} else {
 			if (ctx->enable_di_post)
@@ -1422,7 +1459,6 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 		hw->vfbuf_use[buffer_index]++;
 		hw->vf_ref[buffer_index]++;
 		vf->v4l_mem_handle = hw->pics[buffer_index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->pts_us64 = pts_us64;
 		vf->timestamp = pts_us64;
 
@@ -1446,11 +1482,12 @@ static int prepare_display_buf(struct vdec_vc1_hw_s *hw,	struct pic_info_t *pic)
 			vf->index, vf->pts, vf->pts_us64, vf->type, vf->width, vf->height);
 		kfifo_put(&display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(MODULE_NAME, vf->pts);
-		if (ctx->is_stream_off) {
+		if (ctx->is_stream_off && !(ctx->enable_di_post  &&
+				hw->interlace_flag)) {
 			vvc1_vf_put(vvc1_vf_get(vdec), vdec);
 		} else {
-			if (aml_buf->sub_buf[0])
-				aml_buf = aml_buf->sub_buf[0];
+			if (sub0_buf)
+				aml_buf = sub0_buf;
 			if (ctx->enable_di_post)
 				ctx->fbc_transcode_and_set_vf(ctx, aml_buf, vf);
 			aml_buf_set_vframe(aml_buf, vf);
@@ -1622,6 +1659,9 @@ void vc1_buf_ref_process_for_exception(struct vdec_vc1_hw_s *hw)
 	if ((ctx->vpp_is_need || ctx->enable_di_post) && hw->interlace_flag) {
 		aml_buf_put_ref(&ctx->bm, aml_buf);
 	}
+
+	if (ctx->enable_di_post && hw->interlace_flag)
+		aml_buf_put_free_dmabuf(&ctx->bm, hw->pics[index].cma_alloc_addr, 0, true);
 
 	hw->vfbuf_use[index] = 0;
 	hw->ref_use[index] = 0;

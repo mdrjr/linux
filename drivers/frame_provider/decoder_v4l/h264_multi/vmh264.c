@@ -2225,6 +2225,8 @@ static int v4l_alloc_buf(struct vdec_h264_hw_s *hw, int idx)
 	struct canvas_config_s *c_canvas_cfg = NULL;
 	dos_addr_t y_addr = 0, c_addr = 0;
 	int dw_ratio = get_double_write_ratio(get_double_write_mode(hw));
+	struct aml_buf *sub0_buf, *sub1_buf;
+	int j;
 
 	if (!hw->aml_buf) {
 		dpb_print(DECODE_ID(hw), 0,
@@ -2278,6 +2280,18 @@ static int v4l_alloc_buf(struct vdec_h264_hw_s *hw, int idx)
 		c_addr = hw->aml_buf->planes[1].addr;
 		hw->aml_buf->planes[0].bytes_used = hw->aml_buf->planes[0].length;
 		hw->aml_buf->planes[1].bytes_used = hw->aml_buf->planes[1].length;
+	}
+
+	for (j = 0; j < hw->aml_buf->num_planes; j++) {
+		if (hw->aml_buf->sub_buf[0]) {
+			sub0_buf = (struct aml_buf *)hw->aml_buf->sub_buf[0];
+			sub0_buf->planes[j].bytes_used = hw->aml_buf->planes[j].bytes_used;
+		}
+
+		if (hw->aml_buf->sub_buf[1]) {
+			sub1_buf = (struct aml_buf *)hw->aml_buf->sub_buf[1];
+			sub1_buf->planes[j].bytes_used = hw->aml_buf->planes[j].bytes_used;
+		}
 	}
 
 	dpb_print(DECODE_ID(hw), PRINT_FLAG_V4L_DETAIL,
@@ -2606,6 +2620,8 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 
 			aml_buf_get_ref(&v4l->bm, hw->aml_buf);
 		}
+		if (v4l->enable_di_post && v4l->picinfo.field == V4L2_FIELD_INTERLACED)
+			aml_buf_get_dmabuf_ref(&v4l->bm, pic->buf_adr, true);
 		hw->aml_buf = NULL;
 
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
@@ -2685,6 +2701,20 @@ int h264_reset_frame_buffer(struct vdec_h264_hw_s *hw, bool reset_flags)
 		pic = &hw->buffer_spec[i];
 
 		if (pic->cma_alloc_addr) {
+			if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+				if (!reset_flags)
+					aml_buf_put_free_dmabuf(&ctx->bm, pic->buf_adr, 0, true);
+				while (pic->vf_ref) {
+					atomic_add(1, &hw->vf_put_count);
+					pic->vf_ref--;
+				}
+
+				pic->cma_alloc_addr = 0;
+				pic->buf_adr = 0;
+				pic->used = 0;
+				continue;
+			}
+
 			aml_buf = (struct aml_buf *)pic->cma_alloc_addr;
 			if ((hw->aml_buf != NULL) && (hw->aml_buf == aml_buf))
 				continue;
@@ -2742,7 +2772,13 @@ int recycle_frame_buffer(struct h264_dpb_stru *p_H264_Dpb, int buf_spec_num,
 		buf_spec_num > 0 ? hw->buffer_spec[buf_spec_num].used : 0,
 	hw->buffer_spec[buf_spec_num].buf_adr);
 
-	aml_buf_put_ref(&ctx->bm, aml_buf);
+	if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+		aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
+		if (!p_H264_Dpb->mDPB.fs[frame_index]->show_frame)
+			aml_buf_put_ref(&ctx->bm, aml_buf);
+	} else
+		aml_buf_put_ref(&ctx->bm, aml_buf);
+
 	spin_lock_irqsave(&hw->bufspec_lock, flags);
 	while (hw->buffer_spec[buf_spec_num].vf_ref) {
 		atomic_add(1, &hw->vf_put_count);
@@ -3238,6 +3274,9 @@ unsigned char have_free_buf_spec(struct vdec_s *vdec, bool buf_for_eos)
 		(one_packet_multi_frames_multi_run && (dpb->mDPB.used_size >= dpb->mDPB.size)))
 		return 0;
 
+	if (aml_buf_dmabuf_slot_occupied(&ctx->bm))
+		return false;
+
 	for (i = 0; i < hw->dpb.mDPB.size; i++) {
 		if ((hw->buffer_spec[i].used == 0 || hw->buffer_spec[i].used == -1) &&
 			hw->buffer_spec[i].vf_ref == 0 &&
@@ -3635,6 +3674,8 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 	u32 slice_type = 0;
 	u32 offset = 0;
 	int dw_mode = get_double_write_mode(hw);
+	struct aml_buf *sub0_buf = NULL;
+	struct aml_buf *sub1_buf = NULL;
 
 	/* swap uv */
 	if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
@@ -3684,6 +3725,20 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		}
 	}
 
+	aml_buf = (struct aml_buf *)hw->buffer_spec[buffer_index].cma_alloc_addr;
+	if (!aml_buf) {
+		dpb_print(DECODE_ID(hw), 0,
+		"[ERR]: aml_buf(index: %d) is NULL!\n",
+		buffer_index);
+
+		return -1;
+	}
+	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+	if (v4l2_ctx->enable_di_post && picinfo->field != V4L2_FIELD_NONE
+		&& vf_count == 2 && frame->show_frame)
+		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+
 	for (i = 0; i < vf_count; i++) {
 		if (kfifo_get(&hw->newframe_q, &vf) == 0 || vf == NULL) {
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_ERROR,
@@ -3723,16 +3778,6 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		}
 
 		vf->v4l_mem_handle = hw->buffer_spec[buffer_index].cma_alloc_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
-
-		if (!vf->v4l_mem_handle) {
-			kfifo_put(&hw->newframe_q, (const struct vframe_s *)vf);
-			dpb_print(DECODE_ID(hw), 0,
-			"[ERR]: aml_buf(index: %d) is NULL!\n",
-			buffer_index);
-
-			return -1;
-		}
 
 		if (hw->enable_fence) {
 			/* fill fence information. */
@@ -4153,22 +4198,23 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 					aml_buf, vf);
 
 		if (without_display_mode == 0) {
-			if (v4l2_ctx->is_stream_off && ((!v4l2_ctx->avbcd_work_mode) ||
+			if (v4l2_ctx->is_stream_off && ((!v4l2_ctx->avbcd_work_mode &&
+					!(v4l2_ctx->enable_di_post && picinfo->field != V4L2_FIELD_NONE)) ||
 					(v4l2_ctx->avbcd_work_mode && atomic_read(&hw->vf_pre_count) > 1))) {
 				vh264_vf_put(vh264_vf_get(vdec), vdec);
 				frame->pre_output = 1;
 			} else {
 				set_meta_data_to_vf(vf, UVM_META_DATA_VF_BASE_INFOS, hw->v4l2_ctx);
-				if (i && aml_buf->sub_buf[0]) {
+				if (i && sub0_buf) {
 					struct aml_buf *sub_buf =
-							(i == 1) ? aml_buf->sub_buf[0] :
-							aml_buf->sub_buf[1];
+							(i == 1) ? sub0_buf :
+							sub1_buf;
 					if (v4l2_ctx->enable_di_post &&
 							!v4l2_ctx->avbcd_work_mode)
 						v4l2_ctx->fbc_transcode_and_set_vf(v4l2_ctx,
 								sub_buf, vf);
 					aml_buf_set_vframe(sub_buf, vf);
-					vdec_tracing(&v4l2_ctx->vtr, VTRACE_DEC_PIC_0, aml_buf->index);
+					vdec_tracing(&v4l2_ctx->vtr, VTRACE_DEC_PIC_0, sub_buf->index);
 					if (v4l2_ctx->avbcd_work_mode) {
 						put_vf_to_avbc_q(hw, vf);
 						h264_post_avbcd_task(hw);
@@ -7889,6 +7935,9 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 			hw->buffer_spec[buf_spec_num].cma_alloc_addr = 0;
 			hw->buffer_spec[buf_spec_num].buf_adr = 0;
 		}
+		if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+			aml_buf_put_free_dmabuf(&ctx->bm, hw->buffer_spec[buf_spec_num].buf_adr, 0, true);
+
 		hw->buffer_spec[buf_spec_num].used = 0;
 		hw->dpb.cur_idx = INVALID_IDX;
 

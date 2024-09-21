@@ -461,6 +461,8 @@ static int vmpeg4_v4l_alloc_buff_config_canvas(struct vdec_mpeg4_hw_s *hw, int i
 	struct aml_buf *aml_buf = hw->aml_buf;
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	struct aml_buf *sub0_buf, *sub1_buf;
+	int j;
 
 	if (!aml_buf) {
 		mmpeg4_debug_print(DECODE_ID(hw), 0, "[ERR]aml_buf is NULL!\n");
@@ -498,6 +500,18 @@ static int vmpeg4_v4l_alloc_buff_config_canvas(struct vdec_mpeg4_hw_s *hw, int i
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = decbuf_y_size;
 		aml_buf->planes[1].bytes_used = decbuf_uv_size;
+	}
+
+	for (j = 0; j < aml_buf->num_planes; j++) {
+		if (aml_buf->sub_buf[0]) {
+			sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+			sub0_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
+
+		if (aml_buf->sub_buf[1]) {
+			sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+			sub1_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
 	}
 
 	if (is_vdec_hevc_combine()) {
@@ -551,6 +565,8 @@ static int vmpeg4_v4l_alloc_buff_config_canvas(struct vdec_mpeg4_hw_s *hw, int i
 	config_cav_lut(canvas_u(canvas),
 			&hw->canvas_config[i][1], VDEC_1);
 
+	if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+		aml_buf_get_dmabuf_ref(&ctx->bm, hw->pic[i].cma_alloc_addr, true);
 	aml_buf_get_ref(&ctx->bm, aml_buf);
 	hw->aml_buf = NULL;
 
@@ -799,6 +815,8 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 	bool pb_skip = false;
 	unsigned long flags;
 	int vf_dur = vdec_get_vf_dur();
+	struct aml_buf *sub0_buf = NULL;
+	struct aml_buf *sub1_buf = NULL;
 
 	/* swap uv */
 	if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
@@ -817,6 +835,13 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 		v4l_vmpeg4_collect_stream_info(hw_to_vdec(hw), hw);
 	}
 
+	aml_buf = (struct aml_buf *)hw->pic[index].v4l_ref_buf_addr;
+	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+
+	if (v4l2_ctx->enable_di_post && pic->pic_info & INTERLACE_FLAG)
+		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
+
 	if (pic->pic_info & INTERLACE_FLAG) {
 		if (kfifo_get(&hw->newframe_q, &vf) == 0) {
 			mmpeg4_debug_print(DECODE_ID(hw), 0,
@@ -825,7 +850,6 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 		}
 
 		vf->v4l_mem_handle = hw->pic[index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->src_fmt.dv_id = v4l2_ctx->dv_id;
 		vf->decoder_instid = v4l2_ctx->id;
 		mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_V4L_DETAIL,
@@ -898,7 +922,8 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 				hw->b_decoded_frames++;
 			}
 			if (without_display_mode == 0) {
-				if (v4l2_ctx->is_stream_off) {
+				if (v4l2_ctx->is_stream_off  && !(v4l2_ctx->enable_di_post  &&
+					pic->pic_info & INTERLACE_FLAG)) {
 					vmpeg_vf_put(vmpeg_vf_get(vdec), vdec);
 				} else {
 					if (v4l2_ctx->enable_di_post)
@@ -920,7 +945,6 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 
 		vf->v4l_mem_handle
 			= hw->pic[index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->src_fmt.dv_id = v4l2_ctx->dv_id;
 		vf->decoder_instid = v4l2_ctx->id;
 		mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_V4L_DETAIL,
@@ -995,11 +1019,12 @@ static int prepare_display_buf(struct vdec_mpeg4_hw_s * hw,
 				hw->b_decoded_frames++;
 			}
 			if (without_display_mode == 0) {
-				if (v4l2_ctx->is_stream_off) {
+				if (v4l2_ctx->is_stream_off  && !(v4l2_ctx->enable_di_post  &&
+					pic->pic_info & INTERLACE_FLAG)) {
 					vmpeg_vf_put(vmpeg_vf_get(vdec), vdec);
 				} else {
-					if (aml_buf->sub_buf[0])
-						aml_buf = aml_buf->sub_buf[0];
+					if (sub0_buf)
+						aml_buf = sub0_buf;
 					if (v4l2_ctx->enable_di_post)
 						v4l2_ctx->fbc_transcode_and_set_vf(v4l2_ctx,
 							aml_buf, vf);
@@ -1341,6 +1366,9 @@ static void mpeg4_buf_ref_process_for_exception(struct vdec_mpeg4_hw_s *hw)
 
 	aml_buf_put_ref(&ctx->bm, aml_buf);
 	aml_buf_put_ref(&ctx->bm, aml_buf);
+
+	if (ctx->enable_di_post && hw->report_field == V4L2_FIELD_INTERLACED)
+		aml_buf_put_free_dmabuf(&ctx->bm, hw->pic[index].cma_alloc_addr, 0, true);
 
 	hw->vfbuf_use[index] = 0;
 	hw->ref_use[index] = 0;
@@ -2803,6 +2831,7 @@ static int mpeg4_recycle_frame_buffer(struct vdec_mpeg4_hw_s *hw)
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	struct aml_buf *aml_buf;
+	ulong phy_addr;
 	ulong flags;
 	int i;
 
@@ -2811,23 +2840,17 @@ static int mpeg4_recycle_frame_buffer(struct vdec_mpeg4_hw_s *hw)
 			!(hw->ref_use[i]) &&
 			hw->pic[i].v4l_ref_buf_addr){
 			aml_buf = (struct aml_buf *)hw->pic[i].v4l_ref_buf_addr;
-
 			mmpeg4_debug_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
-				"%s buf idx: %d dma addr: 0x%lx fb idx: %d vf_ref %d\n",
+				"%s buf idx: %d dma addr: 0x%lx vf_ref %d\n",
 				__func__, i, hw->pic[i].cma_alloc_addr,
-				aml_buf->index,
 				hw->vfbuf_use[i]);
-			if ((ctx->vpp_is_need || ctx->enable_di_post) &&
-				hw->report_field == V4L2_FIELD_INTERLACED &&
-				hw->vfbuf_use[i] < 2)
-				continue;
-			aml_buf_put_ref(&ctx->bm, aml_buf);
 			spin_lock_irqsave(&hw->lock, flags);
 			/*
 			 * There will no be multiple threads running in
 			 * the same vdec_mpeg4_hw_s context.
 			 */
 			/* coverity[thread1_overwrites_value_in_field] */
+			phy_addr = hw->pic[i].cma_alloc_addr;
 			hw->pic[i].v4l_ref_buf_addr = 0;
 			hw->pic[i].cma_alloc_addr = 0;
 			while (hw->vfbuf_use[i]) {
@@ -2836,6 +2859,16 @@ static int mpeg4_recycle_frame_buffer(struct vdec_mpeg4_hw_s *hw)
 			}
 
 			spin_unlock_irqrestore(&hw->lock, flags);
+
+			if (ctx->enable_di_post  &&
+				hw->report_field == V4L2_FIELD_INTERLACED) {
+					aml_buf_put_free_dmabuf(&ctx->bm, phy_addr, 0, true);
+					if (hw->pic[i].error_mark)
+						aml_buf_put_ref(&ctx->bm, aml_buf);
+					continue;
+			}
+
+			aml_buf_put_ref(&ctx->bm, aml_buf);
 
 			break;
 		}
@@ -2884,6 +2917,9 @@ static bool is_available_buffer(struct vdec_mpeg4_hw_s *hw)
 		if (hw->buf_num > DECODE_BUFFER_NUM_MAX)
 			hw->buf_num = DECODE_BUFFER_NUM_MAX;
 	}
+
+	if (aml_buf_dmabuf_slot_occupied(&ctx->bm))
+		return false;
 
 	mpeg4_recycle_frame_buffer(hw);
 

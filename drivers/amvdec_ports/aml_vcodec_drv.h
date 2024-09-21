@@ -714,12 +714,14 @@ struct internal_comp_buf {
  * @addr	: physic address of video buffer.
  * @ref		: reference of v4ldec context.
  * @dma		: dma buf of associated with vb.
+ * @node	: node to uvm buffer queue.
  */
 struct aml_uvm_buff_ref {
 	int		index;
 	ulong		addr;
 	struct kref	*ref;
 	struct dma_buf	*dbuf;
+	struct list_head node;
 };
 
 /*
@@ -985,6 +987,8 @@ struct aml_v4l2_decinfo_interface {
  * @index_disp: the number of frames output.
  * @buffer manager context.
  * @force_report_interlace: the flag for conversion field.
+ * @ubuf_que: queue of uvm buffer attached.
+ * @ubuf_lock: mutext lock for operation to queue of uvm buffer attached.
  * @force_tw_output: The flag for T3X output TW YUV.
  * @avbcd_work_mode: Indicate avbcd mode.
  * @avbc_wrapper: Point to avbc wrapper context.
@@ -1132,6 +1136,8 @@ struct aml_vcodec_ctx {
 	struct aml_buf		*master_buf;
 	bool			enable_di_post;
 	u32			alloc_type;
+	struct list_head	ubuf_que;
+	struct mutex		ubuf_lock;
 	bool			force_tw_output;
 	bool			is_multiplanar;
 	bool			resolution_event_done;

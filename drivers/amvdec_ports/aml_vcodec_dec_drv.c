@@ -99,6 +99,7 @@ static int fops_vcodec_open(struct file *file)
 	INIT_LIST_HEAD(&ctx->list);
 	INIT_LIST_HEAD(&ctx->vdec_thread_list);
 	INIT_LIST_HEAD(&ctx->task_chain_pool);
+	INIT_LIST_HEAD(&ctx->ubuf_que);
 	dev->filp = file;
 	ctx->dev = dev;
 	init_waitqueue_head(&ctx->queue);
@@ -107,6 +108,7 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->state_lock);
 	mutex_init(&ctx->comp_lock);
 	mutex_init(&ctx->compressed_buf_info_lock);
+	mutex_init(&ctx->ubuf_lock);
 	spin_lock_init(&ctx->slock);
 	spin_lock_init(&ctx->tsplock);
 	spin_lock_init(&ctx->es_wkr_slock);

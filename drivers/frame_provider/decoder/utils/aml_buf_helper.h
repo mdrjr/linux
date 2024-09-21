@@ -322,5 +322,153 @@ static inline void aml_buf_reset_avbcd_buf(struct aml_buf_mgr_s *bm)
 	bm->bc.buf_ops.reset_avbcd_buf(&bm->bc);
 }
 
+ /*
+ * aml_buf_check_in_table() - Use to check dma from dma hash table.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @key		: The key information of buffer.
+ *
+ * Use to check dma from dma hash table.
+ */
+static inline bool aml_buf_check_in_table(struct aml_buf_mgr_s *bm, ulong key)
+{
+	return bm->bc.check_in_table(&bm->bc, key);
+}
+
+/*
+ * aml_buf_get_unbind_dmabuf() - Use to get unused dma buf.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get unused dma buf.
+ */
+static inline struct aml_buf * aml_buf_get_unbind_dmabuf(struct aml_buf_mgr_s *bm)
+{
+	struct buf_core_entry *entry = NULL;
+	bm->bc.get_unbind_dmabuf(&bm->bc, &entry);
+
+	return entry ? entry_to_aml_buf(entry) : NULL;
+}
+
+/*
+ * aml_buf_get_unbind_dmabuf() - Use to get unused dma buf.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get unused dma buf.
+ */
+static inline void aml_buf_set_unbind_dmabuf(struct aml_buf_mgr_s *bm, struct aml_buf *buf)
+{
+	struct buf_core_entry *entry = &buf->entry;
+
+	bm->bc.set_unbind_dmabuf(&bm->bc, entry->key);
+}
+
+/*
+ * buf_core_dmabuf_slot_occupied() - Use to judge if there dma available.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get alloc dma context.
+ */
+static inline bool aml_buf_dmabuf_slot_occupied(struct aml_buf_mgr_s *bm)
+{
+	return bm->bc.buf_ops.dmabuf_slot_occupied(&bm->bc);
+}
+
+/*
+ * aml_buf_alloc_dma() - Use to alloc dma context.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @out_dma 	 : dma context.
+ *
+ * Use to get alloc dma context.
+ */
+static inline int aml_buf_alloc_dma(struct aml_buf_mgr_s *bm,
+			struct buf_core_dma **out_dma)
+{
+	return bm->bc.buf_ops.alloc_dma(&bm->bc, out_dma);
+}
+
+/*
+ * aml_buf_release_dma() - Use to release dma context.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get release dma context.
+ */
+static inline void aml_buf_release_dma(struct aml_buf_mgr_s *bm, ulong uvm_dma)
+{
+	bm->bc.buf_ops.release_dma(&bm->bc, uvm_dma);
+}
+
+/*
+ * aml_buf_init_dma() - Use to init dma context.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get init dma context.
+ */
+static inline void aml_buf_init_dma(struct aml_buf_mgr_s *bm)
+{
+	return bm->bc.buf_ops.init_dma(&bm->bc);
+}
+
+/*
+ * aml_buf_deinit_dma() - Use to deinit dma context.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get deinit dma context.
+ */
+static inline void aml_buf_deinit_dma(struct aml_buf_mgr_s *bm)
+{
+	bm->bc.buf_ops.deinit_dma(&bm->bc);
+}
+
+/*
+ * aml_buf_get_free_dmabuf() - Use to get free dmabuf.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ *
+ * Use to get free dmabuf.
+ */
+static inline struct buf_core_dma * aml_buf_get_free_dmabuf(struct aml_buf_mgr_s *bm)
+{
+	struct buf_core_dma *dma = NULL;
+
+	bm->bc.buf_ops.get_dma(&bm->bc, &dma);
+
+	return dma;
+}
+
+/*
+ * aml_buf_put_free_dmabuf() - Use to put free dmabuf.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @dmabuf	: The information of dma buffer or physic address.
+ *
+ * Use to put free dmabuf.
+ */
+static inline void aml_buf_put_free_dmabuf(struct aml_buf_mgr_s *bm,
+						ulong dmabuf, ulong uvm_dmabuf, u32 dec_flag)
+{
+	bm->bc.buf_ops.put_dma(&bm->bc, dmabuf, uvm_dmabuf, dec_flag);
+}
+
+/*
+ * aml_buf_get_dmabuf_ref() - Use to get free dmabuf ref.
+ *
+ * @bm		: Pointer to &struct aml_buf_mgr_s buffer manager context.
+ * @dmabuf	: The information of dma buffer or physic address.
+ *
+ * Use to put free dmabuf ref.
+ */
+static inline void aml_buf_get_dmabuf_ref(struct aml_buf_mgr_s *bm,
+						ulong dmabuf, u32 dec_flag)
+{
+	bm->bc.buf_ops.get_dma_ref(&bm->bc, dmabuf, dec_flag);
+}
+
 #endif //_AML_BUF_HELPER_H_
 

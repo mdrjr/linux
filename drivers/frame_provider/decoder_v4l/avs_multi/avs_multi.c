@@ -677,17 +677,18 @@ static int avs_recycle_frame_buffer(struct vdec_avs_hw_s *hw)
 			aml_buf = (struct aml_buf *)hw->pics[i].v4l_ref_buf_addr;
 
 			debug_print(hw, PRINT_FLAG_BUFFER_DETAIL,
-				"%s buf idx: %d dma addr: 0x%lx fb idx: %d vf_ref %d\n",
+				"%s buf idx: %d dma addr: 0x%lx vf_ref %d\n",
 				__func__, i, hw->pics[i].cma_alloc_addr,
-				aml_buf->index,
 				hw->vf_ref[i]);
-			if ((ctx->vpp_is_need || ctx->enable_di_post) &&
-				hw->interlace_flag &&
-				hw->vf_ref[i] < 2)
-				continue;
-			aml_buf_put_ref(&ctx->bm, aml_buf);
-			spin_lock_irqsave(&hw->lock, flags);
 
+			if (ctx->enable_di_post && hw->interlace_flag) {
+				aml_buf_put_free_dmabuf(&ctx->bm, hw->pics[i].cma_alloc_addr, 0, true);
+				if (hw->pics[i].error_flag)
+					aml_buf_put_ref(&ctx->bm, aml_buf);
+			} else
+				aml_buf_put_ref(&ctx->bm, aml_buf);
+
+			spin_lock_irqsave(&hw->lock, flags);
 			/*
 			 * There will no be multiple threads running in
 			 * the same vdec_avs_hw_s context.
@@ -749,6 +750,8 @@ static bool is_available_buffer(struct vdec_avs_hw_s *hw)
 			hw->vf_buf_num_used = DECODE_BUFFER_NUM_MAX;
 	}
 
+	if (aml_buf_dmabuf_slot_occupied(&ctx->bm))
+		return false;
 
 	avs_recycle_frame_buffer(hw);
 
@@ -845,6 +848,8 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 	struct aml_buf *aml_buf = hw->aml_buf;
 	struct aml_vcodec_ctx *ctx =
 		(struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	struct aml_buf *sub0_buf, *sub1_buf;
+	int j;
 
 	if (!aml_buf) {
 		debug_print(hw, 0, "[ERR]aml_buf is NULL!\n");
@@ -882,6 +887,18 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 		canvas_height	= ALIGN(hw->frame_height, 64);
 		aml_buf->planes[0].bytes_used = decbuf_y_size;
 		aml_buf->planes[1].bytes_used = decbuf_uv_size;
+	}
+
+	for (j = 0; j < aml_buf->num_planes; j++) {
+		if (aml_buf->sub_buf[0]) {
+			sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+			sub0_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
+
+		if (aml_buf->sub_buf[1]) {
+			sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+			sub1_buf->planes[j].bytes_used = aml_buf->planes[j].bytes_used;
+		}
 	}
 
 	if (is_vdec_hevc_combine()) {
@@ -946,6 +963,8 @@ static int v4l_alloc_buff_config_canvas(struct vdec_avs_hw_s *hw, int i)
 		decbuf_start, decbuf_uv_start,
 		canvas_width, canvas_height);
 
+	if (ctx->enable_di_post && ctx->picinfo.field == V4L2_FIELD_INTERLACED)
+		aml_buf_get_dmabuf_ref(&ctx->bm,hw->pics[i].cma_alloc_addr, true);
 	aml_buf_get_ref(&ctx->bm, aml_buf);
 	if ((ctx->vpp_is_need || ctx->enable_di_post) &&
 		hw->interlace_flag) {
@@ -3029,6 +3048,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 			hw->interlace_flag) {
 			hw->vf_ref[hw->refs[0]]++;
 			aml_buf_put_ref(&ctx->bm, am_buf);
+			hw->pics[hw->refs[0]].error_flag = 1;
 		}
 		aml_buf_put_ref(&ctx->bm, am_buf);
 		ctx->current_timestamp = hw->pic_pts[hw->refs[0]].timestamp;
@@ -3044,6 +3064,7 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 			hw->interlace_flag) {
 			hw->vf_ref[hw->refs[1]]++;
 			aml_buf_put_ref(&ctx->bm, am_buf);
+			hw->pics[hw->refs[1]].error_flag = 1;
 		}
 		aml_buf_put_ref(&ctx->bm, am_buf);
 		ctx->current_timestamp = hw->pic_pts[hw->refs[1]].timestamp;
@@ -3641,10 +3662,19 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 	u32 dur;
 	unsigned short decode_pic_count = pic->decode_pic_count;
 	int vf_dur = vdec_get_vf_dur();
+	struct aml_buf *sub0_buf = NULL;
+	struct aml_buf *sub1_buf = NULL;
 
 	if ((v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12) ||
 			(v4l2_ctx->cap_pix_fmt == V4L2_PIX_FMT_NV12M))
 			nv_order = VIDTYPE_VIU_NV12;
+
+	aml_buf = (struct aml_buf *)hw->pics[buffer_index].v4l_ref_buf_addr;
+	sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
+	sub1_buf = (struct aml_buf *)aml_buf->sub_buf[1];
+
+	if (v4l2_ctx->enable_di_post && hw->interlace_flag)
+		aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
 
 	if (hw->interlace_flag &&
 		(v4l2_ctx->vpp_is_need || v4l2_ctx->enable_di_post)) {	/* interlace */
@@ -3661,7 +3691,6 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 
 		vf->v4l_mem_handle
 			= hw->pics[buffer_index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->src_fmt.dv_id = v4l2_ctx->dv_id;
 		vf->decoder_instid = v4l2_ctx->id;
 
@@ -3783,7 +3812,8 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(hw->pts_name, vf->pts);
 
-		if (v4l2_ctx->is_stream_off) {
+		if (v4l2_ctx->is_stream_off  && !(v4l2_ctx->enable_di_post  &&
+				hw->interlace_flag)) {
 			vavs_vf_put(vavs_vf_get(vdec), vdec);
 		} else if (hw->pics[buffer_index].error_flag) {
 			vavs_vf_put(vavs_vf_get(vdec), vdec);
@@ -3802,7 +3832,6 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 
 		vf->v4l_mem_handle
 			= hw->pics[buffer_index].v4l_ref_buf_addr;
-		aml_buf = (struct aml_buf *)vf->v4l_mem_handle;
 		vf->src_fmt.dv_id = v4l2_ctx->dv_id;
 		vf->decoder_instid = v4l2_ctx->id;
 
@@ -3916,11 +3945,12 @@ static int prepare_display_buf(struct vdec_avs_hw_s *hw,
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(hw->pts_name, vf->pts);
 
-		if (v4l2_ctx->is_stream_off || hw->pics[buffer_index].error_flag) {
+		if ((v4l2_ctx->is_stream_off && !(v4l2_ctx->enable_di_post  &&
+				hw->interlace_flag)) || hw->pics[buffer_index].error_flag) {
 			vavs_vf_put(vavs_vf_get(vdec), vdec);
 		} else {
-			if (aml_buf->sub_buf[0])
-				aml_buf = aml_buf->sub_buf[0];
+			if (sub0_buf)
+				aml_buf = sub0_buf;
 			if (v4l2_ctx->enable_di_post)
 				v4l2_ctx->fbc_transcode_and_set_vf(v4l2_ctx,
 					aml_buf, vf);
@@ -4244,6 +4274,9 @@ void avs_buf_ref_process_for_exception(struct vdec_avs_hw_s *hw)
 	if ((ctx->vpp_is_need || ctx->enable_di_post) && hw->interlace_flag) {
 		aml_buf_put_ref(&ctx->bm, aml_buf);
 	}
+
+	if (ctx->enable_di_post && hw->interlace_flag)
+		aml_buf_put_free_dmabuf(&ctx->bm, hw->pics[index].cma_alloc_addr, 0, true);
 
 	hw->vfbuf_use[index] = 0;
 	hw->ref_use[index] = 0;

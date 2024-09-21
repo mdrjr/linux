@@ -220,7 +220,7 @@ static void buf_core_update_holder(struct buf_core_mgr_s *bc,
 			  enum buf_core_user user,
 			  enum buf_direction direction)
 {
-	struct buf_core_entry *master = entry->pair != BUF_MASTER ? entry->master_entry : entry;
+	struct buf_core_entry *master = entry;
 
 	if (direction == BUF_GET)
 		direction_buf_get(bc, master, user);
@@ -236,6 +236,366 @@ static void buf_core_update_holder(struct buf_core_mgr_s *bc,
 		__func__, user, master->holder, master->key, master->ref_bit_map);
 
 	return;
+}
+
+static void buf_core_init_dma(struct buf_core_mgr_s *bc)
+{
+	struct buf_core_dma *dma;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		dma = vzalloc(sizeof(struct buf_core_dma));
+		if (dma == NULL) {
+			mutex_unlock(&bc->dma_mutex);
+			return;
+		}
+
+		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
+			"%s, dma:%px, dma_num:%d\n",
+			__func__, dma, bc->dma_num);
+
+		dma->index = bc->dma_num;
+		bc->dma_num++;
+		dma->bc = bc;
+		bc->dma[i] = dma;
+	}
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static void buf_core_deinit_dma(struct buf_core_mgr_s *bc)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (bc->dma[i]) {
+			if (bc->dma[i]->sgt) {
+				sg_free_table(bc->dma[i]->sgt);
+				kfree(bc->dma[i]->sgt);
+			}
+			vfree(bc->dma[i]);
+		}
+	}
+	bc->dma_num = 0;
+	v4l_dbg(bm->priv, V4L_DEBUG_CODEC_BUFMGR,
+			"%s success!\n", __func__);
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static bool buf_core_dmabuf_slot_occupied(struct buf_core_mgr_s *bc)
+{
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+	int ret = false;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (!bc->dma[i]->used)
+			break;
+	}
+
+	if (i >= DAMBUF_POOL) {
+		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_ERROR,
+			"%s\n", __func__);
+		ret = true;
+		goto out;
+	}
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+
+	return ret;
+}
+
+static int buf_core_alloc_dma(struct buf_core_mgr_s *bc,
+			struct buf_core_dma **out_dma)
+{
+	struct buf_core_dma *dma = NULL;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (!bc->dma[i]->used) {
+			dma = bc->dma[i];
+			break;
+		}
+	}
+
+	if (i >= DAMBUF_POOL) {
+		v4l_dbg(bm->priv, V4L_DEBUG_CODEC_ERROR,
+			"%s, No find dma!\n", __func__);
+		*out_dma = dma;
+		goto out;
+	}
+
+	dma->used = 1;
+	dma->inited = 1;
+	*out_dma = dma;
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+			"%s, index:%d \n", __func__, dma->index);
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+
+	return 0;
+}
+
+static void buf_core_release_dma(struct buf_core_mgr_s *bc, ulong uvm_dma)
+{
+	struct buf_core_dma *dma = NULL, *tmp;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i, j;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		dma = bc->dma[i];
+		if (!dma->dmabuf)
+			continue;
+		for (j = 0; j < FIELD_NUM; j++) {
+			if (dma->uvm_dma[j] == uvm_dma) {
+				dma->uvm_dma[j] = 0;
+				break;
+			}
+		}
+
+		if (dma->inited) {
+			if (!dma->uvm_dma[0] && !dma->uvm_dma[1] && !dma->uvm_dma[2]) {
+				while (bc->dma[i]->dma_ref) {
+					v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+					"%s, idmabuf:%lx \n", __func__, dma->dmabuf);
+					dma_buf_put((struct dma_buf *)dma->dmabuf);
+					dma->dma_ref--;
+				}
+				dma->dmabuf = 0;
+				dma->phy_addr = 0;
+				dma->used = 0;
+				dma->inited = 0;
+				atomic_set(&bc->dma[i]->ref, 0);
+			}
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+					"%s, uvmdmabuf:%lx idmabuf:%lx \n",
+					__func__,uvm_dma, dma->dmabuf);
+		}
+	}
+
+	list_for_each_entry_safe(dma, tmp, &bc->dma_free_que, node) {
+		list_del(&dma->node);
+	}
+
+	bc->dma_free_num = 0;
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static void buf_core_reset_dma(struct buf_core_mgr_s *bc)
+{
+	struct buf_core_dma *dma = NULL;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		dma = bc->dma[i];
+		if (dma->dec_ref) {
+			if (!atomic_dec_return(&dma->ref)) {
+				list_add_tail(&dma->node, &bc->dma_free_que);
+				bc->dma_free_num++;
+			}
+			dma->dec_ref--;
+		}
+
+		if (dma->dmabuf)
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+			"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
+			__func__,
+			dma->dmabuf,
+			dma->phy_addr,
+			dma->index,
+			atomic_read(&dma->ref),
+			dma->dma_ref,
+			dma->dec_ref,
+			dma->inited,
+			bc->dma_free_num);
+	}
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static void buf_core_get_free_dmabuf(struct buf_core_mgr_s *bc,
+						struct buf_core_dma **out_dma)
+{
+	struct buf_core_dma *dma = NULL;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	if (list_empty(&bc->dma_free_que)) {
+		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, list empty!\n", __func__);
+		goto out;
+	}
+
+	dma = list_first_entry(&bc->dma_free_que, struct buf_core_dma, node);
+	bc->dma_free_num--;
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, free:%d\n",
+		__func__,
+		dma->dmabuf,
+		dma->phy_addr,
+		dma->index,
+		atomic_read(&dma->ref),
+		dma->dma_ref,
+		bc->dma_free_num);
+
+	list_del(&dma->node);
+out:
+	*out_dma = dma;
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static void buf_core_put_free_dmabuf(struct buf_core_mgr_s *bc, ulong dmabuf, ulong uvm_dmabuf, u32 dec_flag)
+{
+	struct buf_core_dma *dma = NULL;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+			dmabuf == bc->dma[i]->phy_addr)) {
+			dma = bc->dma[i];
+			break;
+		}
+	}
+
+	if (!dma) {
+		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, No dma found!\n", __func__);
+		mutex_unlock(&bc->dma_mutex);
+		return;
+	}
+
+	if (!dma->dma_ref) {
+		get_dma_buf((struct dma_buf *)dma->dmabuf);
+		dma->dma_ref++;
+	}
+
+	if (!atomic_dec_return(&dma->ref)) {
+		list_add_tail(&dma->node, &bc->dma_free_que);
+		bc->dma_free_num++;
+	}
+
+	if (uvm_dmabuf) {
+		for (i = 0; i < FIELD_NUM; i++) {
+			if (dma->uvm_dma[i] == uvm_dmabuf) {
+				dma->uvm_dma[i] = 0;
+				break;
+			}
+		}
+
+		if (i >= FIELD_NUM)
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s, uvm_dma array(%lx, %lx, %lx) is occupied!\n",
+				__func__, dma->uvm_dma[0], dma->uvm_dma[1], dma->uvm_dma[2]);
+	}
+
+	if (dec_flag) {
+		dma->dec_ref--;
+	}
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, uvm:%lx, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, dec_ref:%d, inited:%d, free:%d\n",
+		__func__,
+		uvm_dmabuf,
+		dma->dmabuf,
+		dma->phy_addr,
+		dma->index,
+		atomic_read(&dma->ref),
+		dma->dma_ref,
+		dma->dec_ref,
+		dma->inited,
+		bc->dma_free_num);
+
+out:
+	mutex_unlock(&bc->dma_mutex);
+}
+
+static void buf_core_get_dmabuf_ref(struct buf_core_mgr_s *bc,
+			    ulong dmabuf, u32 dec_flag)
+{
+	struct buf_core_dma *dma = NULL;
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+	int i;
+
+	mutex_lock(&bc->dma_mutex);
+	if (!bm->config.dynamic_mode)
+		goto out;
+
+	for (i = 0; i < DAMBUF_POOL; i++) {
+		if (dmabuf && (dmabuf == bc->dma[i]->dmabuf ||
+			dmabuf == bc->dma[i]->phy_addr)) {
+			dma = bc->dma[i];
+			break;
+		}
+	}
+
+	if (dma == NULL) {
+		v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_ERROR,
+			"%s, can't find the dmabuf(%lx)!\n", __func__, dmabuf);
+		goto out;
+	}
+	atomic_inc(&dma->ref);
+
+	if (dec_flag)
+		dma->dec_ref++;
+
+	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+		"%s, idmabuf:%lx, phy:%lx, idx:%d, ref:%d, dma_ref:%d, inited:%d, dec_ref:%d, free:%d\n",
+		__func__,
+		dma->dmabuf,
+		dma->phy_addr,
+		dma->index,
+		atomic_read(&dma->ref),
+		dma->dma_ref,
+		dma->inited,
+		dma->dec_ref,
+		bc->dma_free_num);
+out:
+	mutex_unlock(&bc->dma_mutex);
 }
 
 static void buf_core_free_que(struct buf_core_mgr_s *bc,
@@ -550,9 +910,6 @@ static int buf_core_done(struct buf_core_mgr_s *bc,
 	mutex_lock(&bc->mutex);
 
 	master = entry;
-	if (entry->pair != BUF_MASTER)
-		master = entry->master_entry;
-
 	if (!bc_sanity_check(bc)) {
 		goto out;
 	}
@@ -597,6 +954,8 @@ static void buf_core_fill(struct buf_core_mgr_s *bc,
 			    struct buf_core_entry *entry,
 			    enum buf_core_user user)
 {
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
+
 	if (bc->external_process)
 		bc->external_process(bc, entry);
 
@@ -606,8 +965,8 @@ static void buf_core_fill(struct buf_core_mgr_s *bc,
 		goto out;
 	}
 
-	if (bc->vpp_que && user == BUF_USER_VSINK &&
-		!bc->vpp_que(bc, entry)) {
+	if (!bm->config.dynamic_mode && bc->vpp_que && user == BUF_USER_VSINK &&
+		!bc->vpp_que(bc, entry->key, 0)) {
 		/*
 		 * For DI post scenario, if seek or change resolution is doing,
 		 * the reset callback will be executed in this process, and
@@ -620,6 +979,9 @@ static void buf_core_fill(struct buf_core_mgr_s *bc,
 		if (!entry->inited)
 			goto out;
 	}
+
+	if (entry->pair != BUF_MASTER && entry->master_entry)
+		entry = entry->master_entry;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
@@ -695,6 +1057,7 @@ static bool buf_core_empty(struct buf_core_mgr_s *bc)
 
 static void buf_core_reset(struct buf_core_mgr_s *bc)
 {
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	struct buf_core_entry *entry, *tmp;
 	struct hlist_node *h_tmp;
 	ulong bucket;
@@ -722,18 +1085,43 @@ static void buf_core_reset(struct buf_core_mgr_s *bc)
 		list_del(&entry->node);
 	}
 
+	if (bm->config.dynamic_mode)
+		buf_core_reset_dma(bc);
+
 	hash_for_each_safe(bc->buf_table, bucket, h_tmp, entry, h_node) {
-		entry->user = BUF_USER_MAX;
-		entry->state = BUF_STATE_INIT;
-		entry->queued_mask = 0;
-		entry->inited = false;
-		entry->set_buf_planes_flag = false;
-		if (entry->pair == BUF_MASTER) {
-			atomic_set(&entry->ref, 1);
-			if (entry->sub_entry[0])
-				atomic_inc(&entry->ref);
-			if (entry->sub_entry[1])
-				atomic_inc(&entry->ref);
+		if (bm->config.dynamic_mode) {
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+				__func__,
+				entry->user,
+				entry->key,
+				entry->phy_addr,
+				entry->index,
+				entry->state,
+				bc->state,
+				atomic_read(&entry->ref),
+				kref_read(&bc->core_ref),
+				bc->free_num);
+
+			entry->state = BUF_STATE_ERR;
+			hash_del(&entry->h_node);
+			bc->mem_ops.free(bc, entry);
+			bc->buf_num = 0;
+
+			kref_put(&bc->core_ref, buf_core_destroy);
+		} else {
+			entry->user = BUF_USER_MAX;
+			entry->state = BUF_STATE_INIT;
+			entry->queued_mask = 0;
+			entry->inited = false;
+			entry->set_buf_planes_flag = false;
+			if (entry->pair == BUF_MASTER) {
+				atomic_set(&entry->ref, 1);
+				if (entry->sub_entry[0])
+					atomic_inc(&entry->ref);
+				if (entry->sub_entry[1])
+					atomic_inc(&entry->ref);
+			}
 		}
 	}
 
@@ -781,17 +1169,21 @@ static void buf_core_update_planes(struct buf_core_mgr_s *bc)
 static int buf_core_attach(struct buf_core_mgr_s *bc, ulong key,
 					ulong phy_addr, void *priv)
 {
+	struct aml_buf_mgr_s *bm = bc_to_bm(bc);
 	int ret = 0;
 	struct buf_core_entry *entry;
 	struct hlist_node *tmp;
+	int i;
 
 	mutex_lock(&bc->mutex);
 
 	hash_for_each_possible_safe(bc->buf_table, entry, tmp, h_node, key) {
 		if (key == entry->key) {
-			if (is_dma_mode(key, phy_addr) && !entry->dma_ref) {
-				get_dma_buf((struct dma_buf *)key);
-				entry->dma_ref++;
+			if (!bm->config.dynamic_mode) {
+				if (is_dma_mode(key, phy_addr) && !entry->dma_ref) {
+					get_dma_buf((struct dma_buf *)key);
+					entry->dma_ref++;
+				}
 			}
 			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
 				"reuse buffer, user:%d, key:%lx, phy:%lx idx:%d, "
@@ -817,6 +1209,15 @@ static int buf_core_attach(struct buf_core_mgr_s *bc, ulong key,
 		}
 	}
 
+	if (bm->config.dynamic_mode) {
+		for (i = 0; i < DAMBUF_POOL; i++) {
+			if (phy_addr && phy_addr == bc->dma[i]->phy_addr) {
+				bc->vpp_que(bc, bc->dma[i]->dmabuf, key);
+				break;
+			}
+		}
+	}
+
 	ret = bc->mem_ops.alloc(bc, &entry, priv);
 	if (ret) {
 		goto out;
@@ -835,11 +1236,12 @@ static int buf_core_attach(struct buf_core_mgr_s *bc, ulong key,
 	bc->state	= BM_STATE_ACTIVE;
 	bc->buf_num++;
 	kref_get(&bc->core_ref);
-	if (is_dma_mode(key, phy_addr)) {
-		get_dma_buf((struct dma_buf *)key);
-		entry->dma_ref++;
+	if (!bm->config.dynamic_mode) {
+		if (is_dma_mode(key, phy_addr)) {
+			get_dma_buf((struct dma_buf *)key);
+			entry->dma_ref++;
+		}
 	}
-
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d, %d), free:%d\n",
 		__func__,
@@ -969,6 +1371,38 @@ void buf_core_replace(struct buf_core_mgr_s *bc,
 	mutex_unlock(&bc->mutex);
 }
 
+static bool buf_core_check_in_table(struct buf_core_mgr_s *bc, ulong key)
+{
+	struct buf_core_entry *entry;
+	struct hlist_node *h_tmp;
+	bool ret = false;
+
+	mutex_lock(&bc->mutex);
+
+	hash_for_each_possible_safe(bc->buf_table, entry, h_tmp, h_node, key) {
+		if (key == entry->key) {
+			v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR,
+				"%s, user:%d, key:%lx, phy:%lx, idx:%d, st:(%d, %d), ref:(%d, %d), free:%d\n",
+				__func__,
+				entry->user,
+				entry->key,
+				entry->phy_addr,
+				entry->index,
+				entry->state,
+				bc->state,
+				atomic_read(&entry->ref),
+				kref_read(&bc->core_ref),
+				bc->free_num);
+			ret = true;
+			break;
+		}
+	}
+
+	mutex_unlock(&bc->mutex);
+
+	return ret;
+}
+
 ssize_t buf_core_walk(struct buf_core_mgr_s *bc, char *buf)
 {
 	struct buf_core_entry *entry, *tmp;
@@ -1061,7 +1495,9 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 
 	hash_init(bc->buf_table);
 	INIT_LIST_HEAD(&bc->free_que);
+	INIT_LIST_HEAD(&bc->dma_free_que);
 	mutex_init(&bc->mutex);
+	mutex_init(&bc->dma_mutex);
 	kref_init(&bc->core_ref);
 	mutex_init(&bc->workqueue_mutex);
 	bc->recycle_buf_ref_workqueue =
@@ -1085,6 +1521,7 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->replace		= buf_core_replace;
 	bc->put_dma		= buf_core_put_dma;
 	bc->update_planes	= buf_core_update_planes;
+	bc->check_in_table	= buf_core_check_in_table;
 
 	/* The interface set of the buffer core operation. */
 	bc->buf_ops.get		= buf_core_get;
@@ -1100,6 +1537,14 @@ int buf_core_mgr_init(struct buf_core_mgr_s *bc)
 	bc->buf_ops.alloc_avbcd_buf = buf_core_alloc_avbcd_buf;
 	bc->buf_ops.release_avbcd_buf = buf_core_release_avbcd_buf;
 	bc->buf_ops.reset_avbcd_buf = buf_core_reset_avbcd_buf;
+	bc->buf_ops.get_dma	= buf_core_get_free_dmabuf;
+	bc->buf_ops.put_dma	= buf_core_put_free_dmabuf;
+	bc->buf_ops.get_dma_ref	= buf_core_get_dmabuf_ref;
+	bc->buf_ops.alloc_dma	= buf_core_alloc_dma;
+	bc->buf_ops.release_dma	= buf_core_release_dma;
+	bc->buf_ops.init_dma	= buf_core_init_dma;
+	bc->buf_ops.deinit_dma	= buf_core_deinit_dma;
+	bc->buf_ops.dmabuf_slot_occupied = buf_core_dmabuf_slot_occupied;
 
 	v4l_dbg_ext(bc->id, V4L_DEBUG_CODEC_BUFMGR, "%s\n", __func__);
 

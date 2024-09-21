@@ -766,6 +766,8 @@ static void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.dw_mode		= dw;
 	config.tw_mode		= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
+	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
+		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
 
 	aml_buf_configure(&ctx->bm, &config);
 }
@@ -1219,6 +1221,11 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 	}
 
 	ctx->decoded_frame_cnt++;
+
+	if (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+		aml_buf_detach(&ctx->bm, (ulong)vb2_buf->planes[0].dbuf);
+		dstbuf->aml_buf = NULL;
+	}
 }
 
 static void fill_capture_done_cb(void *v4l_ctx, void *fb_ctx)
@@ -2074,6 +2081,36 @@ static void aml_uvm_copy_sgt(struct sg_table *dst_table,
 	}
 }
 
+static struct sg_table *aml_uvm_alloc_sgt(struct sg_table *src_table)
+{
+	struct sg_table *dst_table = NULL;
+	struct scatterlist *dst_sgl = NULL;
+	struct scatterlist *src_sgl = NULL;
+	int i, ret;
+
+	dst_table = kzalloc(sizeof(*dst_table), GFP_KERNEL);
+	if (!dst_table)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sg_alloc_table(dst_table, src_table->nents, GFP_KERNEL);
+	if (ret) {
+		kfree(dst_table);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	dst_sgl = dst_table->sgl;
+	src_sgl = src_table->sgl;
+	for (i = 0; i < src_table->nents; i++) {
+		sg_set_page(dst_sgl, sg_page(src_sgl), src_sgl->length, 0);
+		sg_dma_address(dst_sgl) = sg_phys(src_sgl);
+		sg_dma_len(dst_sgl) = sg_dma_len(src_sgl);
+		dst_sgl = sg_next(dst_sgl);
+		src_sgl = sg_next(src_sgl);
+	}
+
+	return dst_table;
+}
+
 static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 				  struct vb2_v4l2_buffer *vb)
 {
@@ -2096,6 +2133,7 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	struct aml_uvm_buff_ref *ubuf = (struct aml_uvm_buff_ref *)am_buf->uvm_buf;
 	struct sg_table *sgt;
 	struct dma_buf_attachment *dba = NULL;
+	struct buf_core_dma *dma = NULL;
 
 	if (!ctx->enable_di_post || ctx->picinfo.field == V4L2_FIELD_NONE ||
 		!is_vdec_core_fmt(ctx->output_pix_fmt))
@@ -2109,34 +2147,16 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	obj = dmabuf_get_uvm_buf_obj(dbuf);
 	mbuf = container_of(obj, struct mua_buffer, base);
 
-	if (am_buf->is_delay_allocated) {
-		struct aml_buf *master_buf = am_buf->pair == BUF_MASTER ?
-					am_buf : am_buf->master_buf;
-
-		if (master_buf->pair_state == PAIR_DONE &&
-			am_buf->pair_state == PAIR_DONE)
-			return 0;
-
-		v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-			"Buffers pairing hasn't been completed! Repair!\n");
-
-		if (am_buf->pair_state == SUB0_DONE) {
-			if (am_buf == master_buf)
-				aml_buf_put(&ctx->bm, am_buf);
-			else {
-				aml_buf_get_ref(&ctx->bm, am_buf);
-			}
-		}
+	/* free fake dma buffer. */
+	if (mbuf->idmabuf[0]) {
+		aml_buf_put_free_dmabuf(&ctx->bm, (ulong)mbuf->idmabuf[0], (ulong)dbuf, false);
+		dma_buf_put(mbuf->idmabuf[0]);
 	}
 
-	/* free fake dma buffer. */
-	if (mbuf->idmabuf[0])
-		dma_buf_put(mbuf->idmabuf[0]);
-
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
-				"dma buffer size(fake: %zu, real: %d)\n",
+				"dma buffer size(fake: %zu, real: %d), idmabuf[0] %px\n",
 				mbuf->size,
-				ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz);
+				ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz, mbuf->idmabuf[0]);
 
 	mbuf->size =  ctx->picinfo.y_len_sz + ctx->picinfo.c_len_sz;
 
@@ -2150,15 +2170,20 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 			master_buf->sub_buf[0] = (void *)am_buf;
 			am_buf->master_buf = (void *)master_buf;
 			am_buf->pair = BUF_SUB0;
+			am_buf->dma = master_buf->dma;
+			aml_buf_get_dmabuf_ref(&ctx->bm, am_buf->dma->dmabuf, false);
 			aml_buf_put(&ctx->bm, am_buf);
+			am_buf->dma->uvm_dma[1] = (ulong)dbuf;
 		}
 		else if (master_buf->pair_state == SUB0_DONE) {
 			master_buf->sub_buf[1] = (void *)am_buf;
 			am_buf->master_buf = (void *)master_buf;
 			am_buf->pair = BUF_SUB1;
+			am_buf->dma = master_buf->dma;
+			aml_buf_get_dmabuf_ref(&ctx->bm, am_buf->dma->dmabuf, false);
 			aml_buf_put(&ctx->bm, am_buf);
+			am_buf->dma->uvm_dma[2] = (ulong)dbuf;
 		}
-
 		am_buf->is_delay_allocated = true;
 		master_buf->pair_state++;
 		if (master_buf->sub_buf[0]) {
@@ -2190,7 +2215,20 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 
 			flags |= ION_FLAG_EXTEND_MESON_HEAP;
 
-			idbuf = ion_alloc(mbuf->size, (1 << ION_HEAP_TYPE_CUSTOM), flags);
+			dma = aml_buf_get_free_dmabuf(&ctx->bm);
+			if (dma) {
+				idbuf = (struct dma_buf *)dma->dmabuf;
+				sgt = dma->sgt;
+				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+				get_dma_buf(idbuf);
+			} else {
+				idbuf = ion_alloc(mbuf->size, (1 << ION_HEAP_TYPE_CUSTOM), flags);
+
+				aml_buf_alloc_dma(&ctx->bm, &dma);
+				dma->dmabuf = (ulong)idbuf;
+				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+			}
+
 			if (IS_ERR(idbuf) || !idbuf->priv) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"%s: ion alloc fail.\n", __func__);
@@ -2214,21 +2252,46 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 					"%s: dma_heap_find fail. heap name is %s\n", __func__, name);
 				return -ENOMEM;
 			}
-			idbuf = dma_heap_buffer_alloc(heap, mbuf->size, O_RDWR,
-					DMA_HEAP_VALID_HEAP_FLAGS);
 
-			/* create attachment for the dmabuf with the user device */
-			dba = dma_buf_attach(idbuf, dev);
-			if (IS_ERR(dba)) {
-				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR, "failed to attach dmabuf\n");
-				return 0;
-			}
+			dma = aml_buf_get_free_dmabuf(&ctx->bm);
+			if (dma) {
+				idbuf = (struct dma_buf *)dma->dmabuf;
+				sgt = dma->sgt;
+				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+				get_dma_buf(idbuf);
+			} else {
+				idbuf = dma_heap_buffer_alloc(heap, mbuf->size, O_RDWR,
+						DMA_HEAP_VALID_HEAP_FLAGS);
+				aml_buf_alloc_dma(&ctx->bm, &dma);
+				if (dma == NULL) {
+					v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+						"%s: aml_buf_alloc_dma fail!\n",
+						__func__);
+					return -ENOMEM;
+				}
 
-			/* get the associated scatterlist for this buffer */
-			sgt = dma_buf_map_attachment(dba, DMA_BIDIRECTIONAL);
-			if (IS_ERR(sgt)) {
-				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR, "Error getting dmabuf scatterlist\n");
-				return 0;
+				dma->dmabuf = (ulong)idbuf;
+				aml_buf_get_dmabuf_ref(&ctx->bm, dma->dmabuf, false);
+
+				/* create attachment for the dmabuf with the user device */
+				dba = dma_buf_attach(idbuf, dev);
+				if (IS_ERR(dba)) {
+					v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR, "failed to attach dmabuf\n");
+					return 0;
+				}
+
+				/* get the associated scatterlist for this buffer */
+				sgt = dma_buf_map_attachment(dba, DMA_BIDIRECTIONAL);
+				if (IS_ERR(sgt)) {
+					v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR, "Error getting dmabuf scatterlist\n");
+					return 0;
+				}
+				dma->sgt = aml_uvm_alloc_sgt(sgt);
+				if (dba) {
+					dma_buf_unmap_attachment(dba, sgt, DMA_BIDIRECTIONAL);
+					dma_buf_detach(idbuf, dba);
+				}
+				sgt = dma->sgt;
 			}
 #endif
 		}
@@ -2236,6 +2299,9 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 		ctx->master_buf = am_buf;
 		am_buf->pair_state = MASTER_DONE;
 		am_buf->pair = BUF_MASTER;
+		am_buf->dma = dma;
+		if (dma)
+			dma->uvm_dma[0] = (ulong)dbuf;
 		aml_buf_get_ref(&ctx->bm, am_buf);
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 				"[Pairing]index(%d), pair(%d), uvm dbuf: %px\n",
@@ -2261,7 +2327,10 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 		mbuf->ibuffer[0] = (void *)idbuf->priv;
 		mbuf->idmabuf[0] = idbuf;
 	}
+
+	am_buf->dma->phy_addr = mbuf->paddr;
 	am_buf->idmabuf[0] = idbuf;
+
 	/* update sg table. */
 	aml_uvm_copy_sgt(ua->sgt[0], sgt);
 
@@ -2272,36 +2341,12 @@ static int aml_uvm_buf_delay_alloc(struct aml_vcodec_ctx *ctx,
 	am_buf->is_delay_allocated = true;
 	ubuf->addr	= get_addr(&vb->vb2_buf, 0);
 
-	if (am_buf->pair == BUF_MASTER) {
-		/* no need clear cache. If dev is ion, the cache has been flushed in ion_alloc;
-		 * if dev is dma heap, dma_buf_map_attachment includes flush cache operation */
-		#if 0
-		/* clear cache. */
-		if (dma_map_sg(dev, mbuf->sg_table->sgl,
-			mbuf->sg_table->nents, DMA_FROM_DEVICE) <= 0) {
-			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
-				"dma map sg %u bytes error\n", (u32)mbuf->size);
-			return -ENOMEM;
-		}
-		dma_sync_sg_for_device(dev, mbuf->sg_table->sgl,
-			mbuf->sg_table->nents, DMA_FROM_DEVICE);
-
-		dma_unmap_sg(ua->obj->dev, mbuf->sg_table->sgl,
-			mbuf->sg_table->nents, DMA_FROM_DEVICE);
-		#endif
-		/* unmap attachment and detach dbuf */
-		if (dba) {
-			dma_buf_unmap_attachment(dba, sgt, DMA_BIDIRECTIONAL);
-			dma_buf_detach(mbuf->idmabuf[0], dba);
-		}
-	}
-
 	aml_buf_update(&ctx->bm, get_addr(&vb->vb2_buf, 0), am_buf);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, Res:%ux%u, stride:%d, addr:%lx, size:%u, flags:%x, cost:%llu ms\n",
 		__func__, mbuf->width, mbuf->height, mbuf->byte_stride,
-		(ulong)mbuf->paddr, (u32)mbuf->size, mbuf->ion_flags,
+		(ulong)am_buf->dma->phy_addr, (u32)mbuf->size, mbuf->ion_flags,
 		div64_u64(local_clock() - time, 1000000));
 
 	return 0;
@@ -4397,9 +4442,78 @@ void aml_v4l_ctx_release(struct kref *kref)
 		ptsserver_ins_release(ctx->ptsserver_id);
 	}
 
+	aml_buf_deinit_dma(&ctx->bm);
 	aml_es_mgr_release(ctx);
 
 	aml_media_mem_free(ctx);
+}
+
+static bool aml_ubuf_queue_check(struct vb2_buffer *vb)
+{
+	struct dma_buf *dbuf = vb->planes[0].dbuf;
+	struct aml_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	struct vb2_v4l2_buffer *vb2_v4l2 = to_vb2_v4l2_buffer(vb);
+	struct aml_v4l2_buf *buf =
+		container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
+	struct aml_buf *am_buf = buf->aml_buf;
+	struct aml_uvm_buff_ref *ubuf = NULL;
+	bool ret = false;
+
+	if (!ctx->bm.config.dynamic_mode)
+		return ret;
+
+	mutex_lock(&ctx->ubuf_lock);
+	if (!list_empty(&ctx->ubuf_que)) {
+		list_for_each_entry(ubuf, &ctx->ubuf_que, node) {
+			if (dbuf == ubuf->dbuf) {
+				ubuf->index	= vb->index;
+				ubuf->addr	= get_addr(vb, 0);
+				am_buf->uvm_buf = (void *)ubuf;
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+					"%s, update, ubuf:%px vb:%d, dbuf:%px, addr:%lx ino:%lu\n",
+					__func__, ubuf, ubuf->index, ubuf->dbuf, ubuf->addr,
+					file_inode(ubuf->dbuf->file)->i_ino);
+				ret = true;
+				break;
+			}
+		}
+	}
+	mutex_unlock(&ctx->ubuf_lock);
+
+	return ret;
+}
+
+static void aml_ubuf_queue_add(struct aml_vcodec_ctx *ctx, struct aml_uvm_buff_ref *ubuf)
+{
+	if (!ctx->bm.config.dynamic_mode)
+		return;
+
+	mutex_lock(&ctx->ubuf_lock);
+	list_add_tail(&ubuf->node, &ctx->ubuf_que);
+	mutex_unlock(&ctx->ubuf_lock);
+}
+
+static void aml_ubuf_queue_del(struct aml_vcodec_ctx *ctx, struct aml_uvm_buff_ref *ubuf)
+{
+	struct aml_uvm_buff_ref *ubuf0, *tmp;
+
+	if (!ctx->bm.config.dynamic_mode)
+		return;
+
+	mutex_lock(&ctx->ubuf_lock);
+	if (!list_empty(&ctx->ubuf_que)) {
+		list_for_each_entry_safe(ubuf0, tmp, &ctx->ubuf_que, node) {
+			if (ubuf == ubuf0) {
+				list_del(&ubuf0->node);
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+				"uvm buffer del, ubuf:%px vb:%d, dbuf:%px, addr:%lx ino:%lu\n",
+				ubuf, ubuf->index, ubuf->dbuf, ubuf->addr,
+				file_inode(ubuf->dbuf->file)->i_ino);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&ctx->ubuf_lock);
 }
 
 static void aml_uvm_buf_free(void *arg)
@@ -4414,6 +4528,8 @@ static void aml_uvm_buf_free(void *arg)
 		__func__, ubuf->index, ubuf->dbuf,
 		file_inode(ubuf->dbuf->file)->i_ino);
 
+	aml_ubuf_queue_del(ctx, ubuf);
+	aml_buf_release_dma(&ctx->bm, (ulong)ubuf->dbuf);
 	aml_buf_detach(&ctx->bm, (ulong)ubuf->dbuf);
 
 	kref_put(ubuf->ref, aml_v4l_ctx_release);
@@ -4435,6 +4551,9 @@ int aml_uvm_buff_attach(struct vb2_buffer * vb)
 
 	if (vb->memory != VB2_MEMORY_DMABUF || !dmabuf_is_uvm(dbuf))
 		return 0;
+
+	if (aml_ubuf_queue_check(vb))
+		goto out;
 
 	ubuf = vzalloc(sizeof(struct aml_uvm_buff_ref));
 	if (ubuf == NULL)
@@ -4458,12 +4577,13 @@ int aml_uvm_buff_attach(struct vb2_buffer * vb)
 	}
 
 	kref_get(ubuf->ref);
-
+	aml_ubuf_queue_add(ctx, ubuf);
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
 		"%s, vb:%d, dbuf:%px, ino:%lu\n",
 		__func__, ubuf->index, ubuf->dbuf,
 		file_inode(ubuf->dbuf->file)->i_ino);
 
+out:
 	return ret;
 }
 
@@ -4514,6 +4634,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	struct aml_buf_config config;
 	u32 dw = DM_YUV_ONLY;
 	u32 tw = DM_INVALID;
+	int ret;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
 		"%s, type: %d, vb: %lx, idx: %d, state: %d, used: %d, ts: %llu, uvm dbuf: %px\n",
@@ -4525,7 +4646,37 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	 */
 	if (!V4L2_TYPE_IS_OUTPUT(vb->vb2_queue->type)) {
 		struct aml_buf *aml_buf = buf->aml_buf;
+		struct aml_buf *buf_pair;
 		struct vframe_s *vf;
+		struct sg_table *sgt;
+		ulong pyh_addr;
+
+		if (!aml_buf_check_in_table(&ctx->bm, (ulong)vb->planes[0].dbuf) && ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE) {
+			sgt = vb2_dma_sg_plane_desc(vb, 0);
+			pyh_addr = sg_dma_address(sgt->sgl);
+
+			ret = aml_buf_attach(&ctx->bm, (ulong)vb->planes[0].dbuf,
+				pyh_addr, vb);
+			if (ret)
+				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
+					"aml_buf_attach fail!\n");
+			aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+			aml_buf = buf->aml_buf;
+			v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
+				"%s pair_state %d pyh_addr %lx\n", __func__,
+				buf->aml_buf->pair_state, pyh_addr);
+			if (buf->aml_buf->pair_state == SUB0_DONE) {
+				struct vb2_v4l2_buffer *vb2_v4l2;
+				buf_pair = aml_buf_get_unbind_dmabuf(&ctx->bm);
+				if (buf_pair) {
+					vb2_v4l2 = container_of(buf_pair->vb, struct vb2_v4l2_buffer, vb2_buf);
+					aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+					if (buf_pair->master_buf)
+						buf_pair = (struct aml_buf *)buf_pair->master_buf;
+					aml_buf_put_ref(&ctx->bm, buf_pair);
+				}
+			}
+		}
 
 		if (aml_buf->vb != vb) {
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,
@@ -4535,20 +4686,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 		}
 
-		if (aml_buf->pair == BUF_MASTER)
-			aml_buf->queued_mask = 1 << BUF_MASTER;
-
-		if (aml_buf->pair == BUF_SUB0) {
-			aml_buf = aml_buf->master_buf;
-			aml_buf->queued_mask = 1 << BUF_SUB0;
-		}
-		if (aml_buf->pair == BUF_SUB1) {
-			aml_buf = aml_buf->master_buf;
-			aml_buf->queued_mask = 1 << BUF_SUB1;
-		}
-
 		vf = &aml_buf->vframe;
-
 		/* DI hook must be detached if the dmabuff be reused. */
 		if (ctx->vpp_cfg.enable_local_buf) {
 			if (!buf->attached) {
@@ -4725,6 +4863,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	config.enable_extbuf	= true;
 	config.enable_fbc	= ((dw != DM_YUV_ONLY) || tw) ? true : false;
 	config.enable_secure	= ctx->is_drm_mode;
+	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
+		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
+
 	config.memory_mode	= vb->vb2_queue->memory;
 	config.planes		= V4L2_TYPE_IS_MULTIPLANAR(vb->vb2_queue->type) ? 2 : 1;
 	config.luma_length	= ctx->picinfo.y_len_sz;
@@ -4758,6 +4899,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			}
 		}
 	}
+
+	if (config.dynamic_mode)
+		aml_buf_init_dma(&ctx->bm);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
 		"Picture buffer count: dec:%u, vpp:%u, ge2d:%u, margin:%u, total:%u\n",
@@ -4810,6 +4954,7 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 	u32 size;
 	int i;
 	int ret;
+	struct aml_buf *am_buf;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s, type: %d, idx: %d\n",
 		__func__, vb->vb2_queue->type, vb->index);
@@ -4863,6 +5008,17 @@ static int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 			return ret;
 		}
 		aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+		if (buf->aml_buf->pair_state == SUB0_DONE) {
+			struct vb2_v4l2_buffer *vb2_v4l2;
+			am_buf = aml_buf_get_unbind_dmabuf(&ctx->bm);
+			if (am_buf) {
+				vb2_v4l2 = container_of(am_buf->vb, struct vb2_v4l2_buffer, vb2_buf);
+				aml_uvm_buf_delay_alloc(ctx, vb2_v4l2);
+				if (am_buf->master_buf)
+					am_buf = (struct aml_buf *)am_buf->master_buf;
+				aml_buf_put_ref(&ctx->bm, am_buf);
+			}
+		}
 	}
 
 	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
@@ -5000,7 +5156,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		for (i = 0; i < buf_num; ++i) {
 			vb2_v4l2 = to_vb2_v4l2_buffer(q->bufs[i]);
 			buf = container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
-			if (buf->aml_buf) {
+			if (buf->aml_buf && !(ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE)) {
 				buf->aml_buf->state	= FB_ST_FREE;
 				memset(&buf->aml_buf->vframe,
 					0, sizeof(struct vframe_s));

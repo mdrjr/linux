@@ -50,6 +50,8 @@
 #define PAIR_DONE  (3)
 
 #define AVBC_BUFFER_NUM  (32)
+#define DAMBUF_POOL 32
+#define FIELD_NUM 3
 
 struct buf_core_mgr_s;
 
@@ -141,6 +143,37 @@ enum buf_pair {
 };
 
 /*
+ * struct buf_core_dma - Parameter of description of yuv dma buffer.
+ *
+ * @dmabuf		: YUV dma buffer.
+ * @sgt			: Point to sg table.
+ * @index		: Index of YUV dma buffer context.
+ * @ref			: Reference count of the dma buffer context.
+ * @dma_ref		: Reference count of the dma buffer for decoder.
+ * @node		: Node of dma buffer context list.
+ * @bc			: Point to buf core context.
+ * @used		: One dma buffer context is occupied.
+ * @inited		: One dma buffer context is alloced to used.
+ * @dec_ref		: Reference count of the dma buffer context for decoder.
+ * @uvm_dma		: Store uvm dma buffer responding to yuv dma buffer.
+ */
+
+struct buf_core_dma {
+	ulong			dmabuf;
+	struct sg_table 	*sgt;
+	ulong			phy_addr;
+	int			index;
+	atomic_t		ref;
+	u32			dma_ref;
+	struct list_head	node;
+	struct buf_core_mgr_s 	*bc;
+	int			used;
+	u32			inited;
+	int			dec_ref;
+	ulong			uvm_dma[FIELD_NUM];
+};
+
+/*
  * struct buf_core_entry - The entry of buffer.
  *
  * @key		: Record the actual physical address associated with vb.
@@ -166,6 +199,7 @@ enum buf_pair {
  *		: Work of recycle-ref for each buffer.
  * @bc		: Point to bc.
  * @set_buf_planes_flag	: Mark the buffer in the queue that has executed set_planes.
+ * @unbind	: Status of the third uvm buffer.
  */
 struct buf_core_entry {
 	ulong			key;
@@ -191,6 +225,7 @@ struct buf_core_entry {
 	struct work_struct 	recycle_buf_ref_work;
 	struct buf_core_mgr_s 	*bc;
 	bool			set_buf_planes_flag;
+	bool			unbind;
 };
 
 /*
@@ -212,6 +247,15 @@ struct buf_core_entry {
  *		: Release avbcd buffer.
  * @reset_avbcd_buf
  *		: Unbinding the relationship between avbcd buffer and dpb.
+ * @get_dma	: Get a YUV dma buffer context.
+ * @put_dma	: Decrease a reference count to the YUV dma buffer.
+ * @get_dma_ref	: Increase a reference count to the YUV dma buffer.
+ * @alloc_dma	: Init one YUV dma buffer context.
+ * @release_dma	: Release one YUV dma buffer context.
+ * @init_dma	: Alloc several YUV dma buffer contexts.
+ * @deinit_dma	: Destroy all YUV dma buffer contexts.
+ * @dmabuf_slot_occupied
+ * 		: Check if there YUV dma buffer context available .
  */
 struct buf_core_ops {
 	void	(*get)(struct buf_core_mgr_s *, enum buf_core_user, struct buf_core_entry **, bool);
@@ -228,6 +272,14 @@ struct buf_core_ops {
 	void	(*alloc_avbcd_buf)(struct buf_core_mgr_s *, struct buf_core_entry **);
 	void	(*release_avbcd_buf)(struct buf_core_mgr_s *);
 	void	(*reset_avbcd_buf)(struct buf_core_mgr_s *);
+	void	(*get_dma)(struct buf_core_mgr_s *, struct buf_core_dma **);
+	void	(*put_dma)(struct buf_core_mgr_s *, ulong, ulong, u32);
+	void 	(*get_dma_ref)(struct buf_core_mgr_s *, ulong, u32);
+	int 	(*alloc_dma)(struct buf_core_mgr_s *, struct buf_core_dma **);
+	void 	(*release_dma)(struct buf_core_mgr_s *, ulong);
+	void 	(*init_dma)(struct buf_core_mgr_s *);
+	void 	(*deinit_dma)(struct buf_core_mgr_s *);
+	bool 	(*dmabuf_slot_occupied)(struct buf_core_mgr_s *);
 };
 
 /*
@@ -254,6 +306,13 @@ struct buf_core_mem_ops {
  * @buf_num	: Record the serial number of buffer attached to the buffer manager.
  * @internal_num: Record the serial number of avbcd buffer.
  * @buf_table	: Used to store the attached buffer.
+ * @dma_num	: Number of YUV dma buffer context.
+ * @dma_free_num
+ *		: Number of free YUV dma buffer.
+ * @dma_free_que
+ *		: YUV dma buffer available queue.
+ * @dma_mutex	: Mutext of YUV dma buffer context.
+ * @dma		: Point to a array of YUV dma buffer contexts.
  * @config	: Interface Settings parameters to buffer manager.
  * @attach	: The interface is used to attach buffer to buffer manager.
  * @detach	: Interface for detach buffer to buffer manager.
@@ -273,6 +332,12 @@ struct buf_core_mem_ops {
  * @update	: The interface is used to update vb2 buffer and aml_buf each other.
  * @replace	: The interface is used to replace vb2 buffer and aml_buf each other.
  * @put_dma	: The interface is used to put buffer reference.
+ * @check_in_table
+ *		: Check uvm dma buffer is in hash talbe already.
+ * @get_unbind_dmabuf
+ *		: Get one uvm dma buffer to combine.
+ * @set_unbind_dmabuf
+ *		: Unbind the third uvm dma for other frames to combination .
  * @status_walk	: The interface is used to dump buffer status.
  * @box_init	: The interface is used to alloc box early.
  * @wake_up_vdec
@@ -305,6 +370,11 @@ struct buf_core_mgr_s {
 	int			buf_num;
 	int			internal_num;
 	DECLARE_HASHTABLE(buf_table, BUF_HASH_BITS);
+	int			dma_num;
+	int			dma_free_num;
+	struct list_head	dma_free_que;
+	struct mutex		dma_mutex;
+	struct buf_core_dma 	*dma[DAMBUF_POOL];
 
 	void	(*config)(struct buf_core_mgr_s *, void *);
 	int	(*attach)(struct buf_core_mgr_s *, ulong, ulong, void *);
@@ -313,7 +383,7 @@ struct buf_core_mgr_s {
 	void	(*prepare)(struct buf_core_mgr_s *, struct buf_core_entry *);
 	void	(*input)(struct buf_core_mgr_s *, struct buf_core_entry *, enum buf_core_user);
 	int	(*output)(struct buf_core_mgr_s *, struct buf_core_entry *, enum buf_core_user);
-	int	(*vpp_que)(struct buf_core_mgr_s *, struct buf_core_entry *);
+	int	(*vpp_que)(struct buf_core_mgr_s *, ulong, ulong);
 	int	(*vpp_dque)(struct buf_core_mgr_s *, struct buf_core_entry *);
 	int	(*vpp_reset)(struct buf_core_mgr_s *);
 	void    (*external_process)(struct buf_core_mgr_s *, struct buf_core_entry *);
@@ -323,6 +393,9 @@ struct buf_core_mgr_s {
 	void	(*update)(struct buf_core_mgr_s *, struct buf_core_entry *, ulong, enum buf_pair);
 	void	(*replace)(struct buf_core_mgr_s *, struct buf_core_entry *, void *);
 	void	(*put_dma)(struct buf_core_mgr_s *);
+	bool 	(*check_in_table)(struct buf_core_mgr_s *, ulong);
+	void    (*get_unbind_dmabuf)(struct buf_core_mgr_s *, struct buf_core_entry **);
+	void    (*set_unbind_dmabuf)(struct buf_core_mgr_s *, ulong);
 	ssize_t	(*status_walk)(struct buf_core_mgr_s *, struct buf_core_entry *, char *);
 	int	(*box_init)(struct buf_core_mgr_s *);
 	void	(*update_planes)(struct buf_core_mgr_s *);
