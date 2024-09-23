@@ -579,6 +579,7 @@ struct vdec_s {
 	char vdec_stuck_state_name[32];
 	u64 last_bw[8];
 	char bandwidth_name[32];
+	bool reset_input_flag;
 };
 
 #define CODEC_MODE(a, b, c, d)\
