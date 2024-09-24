@@ -1530,28 +1530,41 @@ EXPORT_SYMBOL(amvdec_resume);
 
 int amhevc_suspend(struct platform_device *dev, pm_message_t event)
 {
-	struct vdec_s *vdec = *(struct vdec_s **)dev->dev.platform_data;;
+	struct vdec_s *vdec = *(struct vdec_s **)dev->dev.platform_data;
 
 	if (vdec) {
 		wait_event_interruptible_timeout(vdec->idle_wait,
 			(vdec->status != VDEC_STATUS_ACTIVE),
 			msecs_to_jiffies(100));
+
+		vdec_disconnect(vdec);
 	}
 
 	if (has_hevc_vdec()) {
 		amhevc_pg_enable(false);
 		/*vdec_set_suspend_clk(1, 1);*//*DEBUG_TMP*/
 	}
+
+	pr_info("%s ok!\n", __func__);
+
 	return 0;
 }
 EXPORT_SYMBOL(amhevc_suspend);
 
 int amhevc_resume(struct platform_device *dev)
 {
+	struct vdec_s *vdec = *(struct vdec_s **)dev->dev.platform_data;
+
 	if (has_hevc_vdec()) {
 		amhevc_pg_enable(true);
 		/*vdec_set_suspend_clk(0, 1);*//*DEBUG_TMP*/
 	}
+
+	if (vdec)
+		vdec_connect(vdec);
+
+	pr_info("%s ok!\n", __func__);
+
 	return 0;
 }
 EXPORT_SYMBOL(amhevc_resume);
