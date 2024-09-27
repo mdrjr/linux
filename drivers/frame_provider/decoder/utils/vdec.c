@@ -439,7 +439,8 @@ bool is_support_interlace_avbc(void)
 		return false;
 	if (cpu_major_id == AM_MESON_CPU_MAJOR_ID_T5D ||
 		cpu_major_id == AM_MESON_CPU_MAJOR_ID_GXLX3 ||
-		cpu_major_id == AM_MESON_CPU_MAJOR_ID_TXHD2)
+		cpu_major_id == AM_MESON_CPU_MAJOR_ID_TXHD2 ||
+		cpu_major_id == AM_MESON_CPU_MAJOR_ID_T6D)
 		return false;
 
 	return true;
