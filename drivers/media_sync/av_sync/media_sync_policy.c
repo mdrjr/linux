@@ -94,9 +94,7 @@ int mediasync_policy_bind_instance(ulong handle,s32 SyncInsId,sync_stream_type s
 	mediasync_pr_info(0,policyInst,"bind_instance(%px) \n", policyInst->mMediasyncIns);
 
 	mediasync_get_start_slow_sync_enable(policyInst);
-	if (policyInst->mStartSlowSyncInfo.mSlowSyncEnable == false) {
-		policyInst->mShowFirstFrameNosync = false;
-	}
+	policyInst->mShowFirstFrameNosync = first_frame_no_sync;
 	return ret;
 }
 
