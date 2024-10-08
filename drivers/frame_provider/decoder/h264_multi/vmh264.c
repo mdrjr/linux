@@ -13008,10 +13008,10 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 	vmh264_init_userdata_dump();
 	vmh264_reset_user_data_buf();
 #endif
-	if (is_need_fix_streambuf_rp())
-		V_BUF_ADDR_OFFSET += RP_WORKAROUND_SIZE;
 	if (decoder_bmmu_box_alloc_idx_wait(hw->bmmu_box, BMMU_DPB_IDX,
-		V_BUF_ADDR_OFFSET, align_2n, -1, BMMU_ALLOC_FLAGS_WAITCLEAR) < 0) {
+		is_need_fix_streambuf_rp() ?
+		(V_BUF_ADDR_OFFSET + RP_WORKAROUND_SIZE) : V_BUF_ADDR_OFFSET,
+		align_2n, -1, BMMU_ALLOC_FLAGS_WAITCLEAR) < 0) {
 		h264_free_hw_stru(&pdev->dev, (void *)hw);
 		pdata->dec_status = NULL;
 		return -ENOMEM;
