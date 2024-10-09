@@ -996,4 +996,6 @@ struct device *get_vdec_dev(void);
 
 void arb_ctrl_wait_idle(int enable);
 
-#endif				/* VDEC_H */
+void dos_gclk_en_set(enum vdec_type_e core, bool enable, bool mmu_enable);
+
+#endif /* VDEC_H */

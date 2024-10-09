@@ -1161,8 +1161,8 @@ void amvdec_stop(void)
 	}
 	/* #endif */
 
-	if (is_vdec_hevc_combine() && is_vcpu_clk_set()) {
-		CLEAR_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn off vcpu clock
+	if (is_vdec_hevc_combine()) {
+		dos_gclk_en_set(VDEC_1, 0, 0);
 	}
 
 #ifdef CONFIG_WAKELOCK
@@ -1236,7 +1236,9 @@ void amhevc_stop(void)
 		READ_VREG(DOS_SW_RESET3);
 		READ_VREG(DOS_SW_RESET3);
 
-		if (is_vcpu_clk_set()) {
+		if (is_vdec_hevc_combine()) {
+			dos_gclk_en_set(VDEC_HEVC, 0, 0);
+		} else if (is_vcpu_clk_set()) {
 			CLEAR_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn off vcpu clock
 		}
 

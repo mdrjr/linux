@@ -4402,6 +4402,32 @@ void vdec_free_cmabuf(void)
 	mutex_unlock(&vdec_mutex);
 }
 
+void dos_gclk_en_set(enum vdec_type_e core, bool enable, bool mmu_enable)
+{
+	if (enable) {
+		switch (core) {
+			case VDEC_1:
+				WRITE_VREG(DOS_GCLK_EN0, 0xffffffff);
+				if (mmu_enable)
+					WRITE_VREG(DOS_GCLK_EN3, 0x1ffa7);
+				else
+					WRITE_VREG(DOS_GCLK_EN3, 0x1f7a7);
+				break;
+			case VDEC_HEVC:
+				WRITE_VREG(DOS_GCLK_EN0, 0);
+				WRITE_VREG(DOS_GCLK_EN3, 0xffffffff);
+				break;
+			default:
+				break;
+		}
+	} else {
+		WRITE_VREG(DOS_GCLK_EN0, 0);
+		/* turn off vcpu clock */
+		CLEAR_VREG_MASK(DOS_GCLK_EN3, (1 << 5));
+	}
+}
+EXPORT_SYMBOL(dos_gclk_en_set);
+
 void vdec_core_request(struct vdec_s *vdec, unsigned long mask)
 {
 	unsigned long flags = 0;
@@ -5561,8 +5587,8 @@ EXPORT_SYMBOL(vdec_source_changed);
 
 void vdec_reset_core(struct vdec_s *vdec)
 {
-	if (is_vdec_hevc_combine() && is_vcpu_clk_set()) {
-		SET_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn on vcpu clock
+	if (is_vdec_hevc_combine()) {
+		dos_gclk_en_set(VDEC_1, 1, 0);
 	}
 
 	dec_pipeline_idle_ctrl(vdec, VDEC_INPUT_TARGET_VLD, 0);
@@ -5676,7 +5702,10 @@ void hevc_reset_core(struct vdec_s *vdec)
 {
 	int cpu_type = get_cpu_major_id();
 
-	if (is_vcpu_clk_set()) {
+	if (is_vdec_hevc_combine()) {
+		if (is_core_hevc_fmt(vdec->format))
+			dos_gclk_en_set(VDEC_HEVC, 1, 0);
+	} else if (is_vcpu_clk_set()) {
 		SET_VREG_MASK(DOS_GCLK_EN3, (1 << 2)); //turn on vcpu clock
 	}
 

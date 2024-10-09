@@ -12031,6 +12031,8 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	vdec_reset_core(vdec);
 	if (hw->mmu_enable || is_vdec_hevc_combine())
 		hevc_reset_core(vdec);
+	if (hw->mmu_enable && is_vdec_hevc_combine())
+		dos_gclk_en_set(VDEC_1, 1, 1);
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
 
