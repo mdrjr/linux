@@ -257,6 +257,7 @@ struct buf_core_mem_ops {
  * @replace	: The interface is used to replace vb2 buffer and aml_buf each other.
  * @put_dma	: The interface is used to put buffer reference.
  * @status_walk	: The interface is used to dump buffer status.
+ * @box_init	: The interface is used to alloc box early.
  * @wake_up_vdec
  *		: Wake up vdec thread to schedule.
  * @mem_ops	: Set of interfaces for memory-related operations.
@@ -299,6 +300,7 @@ struct buf_core_mgr_s {
 	void	(*replace)(struct buf_core_mgr_s *, struct buf_core_entry *, void *);
 	void	(*put_dma)(struct buf_core_mgr_s *);
 	ssize_t	(*status_walk)(struct buf_core_mgr_s *, struct buf_core_entry *, char *);
+	int	(*box_init)(struct buf_core_mgr_s *);
 
 	struct buf_core_mem_ops	mem_ops;
 	struct buf_core_ops	buf_ops;
