@@ -6566,7 +6566,6 @@ static void vui_config(struct vdec_h264_hw_s *hw)
 					if (hw->fixed_frame_rate_flag == 1)
 						hw->frame_dur = RATE_2997_FPS;
 				} else if (frame_rate == 47) {
-					if (hw->fixed_frame_rate_flag == 1)
 						hw->frame_dur = RATE_2397_FPS;
 				} else if (frame_rate == 29) {
 					hw->frame_dur = RATE_2997_FPS;
