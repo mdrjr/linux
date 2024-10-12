@@ -570,6 +570,7 @@ struct vdec_avs_hw_s *ghw;
 #define DEC_RESULT_GET_DATA         6
 #define DEC_RESULT_GET_DATA_RETRY   7
 #define DEC_RESULT_USERDATA         8
+#define DEC_RESULT_ERROR_DATA       9
 
 #define DECODE_ID(hw) (hw->m_ins_flag? hw_to_vdec(hw)->id : 0)
 
@@ -763,14 +764,13 @@ static bool is_available_buffer(struct vdec_avs_hw_s *hw)
 
 	if (!free_slot) {
 		debug_print(hw, PRINT_FLAG_BUFFER_DETAIL,
-			"%s not enough free_slot %d!\n",
-		__func__, free_slot);
+			"%s not enough free_slot %d! vf_buf_num_used %d\n",
+		__func__, free_slot, hw->vf_buf_num_used);
 		for (i = 0; i < hw->vf_buf_num_used; ++i) {
 			debug_print(hw, PRINT_FLAG_BUFFER_DETAIL,
-			"%s idx %d ref_count %d vf_ref %d cma_alloc_addr = 0x%lx\n",
-			__func__, i, hw->ref_use[i],
-			hw->vfbuf_use[i],
-			hw->pics[i].v4l_ref_buf_addr);
+				"%s idx %d vf_ref %d, vfbuf_use %d ref_use %d cma_alloc_addr = 0x%lx\n",
+				__func__, i, hw->vf_ref[i], hw->vfbuf_use[i], hw->ref_use[i],
+				hw->pics[i].v4l_ref_buf_addr);
 		}
 
 		return false;
@@ -2887,6 +2887,11 @@ static void vavs_work(struct work_struct *work)
 		debug_print(hw, 0,
 			"%s: eos flushed, frame_num %d\n",
 			__func__, hw->decode_pic_count);
+	} else if (hw->dec_result == DEC_RESULT_ERROR_DATA) {
+		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
+		hw->chunk = NULL;
+		if (ctx->es_free)
+			ctx->es_free(ctx, vdec->vbuf.buf_rp);
 	}
 	if (hw->stat & STAT_VDEC_RUN) {
 #if DEBUG_MULTI_FLAG == 1
@@ -2966,7 +2971,6 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 	if (hw->refs[0] >= 0
 		&& hw->refs[0] < VF_BUF_NUM_MAX &&
 		!hw->vf_ref[hw->refs[0]]) {
-		hw->ref_use[hw->refs[0]]++;
 		hw->vf_ref[hw->refs[0]]++;
 		am_buf = (struct aml_buf *)hw->pics[hw->refs[0]].v4l_ref_buf_addr;
 		if ((ctx->vpp_is_need || ctx->enable_di_post) &&
@@ -2982,7 +2986,6 @@ static void handle_decoding_error(struct vdec_avs_hw_s *hw)
 	if (hw->refs[1] >= 0
 		&& hw->refs[1] < VF_BUF_NUM_MAX &&
 		!hw->vf_ref[hw->refs[1]]) {
-		hw->ref_use[hw->refs[1]]++;
 		hw->vf_ref[hw->refs[1]]++;
 		am_buf = (struct aml_buf *)hw->pics[hw->refs[1]].v4l_ref_buf_addr;
 		if ((ctx->vpp_is_need || ctx->enable_di_post) &&
@@ -4068,6 +4071,7 @@ static int notify_v4l_eos(struct vdec_s *vdec)
 			pr_err("[%d] AVS isn't enough buff for notify eos.\n", ctx->id);
 			return 0;
 		}
+		usleep_range(500, 1000);
 	}
 
 	index = find_free_buffer(hw);
@@ -4099,6 +4103,10 @@ static int notify_v4l_eos(struct vdec_s *vdec)
 
 static int vavs_get_ps_info(struct vdec_avs_hw_s *hw, struct aml_vdec_ps_infos *ps)
 {
+
+	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
+	struct vdec_pic_info pic = {0};
+
 	ps->visible_width 	= hw->frame_width;
 	ps->visible_height 	= hw->frame_height;
 	ps->coded_width 	= ALIGN(hw->frame_width, 64);
@@ -4106,6 +4114,13 @@ static int vavs_get_ps_info(struct vdec_avs_hw_s *hw, struct aml_vdec_ps_infos *
 	ps->dpb_size 		= hw->vf_buf_num_used;
 	ps->dpb_margin	= hw->dynamic_buf_num_margin;
 	ps->dpb_frames	= vf_buf_num;
+
+	/* update frames and margin num. */
+	if (hw->res_ch_flag) {
+		vdec_v4l_get_pic_info(ctx, &pic);
+		ps->dpb_frames = pic.dpb_frames;
+		ps->dpb_margin = pic.dpb_margin;
+	}
 
 	ps->field = hw->interlace_flag ? V4L2_FIELD_INTERLACED : V4L2_FIELD_NONE;
 
@@ -4139,7 +4154,6 @@ static int v4l_res_change(struct vdec_avs_hw_s *hw)
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
 			ctx->v4l_resolution_change = 1;
-			hw->eos = 1;
 			flush_output(hw);
 			notify_v4l_eos(hw_to_vdec(hw));
 			ret = 1;
@@ -4313,6 +4327,17 @@ static void error_reset_in_c_driver(int num)
 	arb_ctrl_wait_idle(1);
 }
 
+static int is_oversize(int w, int h)
+{
+	if (w <= 0 || h <= 0)
+		return true;
+
+	if (format_resolution_fatal_error(VFORMAT_AVS, w, h))
+		return true;
+
+	return false;
+}
+
 static irqreturn_t vmavs_isr_thread_handler(struct vdec_s *vdec, int irq)
 {
 		struct vdec_avs_hw_s *hw =
@@ -4395,6 +4420,16 @@ static irqreturn_t vmavs_isr_thread_handler(struct vdec_s *vdec, int irq)
 			hw->interlace_flag = (READ_VREG(AVS_PIC_INFO) >> 28) & 0x1;
 			debug_print(hw, PRINT_FLAG_DECODING,
 				"READ_VREG(AVS_PIC_INFO) = 0x%x\n", READ_VREG(AVS_PIC_INFO));
+			if (is_oversize(hw->frame_width, hw->frame_height)) {
+				debug_print(hw, 0, "is_oversize w:%d h:%d\n", hw->frame_width, hw->frame_height);
+				avs_buf_ref_process_for_exception(hw);
+				if (vdec_frame_based(vdec)) {
+					vdec_v4l_post_error_frame_event(ctx);
+				}
+				hw->dec_result = DEC_RESULT_ERROR_DATA;
+				vdec_schedule_work(&hw->work);
+				return IRQ_HANDLED;
+			}
 
 			hw->force_interlaced_frame = false;
 			if ((ctx->force_di_permission &&
@@ -4961,6 +4996,7 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 	platform_set_drvdata(pdev, pdata);
 
 	if (pdata->config_len) {
+		pr_info("pdata->config=%s\n", pdata->config);
 		if (get_config_int(pdata->config,
 			"parm_v4l_codec_enable",
 			&config_val) == 0)
@@ -4978,6 +5014,8 @@ static void vmavs_dump_state(struct vdec_s *vdec)
 			hw->dynamic_buf_num_margin = dynamic_buf_num_margin;
 	} else
 		hw->dynamic_buf_num_margin = dynamic_buf_num_margin;
+
+	pr_info("dynamic_buf_num_margin=%d\n", hw->dynamic_buf_num_margin);
 
 	hw->platform_dev = pdev;
 

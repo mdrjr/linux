@@ -154,7 +154,7 @@ static u32 vdec_config_default_parms(u8 *parm)
 
 	pbuf += sprintf(pbuf, "parm_v4l_codec_enable:1;");
 	pbuf += sprintf(pbuf, "parm_v4l_canvas_mem_mode:0;");
-	pbuf += sprintf(pbuf, "parm_v4l_buffer_margin:0;");
+	pbuf += sprintf(pbuf, "parm_v4l_buffer_margin:7;");
 
 	return pbuf - parm;
 }
@@ -178,6 +178,7 @@ static void vdec_parser_parms(struct vdec_mpeg12_inst *inst)
 			ctx->config.parm.dec.cfg.duration);
 		ctx->config.length = pbuf - ctx->config.buf;
 	} else {
+		ctx->config.parm.dec.cfg.ref_buf_margin = 7;
 		ctx->config.length = vdec_config_default_parms(ctx->config.buf);
 	}
 
