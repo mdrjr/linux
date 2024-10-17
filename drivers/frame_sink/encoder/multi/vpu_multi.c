@@ -113,7 +113,6 @@ static void hw_reset(bool reset);
 
 struct vpu_clks {
 	struct clk *dos_clk;
-	struct clk *dos_apb_clk;
 	struct clk *a_clk;
 	struct clk *b_clk;
 	struct clk *c_clk;
@@ -215,8 +214,6 @@ static void vpu_clk_put(struct device *dev, struct vpu_clks *clks)
 		devm_clk_put(dev, clks->b_clk);
 	if (!(clks->a_clk == NULL || IS_ERR(clks->a_clk)))
 		devm_clk_put(dev, clks->a_clk);
-	if (!(clks->dos_apb_clk == NULL || IS_ERR(clks->dos_apb_clk)))
-		devm_clk_put(dev, clks->dos_apb_clk);
 	if (!(clks->dos_clk == NULL || IS_ERR(clks->dos_clk)))
 		devm_clk_put(dev, clks->dos_clk);
 }
@@ -230,15 +227,6 @@ static int vpu_clk_get(struct device *dev, struct vpu_clks *clks)
 	if (IS_ERR(clks->dos_clk)) {
 		enc_pr(LOG_ERROR, "cannot get clk_dos clock\n");
 		clks->dos_clk = NULL;
-		ret = -ENOENT;
-		goto err;
-	}
-
-	clks->dos_apb_clk = devm_clk_get(dev, "clk_apb_dos");
-
-	if (IS_ERR(clks->dos_apb_clk)) {
-		enc_pr(LOG_ERROR, "cannot get clk_apb_dos clock\n");
-		clks->dos_apb_clk = NULL;
 		ret = -ENOENT;
 		goto err;
 	}
@@ -284,9 +272,6 @@ static void vpu_clk_enable(struct vpu_clks *clks)
 	if (set_clock_freq && set_clock_freq <= 400)
 		freq = set_clock_freq;
 
-	clk_set_rate(clks->dos_clk, freq * MHz);
-	clk_set_rate(clks->dos_apb_clk, freq * MHz);
-
 	if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_T7) {
 		if (clock_a > 0) {
 			enc_pr(LOG_INFO, "vpu_multi: desired clock_a freq %u\n", clock_a);
@@ -311,13 +296,11 @@ static void vpu_clk_enable(struct vpu_clks *clks)
 		clk_set_rate(clks->c_clk, freq * MHz);
 	}
 	clk_prepare_enable(clks->dos_clk);
-	clk_prepare_enable(clks->dos_apb_clk);
 	clk_prepare_enable(clks->a_clk);
 	clk_prepare_enable(clks->b_clk);
 	clk_prepare_enable(clks->c_clk);
 
-	enc_pr(LOG_DEBUG, "dos: %ld, dos_apb: %ld, a: %ld, b: %ld, c: %ld\n",
-	       clk_get_rate(clks->dos_clk), clk_get_rate(clks->dos_apb_clk),
+	enc_pr(LOG_DEBUG, "a: %ld, b: %ld, c: %ld\n",
 	       clk_get_rate(clks->a_clk), clk_get_rate(clks->b_clk),
 	       clk_get_rate(clks->c_clk));
 
@@ -361,7 +344,6 @@ static void vpu_clk_disable(struct vpu_clks *clks)
 	clk_unprepare(clks->c_clk);
 	clk_unprepare(clks->b_clk);
 	clk_unprepare(clks->a_clk);
-	clk_disable_unprepare(clks->dos_apb_clk);
 	clk_disable_unprepare(clks->dos_clk);
 	/* the power off */
 	/* the power on */

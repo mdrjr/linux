@@ -682,7 +682,6 @@ static int is_oversize(int w, int h, int max)
 
 struct jpeg_enc_clks {
     struct clk *dos_clk;
-    struct clk *dos_apb_clk;
     struct clk *jpeg_enc_clk;
 
 };
@@ -693,9 +692,6 @@ static void jpeg_enc_clk_put(struct device *dev, struct jpeg_enc_clks *clks)
 {
     if (!(clks->jpeg_enc_clk == NULL || IS_ERR(clks->jpeg_enc_clk)))
         devm_clk_put(dev, clks->jpeg_enc_clk);
-
-    if (!(clks->dos_apb_clk == NULL || IS_ERR(clks->dos_apb_clk)))
-        devm_clk_put(dev, clks->dos_apb_clk);
 
     if (!(clks->dos_clk == NULL || IS_ERR(clks->dos_clk)))
         devm_clk_put(dev, clks->dos_clk);
@@ -713,15 +709,6 @@ static int jpeg_enc_clk_get(struct device *dev, struct jpeg_enc_clks *clks)
         //goto err;
     } else
         jenc_pr(LOG_INFO, "jpeg_enc_clk_get: get clk_dos OK\n");
-
-    clks->dos_apb_clk = devm_clk_get(dev, "clk_apb_dos");
-    if (IS_ERR(clks->dos_apb_clk)) {
-        jenc_pr(LOG_DEBUG, "cannot get clk_apb_dos clock\n");
-        clks->dos_apb_clk = NULL;
-        //ret = -ENOENT;
-        //goto err;
-    } else
-        jenc_pr(LOG_INFO, "jpeg_enc_clk_get: get clk_apb_dos OK\n");
 
     clks->jpeg_enc_clk = devm_clk_get(dev, "clk_jpeg_enc");
     if (IS_ERR(clks->jpeg_enc_clk)) {
@@ -742,15 +729,7 @@ static int jpeg_enc_clk_get(struct device *dev, struct jpeg_enc_clks *clks)
 static void jpeg_enc_clk_enable(struct jpeg_enc_clks *clks, u32 frq)
 {
     if (clks->dos_clk != NULL) {
-        clk_set_rate(clks->dos_clk, 400 * MHz);
         clk_prepare_enable(clks->dos_clk);
-        jenc_pr(LOG_INFO, "dos clk: %ld\n", clk_get_rate(clks->dos_clk));
-    }
-
-    if (clks->dos_apb_clk != NULL) {
-        clk_set_rate(clks->dos_apb_clk, 400 * MHz);
-        clk_prepare_enable(clks->dos_apb_clk);
-        jenc_pr(LOG_INFO, "apb clk: %ld\n", clk_get_rate(clks->dos_apb_clk));
     }
 
     if (get_cpu_major_id() == AM_MESON_CPU_MAJOR_ID_C1) {
@@ -770,24 +749,20 @@ static void jpeg_enc_clk_enable(struct jpeg_enc_clks *clks, u32 frq)
 
     /*
     clk_prepare_enable(clks->dos_clk);
-    clk_prepare_enable(clks->dos_apb_clk);
     clk_prepare_enable(clks->jpeg_enc_clk);
     */
-    jenc_pr(LOG_INFO, "dos: %ld, dos_apb: %ld, jpeg clk: %ld\n",
-        clk_get_rate(clks->dos_clk),
-        clk_get_rate(clks->dos_apb_clk),
-        clk_get_rate(clks->jpeg_enc_clk));
+    jenc_pr(LOG_INFO, "jpeg clk: %ld\n", clk_get_rate(clks->jpeg_enc_clk));
 
 }
 
 static void jpeg_enc_clk_disable(struct jpeg_enc_clks *clks)
 {
     jenc_pr(LOG_INFO, "set jpeg_enc_clk rate to 0\n");
-    clk_set_rate(clks->jpeg_enc_clk, 0);
     clk_disable_unprepare(clks->jpeg_enc_clk);
 
-    //clk_disable_unprepare(clks->dos_apb_clk);
-    //clk_disable_unprepare(clks->dos_clk);
+    if (clks->dos_clk != NULL) {
+        clk_disable_unprepare(clks->dos_clk);
+    }
 }
 
 static void dma_flush(u32 buf_start, u32 buf_size);
