@@ -74,8 +74,9 @@ kernel_module(
         ],
     ),
     outs = outs,
-    kernel_build = "//common:amlogic",
-    visibility = [
-        "//common:__pkg__",
-    ],
+    kernel_build = select({
+        "//common:common_drivers_on_top_dir": "//common_drivers:amlogic",
+        "//conditions:default": "//common:amlogic",
+    }),
+    visibility = ["//visibility:public"],
 )
