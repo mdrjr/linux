@@ -3024,7 +3024,9 @@ static int aml_tsdemux_hwdmx_spin_unlock(unsigned long flags)
 
 int demux_get_pcr(int demux_device_index, int index, u64 *pcr)
 {
+#ifndef CONFIG_AMLOGIC_MEDIA_NO_PARSER
 	tsdemux_get_pcr(demux_device_index, index, pcr);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(demux_get_pcr);

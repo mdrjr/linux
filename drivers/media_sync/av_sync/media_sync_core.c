@@ -78,8 +78,10 @@ static u64 last_pcr;
 
 extern int demux_get_pcr(int demux_device_index, int index, u64 *pcr);
 
+#ifndef CONFIG_AMLOGIC_MEDIA_NO_PARSER
 extern int register_mediasync_vpts_set_cb(void* pfunc);
 extern int register_mediasync_apts_set_cb(void* pfunc);
+#endif
 
 typedef int (*pfun_mediasync_video_hold_set)(int dev_id,s32 flag);
 static pfun_mediasync_video_hold_set mediasync_video_hold_set = NULL;
@@ -834,8 +836,10 @@ long mediasync_init(void) {
 		vMediaSyncInsList[index].pInstance = NULL;
 		spin_lock_init(&(vMediaSyncInsList[index].m_lock));
 	}
+#ifndef CONFIG_AMLOGIC_MEDIA_NO_PARSER
 	register_mediasync_vpts_set_cb(mediasync_ins_set_video_packets_info);
 	register_mediasync_apts_set_cb(mediasync_ins_set_audio_packets_info);
+#endif
 	return 0;
 }
 

@@ -2892,9 +2892,11 @@ static long amstream_do_ioctl_old(struct port_priv_s *priv,
 						r = es_vpts_checkin_us64(
 						&priv->vdec->vbuf, pts);
 					}
+#ifndef CONFIG_AMLOGIC_MEDIA_NO_PARSER
 			} else if (this->type & PORT_TYPE_AUDIO) {
 					r = es_apts_checkin_us64(
 					&bufs[BUF_TYPE_AUDIO], pts);
+#endif
 			}
 		}
 		break;
