@@ -11935,9 +11935,6 @@ static void vh265_buf_ref_process_for_exception(struct hevc_state_s *hevc)
 				aml_buf_put_ref(&ctx->bm, aml_buf);
 				aml_buf_put_ref(&ctx->bm, aml_buf);
 			}
-
-			aml_buf_put_ref(&ctx->bm, aml_buf);
-			aml_buf_put_ref(&ctx->bm, aml_buf);
 		}
 
 		if (hevc->enable_fence && (hevc->fence_mode_buf_status == FENCE_MODE_BUF_POSTED) && vdec->sync->fence) {

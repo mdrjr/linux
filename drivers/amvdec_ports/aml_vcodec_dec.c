@@ -5760,7 +5760,7 @@ static int vidioc_vdec_s_parm(struct file *file, void *fh,
 		ctx->ge2d_cfg.bypass =
 			(dec->cfg.metadata_config_flag & (1 << 9));
 		ctx->vpp_cfg.bypass =
-			(dec->cfg.metadata_config_flag & (1 << 8));
+			(dec->cfg.metadata_config_flag & ((1 << 8) | (1 << 2)));
 
 		if (ctx->ge2d_cfg.bypass || ctx->vpp_cfg.bypass)
 			v4l_buf_size_decision(ctx);

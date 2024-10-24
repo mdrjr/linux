@@ -579,6 +579,7 @@ struct aml_vdec_cfg_infos {
 	 * bit 10	: dynamic bypass vpp.
 	 * bit 9	: disable ge2d wrapper.
 	 * bit 8	: disable vpp wrapper.
+	 * bit 2	: HIGH BINDWIDTH.
 	 * bit 1	: Non-standard dv flag.
 	 * bit 0	: dv two layer flag.
 	 */
