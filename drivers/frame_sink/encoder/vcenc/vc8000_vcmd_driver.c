@@ -3561,11 +3561,9 @@ static int vcmd_pcie_init(struct platform_device *pf_dev)
 		return ret;
 	}
 
-	ret = dma_set_coherent_mask(&pf_dev->dev, DMA_BIT_MASK(34));
-	if (ret)
-		ret = dma_set_coherent_mask(&pf_dev->dev, DMA_BIT_MASK(32));
-	if (ret)
-		pr_info("vers: set dma mask fail\n");
+	/* 8g memory support */
+	dma_coerce_mask_and_coherent(&pf_dev->dev, DMA_BIT_MASK(64));
+
 	vaddr = dma_alloc_coherent(&pf_dev->dev, alloc_size_byte, &paddr, GFP_KERNEL);
 	pr_info("------- vaddr: %p, paddr: %llx\n", vaddr, paddr);
 
