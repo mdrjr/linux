@@ -3999,7 +3999,8 @@ static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info)
         if (wq->cmd.input_fmt == JPEGENC_FMT_NV12 ||
             wq->cmd.input_fmt == JPEGENC_FMT_NV21 ||
             wq->cmd.input_fmt == JPEGENC_FMT_YUV420 ||
-            wq->cmd.input_fmt == JPEGENC_FMT_RGB888) {
+            wq->cmd.input_fmt == JPEGENC_FMT_RGB888 ||
+            wq->cmd.input_fmt == JPEGENC_FMT_YUV422_SINGLE) {
             if (wq->cmd.plane_num == 0 || wq->cmd.plane_num > 3) {
                 jenc_pr(LOG_ERROR, "wq->cmd.plane_num is invalid %d.\n",
                     wq->cmd.plane_num);
