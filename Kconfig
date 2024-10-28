@@ -1,0 +1,117 @@
+menu "Amlogic Multimedia Modules"
+
+config AMLOGIC_MEDIA_VDEC_MPEG2_MULTI
+	tristate "MPEG2"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_MPEG4_MULTI
+	tristate "MPEG4"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_VC1
+	tristate "VC1"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_H264_MULTI
+	tristate "H264 Multi"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_H264_MVC
+	tristate "H264 MVC"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_H265
+	tristate "H265"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_VP9
+	tristate "VP9"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_MJPEG_MULTI
+	tristate "MJPEG Multi"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AVS_MULTI
+	tristate "AVS Multi"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AVS2
+	tristate "AVS2"
+	default m
+
+config AMLOGIC_MEDIA_VENC_H264
+	tristate "H264 Encoder"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VENC_H265
+	tristate "H265 Video Encoder"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AV1
+	tristate "AV1 Video Decoder"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AVS3
+	tristate "AVS3 Video Decoder"
+	default m
+
+config AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
+	tristate "Dolby Vision Enhancement"
+	default y
+
+config AMLOGIC_MEDIA_VENC_MULTI
+	tristate "VENC Multi"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VENC_JPEG
+	tristate "VENC JPEG"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VDEC_VP9_FB
+	tristate "VP9 Video Decoder (FB)"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_H265_FB
+	tristate "H265 Video Decoder (FB)"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AV1_FB
+	tristate "AV1 Video Decoder (FB)"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AV1_T5D
+	tristate "AV1 Video Decoder (T5D)"
+	default m
+
+config AMLOGIC_MEDIA_VDEC_AVS2_FB
+	tristate "AVS2 Video Decoder (FB)"
+	default m
+
+config AMLOGIC_MEDIA_VENC_MEMALLOC
+	tristate "Memory Alloc Video Encoder"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VENC_VCENC
+	tristate "VCENC Video Encoder"
+	select AMLOGIC_MEDIA_VENC_COMMON
+	default m
+
+config AMLOGIC_MEDIA_VENC_COMMON
+	tristate
+	default m
+
+config AMLOGIC_HW_DEMUX
+	tristate "Hardware Demuxer"
+	default n
+
+config AMLOGIC_MEDIA_V4L_DEC
+	tristate "V4L Decoder"
+	default y
+
+endmenu
