@@ -5154,6 +5154,7 @@ static s32 amvenc_avc_probe(struct platform_device *pdev)
 	}
 
 	r = init_avc_device();
+	pm_runtime_enable(&encode_manager.this_pdev->dev);
 	enc_pr(LOG_INFO, "amvenc_avc probe end.\n");
 
 	return r;
