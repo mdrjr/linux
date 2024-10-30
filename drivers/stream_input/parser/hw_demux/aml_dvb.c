@@ -2586,7 +2586,7 @@ error:
 	return ret;
 }
 
-static int aml_dvb_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID aml_dvb_remove(struct platform_device *pdev)
 {
 	struct aml_dvb *advb = (struct aml_dvb *)dev_get_drvdata(&pdev->dev);
 	int i;
@@ -2642,7 +2642,7 @@ static int aml_dvb_remove(struct platform_device *pdev)
 	}
 
 	pr_inf("[dmx_kpi] %s Exit.\n", __func__);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static int aml_dvb_suspend(struct platform_device *dev, pm_message_t state)

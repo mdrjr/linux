@@ -1570,7 +1570,7 @@ static int ammvdec_mjpeg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_mjpeg_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_mjpeg_remove(struct platform_device *pdev)
 {
 	struct vdec_mjpeg_hw_s *hw =
 		(struct vdec_mjpeg_hw_s *)
@@ -1579,7 +1579,7 @@ static int ammvdec_mjpeg_remove(struct platform_device *pdev)
 	int i;
 
 	if (!hw)
-		return -1;
+		return KV_RET_x_TO_VOID(-1);
 	vdec = hw_to_vdec(hw);
 
 	vmjpeg_stop(hw);
@@ -1600,7 +1600,7 @@ static int ammvdec_mjpeg_remove(struct platform_device *pdev)
 	vfree(hw);
 
 	pr_info("%s\n", __func__);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

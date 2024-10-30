@@ -11171,7 +11171,7 @@ static int amvdec_h266_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_h266_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_h266_remove(struct platform_device *pdev)
 {
 	struct hevc_state_s *hevc = gHevc;
 
@@ -11197,7 +11197,7 @@ static int amvdec_h266_remove(struct platform_device *pdev)
 
 	mutex_unlock(&vh266_mutex);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 /****************************************/
 #ifdef CONFIG_PM
@@ -11834,7 +11834,7 @@ static void vdec_fence_release(struct hevc_state_s *hw,
 	vdec_timeline_put(sync);
 }
 
-static int ammvdec_h266_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_h266_remove(struct platform_device *pdev)
 {
 	struct hevc_state_s *hevc =
 		(struct hevc_state_s *)
@@ -11842,7 +11842,7 @@ static int ammvdec_h266_remove(struct platform_device *pdev)
 	struct vdec_s *vdec;
 
 	if (hevc == NULL)
-		return 0;
+		return KV_RET_x_TO_VOID(0);
 	vdec = hw_to_vdec(hevc);
 
 #ifdef AUX_DATA_CRC
@@ -11873,7 +11873,7 @@ static int ammvdec_h266_remove(struct platform_device *pdev)
 			RDMA_SIZE, hevc->rdma_adr, hevc->rdma_phy_adr);
 	vfree((void *)hevc);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct platform_driver ammvdec_h266_driver = {

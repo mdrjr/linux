@@ -1803,7 +1803,7 @@ static int amvdec_h264mvc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_h264mvc_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_h264mvc_remove(struct platform_device *pdev)
 {
 	pr_info("amvdec_h264mvc_remove\n");
 	cancel_work_sync(&alloc_work);
@@ -1831,7 +1831,7 @@ static int amvdec_h264mvc_remove(struct platform_device *pdev)
 	kfree(gvs);
 	gvs = NULL;
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

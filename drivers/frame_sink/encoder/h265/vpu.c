@@ -42,6 +42,7 @@
 #include <linux/of_address.h>
 #include <linux/compat.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
+#include <linux/vmalloc.h>
 
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include <linux/version.h>
@@ -2571,7 +2572,7 @@ ERROR_PROVE_DEVICE:
 	return err;
 }
 
-static s32 vpu_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID vpu_remove(struct platform_device *pdev)
 {
 	enc_pr(LOG_DEBUG, "vpu_remove\n");
 
@@ -2616,7 +2617,7 @@ static s32 vpu_remove(struct platform_device *pdev)
 	if (get_cpu_type() >= MESON_CPU_MAJOR_ID_SC2)
 		vpu_clk_unprepare(&pdev->dev, &s_vpu_clks);
 	uninit_HevcEnc_device();
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 #ifdef CONFIG_PM

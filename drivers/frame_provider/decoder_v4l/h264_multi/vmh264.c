@@ -12653,6 +12653,7 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 	}
 	hw->id = pdev->id;
 	hw->platform_dev = pdev;
+	spin_lock_init(&hw->bufspec_lock);
 
 	snprintf(hw->trace.vdec_name, sizeof(hw->trace.vdec_name),
 		"h264-%d", hw->id);
@@ -13017,7 +13018,7 @@ static void vdec_fence_release(struct vdec_h264_hw_s *hw,
 	vdec_timeline_put(sync);
 }
 
-static int ammvdec_h264_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_h264_remove(struct platform_device *pdev)
 {
 	struct vdec_h264_hw_s *hw =
 		(struct vdec_h264_hw_s *)
@@ -13084,7 +13085,7 @@ static int ammvdec_h264_remove(struct platform_device *pdev)
 	h264_free_hw_stru(&pdev->dev, (void *)hw);
 	clk_adj_frame_count = 0;
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct platform_driver ammvdec_h264_driver = {

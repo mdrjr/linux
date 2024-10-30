@@ -1844,7 +1844,7 @@ static int amvdec_vc1_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_vc1_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_vc1_remove(struct platform_device *pdev)
 {
 	cancel_work_sync(&error_wd_work);
 	vc1_print(0, VC1_DEBUG_DETAIL,"%s \n", __func__);
@@ -1895,7 +1895,7 @@ static int amvdec_vc1_remove(struct platform_device *pdev)
 	gvs = NULL;
 	vdec = NULL;
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

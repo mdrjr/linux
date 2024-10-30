@@ -3565,7 +3565,7 @@ static int vcmd_pcie_init(struct platform_device *pf_dev)
 	dma_coerce_mask_and_coherent(&pf_dev->dev, DMA_BIT_MASK(64));
 
 	vaddr = dma_alloc_coherent(&pf_dev->dev, alloc_size_byte, &paddr, GFP_KERNEL);
-	pr_info("------- vaddr: %p, paddr: %llx\n", vaddr, paddr);
+	pr_info("------- vaddr: %p, paddr: %llx\n", vaddr, (u64)paddr);
 
 	g_vcmd_base_hdwr = vers_reg_start[VERS_CORE_REG_BASE];
 	pr_info("Base hw val 0x%llx\n", (unsigned long long)g_vcmd_base_hdwr);

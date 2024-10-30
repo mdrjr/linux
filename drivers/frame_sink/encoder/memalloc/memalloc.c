@@ -87,6 +87,7 @@
 #include <linux/compat.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "../../../common/chips/decoder_cpu_ver_info.h"
+#include "../../../common/media_utils/media_kernel_version.h"
 
 #ifndef HLINA_START_ADDRESS
 #define HLINA_START_ADDRESS 0x02000000
@@ -369,7 +370,7 @@ static s32 memalloc_init(struct platform_device *pf_dev)
     dma_coerce_mask_and_coherent(&pf_dev->dev, DMA_BIT_MASK(64));
 
     vaddr = dma_alloc_coherent(&pf_dev->dev, alloc_size*SZ_1M, &paddr, GFP_KERNEL);
-    pr_info("------- vaddr: %px, paddr: %llx\n", vaddr, paddr);
+    pr_info("------- vaddr: %px, paddr: %llx\n", vaddr, (u64)paddr);
 
     alloc_base = paddr;
     pr_info("memalloc: alloc_size = 0x%x,Linear memory base = %px\n", alloc_size,
@@ -508,11 +509,11 @@ static s32 encmem_vce_probe(struct platform_device *pf_dev)
     return 0;
 }
 
-static s32 encmem_vce_remove(struct platform_device *pf_dev)
+static KV_INT_TO_VOID encmem_vce_remove(struct platform_device *pf_dev)
 {
     pr_info("encmem_vce_remove:\n");
     memalloc_cleanup(pf_dev);
-    return 0;
+    return KV_RET_x_TO_VOID(0);
 }
 
 static const struct of_device_id amlogic_venc_mem_match[] = {{

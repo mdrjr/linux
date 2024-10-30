@@ -29,6 +29,7 @@
 #include <linux/semaphore.h>
 #include <linux/sched/rt.h>
 #include <linux/interrupt.h>
+#include <linux/vmalloc.h>
 #include <linux/amlogic/media/utils/vformat.h>
 #include <linux/amlogic/iomap.h>
 #include <linux/amlogic/media/canvas/canvas.h>
@@ -48,6 +49,7 @@
 #include "../../../stream_input/amports/streambuf.h"
 #include "vdec.h"
 #include "vdec_trace.h"
+#include "../../../common/media_utils/media_utils.h"
 #ifdef CONFIG_AMLOGIC_MEDIA_MULTI_DEC
 #include "vdec_profile.h"
 #endif
@@ -1851,6 +1853,7 @@ struct vdec_s *vdec_create(struct stream_port_s *port,
 				pr_err("vzalloc: vdec_frames_s failed\n");
 		}
 	}
+	spin_lock_init(&vdec->power_lock);
 
 	pr_debug("vdec_create instance %p, total %d, PM: %s\n", vdec,
 		atomic_read(&vdec_core->vdec_nr),
@@ -7744,7 +7747,7 @@ static int vdec_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int vdec_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID vdec_remove(struct platform_device *pdev)
 {
 	int i;
 
@@ -7770,7 +7773,7 @@ static int vdec_remove(struct platform_device *pdev)
 
 	class_unregister(&vdec_class);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct mconfig vdec_configs[] = {

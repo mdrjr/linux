@@ -9606,7 +9606,7 @@ static int amvdec_avs3_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_avs3_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_avs3_remove(struct platform_device *pdev)
 {
 	struct AVS3Decoder_s *dec = &gAVS3Decoder;
 	if (debug)
@@ -9625,7 +9625,7 @@ static int amvdec_avs3_remove(struct platform_device *pdev)
 
 	mutex_unlock(&vavs3_mutex);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/
@@ -11454,7 +11454,7 @@ static int ammvdec_avs3_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_avs3_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_avs3_remove(struct platform_device *pdev)
 {
 	struct AVS3Decoder_s *dec = (struct AVS3Decoder_s *)
 		(((struct vdec_s *)(platform_get_drvdata(pdev)))->private);
@@ -11507,7 +11507,7 @@ static int ammvdec_avs3_remove(struct platform_device *pdev)
 
 	/* devm_kfree(&pdev->dev, (void *)dec); */
 	vfree((void *)dec);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct platform_driver ammvdec_avs3_driver = {

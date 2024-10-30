@@ -11818,7 +11818,7 @@ static int ammvdec_av1_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_av1_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_av1_remove(struct platform_device *pdev)
 {
 	struct AV1HW_s *hw = (struct AV1HW_s *)
 		(((struct vdec_s *)(platform_get_drvdata(pdev)))->private);
@@ -11876,7 +11876,7 @@ static int ammvdec_av1_remove(struct platform_device *pdev)
 	vfree(hw->pbi);
 	release_dblk_struct(hw);
 	vfree((void *)hw);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct platform_driver ammvdec_av1_driver = {

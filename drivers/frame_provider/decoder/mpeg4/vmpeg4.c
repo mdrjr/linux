@@ -1173,7 +1173,7 @@ static int amvdec_mpeg4_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_mpeg4_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_mpeg4_remove(struct platform_device *pdev)
 {
 	if (stat & STAT_VDEC_RUN) {
 		amvdec_stop();
@@ -1221,7 +1221,7 @@ static int amvdec_mpeg4_remove(struct platform_device *pdev)
 	gvs = NULL;
 	vdec = NULL;
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

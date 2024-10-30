@@ -2618,7 +2618,7 @@ static int amvdec_avs_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_avs_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_avs_remove(struct platform_device *pdev)
 {
 	struct vdec_avs_hw_s *hw = ghw;
 
@@ -2714,7 +2714,7 @@ static int amvdec_avs_remove(struct platform_device *pdev)
 	kfree(hw->gvs);
 	hw->gvs = NULL;
 	vfree(hw);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static void recycle_frames(struct vdec_avs_hw_s *hw);
@@ -5049,7 +5049,7 @@ error1:
 	return r;
 }
 
- int ammvdec_avs_remove(struct platform_device *pdev)
+KV_INT_TO_VOID ammvdec_avs_remove(struct platform_device *pdev)
 {
 
 	if (vdec_get_debug_flags() & 0x8)
@@ -5128,7 +5128,7 @@ error1:
 		}
 
 		vfree(hw);
-		return 0;
+		return KV_RET_x_TO_VOID(0);
 	}
 }
 
@@ -5595,7 +5595,7 @@ if (hw->m_ins_flag) {
 	return 0;
 }
 
-static int ammvdec_avs_remove2(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_avs_remove2(struct platform_device *pdev)
 {
 	struct vdec_avs_hw_s *hw = ghw;
 
@@ -5699,7 +5699,7 @@ static int ammvdec_avs_remove2(struct platform_device *pdev)
 	kfree(hw->gvs);
 	hw->gvs = NULL;
 	vfree(hw);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 #endif
 

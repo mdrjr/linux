@@ -5128,7 +5128,7 @@ static s32 jpegenc_probe(struct platform_device *pdev)
     return 0;
 }
 
-static s32 jpegenc_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID jpegenc_remove(struct platform_device *pdev)
 {
     if (jpegenc_wq_uninit())
         jenc_pr(LOG_ERROR, "jpegenc_wq_uninit error.\n");
@@ -5140,7 +5140,7 @@ static s32 jpegenc_remove(struct platform_device *pdev)
 
     uninit_jpegenc_device();
     jenc_pr(LOG_DEBUG, "jpegenc remove.\n");
-    return 0;
+    return KV_RET_x_TO_VOID(0);
 }
 
 static const struct of_device_id amlogic_jpegenc_dt_match[] = {

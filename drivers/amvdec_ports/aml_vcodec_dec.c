@@ -2900,9 +2900,9 @@ static int vidioc_vdec_querycap(struct file *file, void *priv,
 	struct aml_vcodec_ctx *ctx = fh_to_ctx(priv);
 	struct video_device *vfd_dec = video_devdata(file);
 
-	strlcpy(cap->driver, AML_VCODEC_DEC_NAME, sizeof(cap->driver));
-	strlcpy(cap->bus_info, AML_PLATFORM_STR, sizeof(cap->bus_info));
-	strlcpy(cap->card, AML_PLATFORM_STR, sizeof(cap->card));
+	strscpy(cap->driver, AML_VCODEC_DEC_NAME, sizeof(cap->driver));
+	strscpy(cap->bus_info, AML_PLATFORM_STR, sizeof(cap->bus_info));
+	strscpy(cap->card, AML_PLATFORM_STR, sizeof(cap->card));
 	cap->device_caps = vfd_dec->device_caps;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT, "%s, %s\n", __func__, cap->card);
@@ -4751,11 +4751,17 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	struct aml_v4l2_buf *buf = NULL;
 	struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
 	struct aml_vcodec_ctx *ctx = vb2_get_drv_priv(q);
-	int i;
+	int i, buf_num;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PROT,
 		"%s, type: %d, state: %x, frame_cnt: %d\n",
 		__func__, q->type, ctx->state, ctx->decoded_frame_cnt);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+	buf_num = q->num_buffers;
+#else
+	buf_num = vb2_get_num_buffers(q);
+#endif
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		ctx->is_out_stream_off = true;
@@ -4783,7 +4789,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		while ((vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
 			v4l2_buff_done(vb2_v4l2, VB2_BUF_STATE_ERROR);
 
-		for (i = 0; i < q->num_buffers; ++i) {
+		for (i = 0; i < buf_num; ++i) {
 			vb2_v4l2 = to_vb2_v4l2_buffer(q->bufs[i]);
 			if (vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_buff_done(vb2_v4l2, VB2_BUF_STATE_ERROR);
@@ -4815,7 +4821,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		INIT_KFIFO(ctx->capture_buffer);
 		mutex_unlock(&ctx->capture_buffer_lock);
 
-		for (i = 0; i < q->num_buffers; ++i) {
+		for (i = 0; i < buf_num; ++i) {
 			vb2_v4l2 = to_vb2_v4l2_buffer(q->bufs[i]);
 			buf = container_of(vb2_v4l2, struct aml_v4l2_buf, vb);
 			if (buf->aml_buf) {
@@ -5701,7 +5707,11 @@ int aml_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->mem_ops		= &vb2_dma_contig_memops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock		= &ctx->v4l_intf_lock;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
 	dst_vq->min_buffers_needed = 1;
+#else
+	dst_vq ->min_reqbufs_allocation = 1;
+#endif
 	ret = vb2_queue_init(dst_vq);
 	if (ret) {
 		vb2_queue_release(src_vq);

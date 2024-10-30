@@ -50,6 +50,7 @@
 #include "aml_dhp_drv.h"
 #include "aml_dhp_if.h"
 #include "../../common/media_utils/media_utils.h"
+#include "../../common/media_utils/media_kernel_version.h"
 
 #define DEVICE_NAME	"aml_dhp_dev"
 #define CLASS_NAME	"aml_dhp"
@@ -275,15 +276,21 @@ static struct sg_table *aml_dhp_dbuf_map(struct dma_buf_attachment *db_attach,
 {
 	struct aml_dhp_attachment *attach = db_attach->priv;
 	/* stealing dmabuf mutex to serialize map/unmap operations */
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)
 	struct mutex *lock = &db_attach->dmabuf->lock;
+#endif
 	struct sg_table *sgt;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)
 	mutex_lock(lock);
+#endif
 
 	sgt = &attach->sgt;
 	/* return previously mapped sg table */
 	if (attach->dma_dir == dma_dir) {
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)
 		mutex_unlock(lock);
+#endif
 		return sgt;
 	}
 
@@ -298,13 +305,17 @@ static struct sg_table *aml_dhp_dbuf_map(struct dma_buf_attachment *db_attach,
 	if (dma_map_sgtable(db_attach->dev, sgt, dma_dir,
 			    DMA_ATTR_SKIP_CPU_SYNC)) {
 		LOG_ERR("failed to map scatterlist\n");
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)
 		mutex_unlock(lock);
+#endif
 		return ERR_PTR(-EIO);
 	}
 
 	attach->dma_dir = dma_dir;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)
 	mutex_unlock(lock);
+#endif
 
 	return sgt;
 }
@@ -370,14 +381,19 @@ static int __aml_dhp_dbuf_mmap(void *buf_priv, struct vm_area_struct *vma)
 			break;
 	}
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 0)
 	vma->vm_flags		|= VM_DONTEXPAND | VM_DONTDUMP;
+#else
+	vm_flags_set(vma, vma->vm_flags | VM_DONTEXPAND | VM_DONTDUMP);
+#endif
+
 	vma->vm_private_data	= &du->vmah;
 	vma->vm_ops		= &aml_dhp_vm_ops;
 
 	vma->vm_ops->open(vma);
 
-	LOG_DEBUG("[%u]: Mapped addr:%lx at %lx, size %lu\n",
-		drv->uid, sg_phys(sgt->sgl),
+	LOG_DEBUG("[%u]: Mapped addr:%llx at %lx, size %u\n",
+		drv->uid, (u64)sg_phys(sgt->sgl),
 		vma->vm_start,
 		sgt->sgl->length);
 
@@ -443,7 +459,7 @@ static struct dma_buf *aml_get_dmabuf(struct data_unit *du, ulong addr, u32 size
 		return NULL;
 	}
 
-	LOG_DEBUG("[%u]: Get dbuf:%px, addr:%lx, size %lu\n",
+	LOG_DEBUG("[%u]: Get dbuf:%px, addr:%lx, size %u\n",
 		drv->uid, dbuf, addr, size);
 
 	return dbuf;
@@ -657,7 +673,7 @@ static ulong get_du_mem_pfn(struct aml_du_mem *m)
 		break;
 	}
 	case AML_MEM_TYPE_KPTR_ADDR: {
-		pfn = virt_to_pfn(m->kptr);
+		pfn = virt_to_pfn((void *)m->kptr);
 		break;
 	}
 	default:
@@ -878,7 +894,7 @@ static int du_mmap(struct aml_dhp_drv *drv, ulong arg)
 		return -EFAULT;
 	}
 
-	LOG_TRACE("[%u]: PFN:%x is mapped to the uptr:%lx, size:%u\n",
+	LOG_TRACE("[%u]: PFN:%lx is mapped to the uptr:%lx, size:%u\n",
 		drv->uid, pfn, uptr, size);
 
 	return ret;
@@ -1093,8 +1109,8 @@ static int aml_dhp_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t info_show(struct class *class,
-			struct class_attribute *attr, char *buf)
+static ssize_t info_show(KV_CLASS_CONST struct class *class,
+			KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	char *pbuf = buf;
 	struct aml_dhp_drv *drv;
@@ -1121,14 +1137,14 @@ out:
 	return pbuf - buf;
 }
 
-static ssize_t debug_show(struct class *cls,
-	struct class_attribute *attr, char *buf)
+static ssize_t debug_show(KV_CLASS_CONST struct class *cls,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%x\n", debug);
 }
 
-static ssize_t debug_store(struct class *cls,
-	struct class_attribute *attr, const char *buf, size_t count)
+static ssize_t debug_store(KV_CLASS_CONST struct class *cls,
+	KV_CLASS_ATTR_CONST struct class_attribute *attr, const char *buf, size_t count)
 {
 	//struct aml_dhp_drv *drv = NULL;
 	//struct list_head *pos;
@@ -1269,4 +1285,5 @@ module_param(debug, uint, 0664);
 MODULE_PARM_DESC(debug, "\n set debug level \n");
 
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(DMA_BUF);
 

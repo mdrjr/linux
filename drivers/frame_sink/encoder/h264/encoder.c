@@ -33,6 +33,7 @@
 #include <linux/ctype.h>
 #include <linux/fs.h>
 #include <linux/compat.h>
+#include <linux/vmalloc.h>
 //#include <asm/segment.h>
 #include <asm/uaccess.h>
 #include <linux/buffer_head.h>
@@ -5160,7 +5161,7 @@ static s32 amvenc_avc_probe(struct platform_device *pdev)
 	return r;
 }
 
-static s32 amvenc_avc_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvenc_avc_remove(struct platform_device *pdev)
 {
 	kfree(encode_manager.reserve_buff);
 	encode_manager.reserve_buff = NULL;
@@ -5169,7 +5170,7 @@ static s32 amvenc_avc_remove(struct platform_device *pdev)
 	uninit_avc_device();
 	hcodec_clk_unprepare(&pdev->dev, &s_hcodec_clks);
 	enc_pr(LOG_INFO, "amvenc_avc remove.\n");
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static const struct of_device_id amlogic_avcenc_dt_match[] = {

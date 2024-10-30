@@ -23,6 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include "../../../stream_input/amports/amports_priv.h"
+#include "../../../common/media_utils/media_utils.h"
 #include "vdec.h"
 #include "vdec_input.h"
 #include <asm/cacheflush.h>

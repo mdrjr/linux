@@ -80,7 +80,9 @@ static int fops_vcodec_open(struct file *file)
 		return -ENOMEM;
 	}
 
-	ctx->meta_infos.meta_bufs = vzalloc(sizeof(struct meta_data) * V4L_CAP_BUFF_MAX);
+	ctx->meta_infos.meta_bufs = aml_media_mem_alloc(
+								sizeof(struct meta_data) * V4L_CAP_BUFF_MAX,
+								GFP_KERNEL);
 	if (ctx->meta_infos.meta_bufs == NULL) {
 		aml_media_mem_free(aml_vb);
 		aml_media_mem_free(ctx);
@@ -215,7 +217,7 @@ err_ctrls_setup:
 #endif
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	vfree(ctx->meta_infos.meta_bufs);
+	aml_media_mem_free(ctx->meta_infos.meta_bufs);
 	aml_media_mem_free(ctx->empty_flush_buf);
 	aml_media_mem_free(ctx);
 	mutex_unlock(&dev->dev_mutex);
@@ -710,7 +712,7 @@ err_res:
 	return ret;
 }
 
-static int aml_vcodec_dec_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID aml_vcodec_dec_remove(struct platform_device *pdev)
 {
 	struct aml_vcodec_dev *dev = platform_get_drvdata(pdev);
 
@@ -731,7 +733,7 @@ static int aml_vcodec_dec_remove(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "v4ldec removed.\n");
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static const struct of_device_id aml_vcodec_match[] = {

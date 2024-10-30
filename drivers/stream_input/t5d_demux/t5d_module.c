@@ -50,6 +50,7 @@
 #include "t5d_hw_dmx.h"
 #include "t5d_dsc.h"
 #include "t5d_key.h"
+#include "../../common/media_utils/media_kernel_version.h"
 
 struct t5d_pcr {
 	int valid;
@@ -1543,7 +1544,7 @@ static struct class t5d_dmx_class = {
 	};
 
 /*Destroy the DVB adaptor.*/
-static int
+static KV_INT_TO_VOID
 t5d_dvb_remove(struct platform_device *pdev)
 {
 	int i;
@@ -1566,7 +1567,7 @@ t5d_dvb_remove(struct platform_device *pdev)
 	class_unregister(&t5d_stb_class);
 	class_unregister(&t5d_dmx_class);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static int

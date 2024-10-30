@@ -18,11 +18,28 @@
  * Description:
  */
 
+#include <linux/minmax.h>
 #include "aml_vcodec_dec_infoserver.h"
 #include "aml_vcodec_dec.h"
 #include "aml_vcodec_adapt.h"
 #include "./decoder/utils.h"
 #include "../frame_provider/decoder/utils/vdec.h"
+
+#ifndef MAX
+#define MAX(a, b) ({ \
+			const typeof(a) _a = a; \
+			const typeof(b) _b = b; \
+			_a > _b ? _a : _b; \
+		})
+#endif
+
+#ifndef MIN
+#define MIN(a, b) ({ \
+			const typeof(a) _a = a; \
+			const typeof(b) _b = b; \
+			_a < _b ? _a : _b; \
+		})
+#endif
 
 void aml_vcodec_dec_info_init(struct aml_vcodec_ctx *ctx)
 {

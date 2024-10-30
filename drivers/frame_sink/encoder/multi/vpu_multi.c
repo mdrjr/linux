@@ -46,6 +46,7 @@
 #include <linux/kfifo.h>
 #include <linux/kthread.h>
 #include <linux/sched/signal.h>
+#include <linux/vmalloc.h>
 #include <linux/amlogic/cpu_version.h>
 //#include <linux/amlogic/pwr_ctrl.h>
 
@@ -3238,7 +3239,7 @@ ERROR_PROVE_DEVICE:
 	return err;
 }
 
-static s32 vpu_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID vpu_remove(struct platform_device *pdev)
 {
 	s32 idx;
 	enc_pr(LOG_DEBUG, "vpu_remove\n");
@@ -3296,7 +3297,7 @@ static s32 vpu_remove(struct platform_device *pdev)
 	vpu_clk_put(&multienc_pdev->dev, &s_vpu_clks);
 	multienc_pdev = NULL;
 	uninit_MultiEnc_device();
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 #ifdef CONFIG_PM

@@ -49,6 +49,7 @@
 #include "../../decoder/utils/vdec_v4l2_buffer_ops.h"
 #include "../../decoder/utils/aml_buf_helper.h"
 #include "../../decoder/utils/decoder_dma_alloc.h"
+#include "../../../common/media_utils/media_utils.h"
 
 #include <uapi/linux/tee.h>
 #include <linux/delay.h>
@@ -2592,7 +2593,7 @@ static int amvdec_vc1_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_vc1_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_vc1_remove(struct platform_device *pdev)
 {
 	struct vdec_vc1_hw_s *hw = &vc1_hw;
 	hw->remove_flag = true;
@@ -2646,7 +2647,7 @@ static int amvdec_vc1_remove(struct platform_device *pdev)
 	vc1_print(0, VC1_DEBUG_DETAIL, "%s end remove_flag %d, reload_task_start %d\n",
 		__func__, hw->remove_flag, hw->reload_task_start);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

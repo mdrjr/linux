@@ -2091,7 +2091,7 @@ static int amvdec_mpeg12_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int amvdec_mpeg12_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_mpeg12_remove(struct platform_device *pdev)
 {
 	cancel_work_sync(&userdata_push_work);
 	cancel_work_sync(&notify_work);
@@ -2150,7 +2150,7 @@ static int amvdec_mpeg12_remove(struct platform_device *pdev)
 	}
 #endif
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

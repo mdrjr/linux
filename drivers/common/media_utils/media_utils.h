@@ -20,6 +20,7 @@
 #ifndef _MEDIA_FILE_H_
 #define _MEDIA_FILE_H_
 #include <linux/fs.h>
+#include <linux/vmalloc.h>
 
 typedef unsigned long dos_addr_t;
 

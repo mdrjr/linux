@@ -921,7 +921,7 @@ static u32 crc32_vmap_le(u32 crc, unsigned char const *paddr, size_t size)
 	return crc;
 }
 
-static int do_check_nv21(struct pic_check_mgr_t *mgr, struct vframe_s *vf)
+static __nocfi int do_check_nv21(struct pic_check_mgr_t *mgr, struct vframe_s *vf)
 {
 	unsigned int crc_y = 0, crc_uv = 0;
 	void *p_yaddr, *p_uvaddr;
@@ -1110,7 +1110,7 @@ int load_user_cmp_crc(struct pic_check_mgr_t *mgr)
 }
 
 
-int decoder_do_frame_check(struct vdec_s *vdec, struct vframe_s *vf)
+int __nocfi decoder_do_frame_check(struct vdec_s *vdec, struct vframe_s *vf)
 {
 	int resize = 0;
 	void *planes[4];

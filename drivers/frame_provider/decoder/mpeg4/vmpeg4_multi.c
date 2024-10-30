@@ -27,6 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
+#include <linux/vmalloc.h>
 #include <linux/amlogic/media/utils/amstream.h>
 #include <linux/amlogic/media/frame_sync/ptsserv.h>
 #include <linux/amlogic/media/vfm/vframe.h>
@@ -3211,7 +3212,7 @@ static int ammvdec_mpeg4_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_mpeg4_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_mpeg4_remove(struct platform_device *pdev)
 {
 	struct vdec_mpeg4_hw_s *hw =
 		(struct vdec_mpeg4_hw_s *)
@@ -3249,7 +3250,7 @@ static int ammvdec_mpeg4_remove(struct platform_device *pdev)
 	vfree((void *)hw);
 	hw = NULL;
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

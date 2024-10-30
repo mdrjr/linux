@@ -14436,7 +14436,7 @@ static void vdec_fence_release(struct VP9Decoder_s *pbi,
 	vdec_timeline_put(sync);
 }
 
-static int amvdec_vp9_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID amvdec_vp9_remove(struct platform_device *pdev)
 {
 	struct VP9Decoder_s *pbi = gHevc;
 	struct vdec_s *vdec = hw_to_vdec(pbi);
@@ -14472,7 +14472,7 @@ static int amvdec_vp9_remove(struct platform_device *pdev)
 	vfree(pbi);
 	mutex_unlock(&vvp9_mutex);
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/
@@ -16453,7 +16453,7 @@ static int ammvdec_vp9_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_vp9_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_vp9_remove(struct platform_device *pdev)
 {
 	struct VP9Decoder_s *pbi = (struct VP9Decoder_s *)
 		(((struct vdec_s *)(platform_get_drvdata(pdev)))->private);
@@ -16507,7 +16507,7 @@ static int ammvdec_vp9_remove(struct platform_device *pdev)
 		decoder_dma_free_coherent(pbi->rdma_mem_handle,
 			RDMA_SIZE, pbi->rdma_adr, pbi->rdma_phy_adr);
 	vfree((void *)pbi);
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 static struct platform_driver ammvdec_vp9_driver = {

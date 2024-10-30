@@ -85,6 +85,7 @@
 #include <linux/amlogic/power_domain.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "../../../common/chips/decoder_cpu_ver_info.h"
+#include "../../../common/media_utils/media_kernel_version.h"
 
 #define VERSENC_TS_WAIT 5
 
@@ -108,11 +109,11 @@ static void hantroenc_cleanup(struct platform_device *pf_dev)
         hantroenc_vcmd_cleanup(pf_dev);
 }
 
-static int vc9000e_vce_remove(struct platform_device *pf_dev)
+static KV_INT_TO_VOID vc9000e_vce_remove(struct platform_device *pf_dev)
 {
     hantroenc_cleanup(pf_dev);
 
-    return 0;
+    return KV_RET_x_TO_VOID(0);
 }
 
 static void meson_versenc_control(struct platform_device *pdev, bool on)

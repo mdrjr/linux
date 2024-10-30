@@ -36,6 +36,7 @@
 #include <linux/amlogic/media/vfm/vframe.h>
 #include <linux/amlogic/media/vfm/vframe_provider.h>
 #include <linux/amlogic/media/vfm/vframe_receiver.h>
+#include <linux/vmalloc.h>
 #include <uapi/linux/tee.h>
 
 #include "../../../stream_input/amports/amports_priv.h"
@@ -55,6 +56,7 @@
 #include "../utils/decoder_dma_alloc.h"
 #include "../../../media_sync/pts_server/pts_server_core.h"
 #include "../../decoder/utils/vdec_profile.h"
+#include "../../../common/media_utils/media_utils.h"
 
 #define MEM_NAME "codec_mmpeg12"
 #define CHECK_INTERVAL        (HZ/100)
@@ -4433,7 +4435,7 @@ static int ammvdec_mpeg12_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ammvdec_mpeg12_remove(struct platform_device *pdev)
+static KV_INT_TO_VOID ammvdec_mpeg12_remove(struct platform_device *pdev)
 
 {
 	struct vdec_mpeg12_hw_s *hw =
@@ -4523,7 +4525,7 @@ static int ammvdec_mpeg12_remove(struct platform_device *pdev)
 
 	pr_info("ammvdec_mpeg12 removed.\n");
 
-	return 0;
+	return KV_RET_x_TO_VOID(0);
 }
 
 /****************************************/

@@ -24,6 +24,9 @@
 #include <linux/errno.h>
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
+#include <linux/mod_devicetable.h>
+#include <linux/of_platform.h>
+#include <linux/of.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 #include "decoder_cpu_ver_info.h"
 #include "../register/register.h"
