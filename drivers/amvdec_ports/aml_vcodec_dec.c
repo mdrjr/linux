@@ -390,6 +390,7 @@ static void copy_v4l2_format_dimension(struct aml_vcodec_ctx *ctx,
 static void vidioc_vdec_s_parm_ext(struct v4l2_ctrl *, struct aml_vcodec_ctx *);
 static void vidioc_vdec_g_parm_ext(struct v4l2_ctrl *, struct aml_vcodec_ctx *);
 static int is_vdec_core_fmt(u32 fmt);
+static bool is_game_mode(u32 mode);
 
 static ulong aml_vcodec_ctx_lock(struct aml_vcodec_ctx *ctx)
 {
@@ -443,6 +444,14 @@ static struct aml_q_data *aml_vdec_get_q_data(struct aml_vcodec_ctx *ctx,
 		return &ctx->q_data[AML_Q_DATA_SRC];
 
 	return &ctx->q_data[AML_Q_DATA_DST];
+}
+
+static bool is_game_mode(u32 mode)
+{
+	u32 m = mode & AML_LATENCY_MODE_MASK;
+
+	return (m == AML_LATENCY_MODE_GAME) ||
+		(m == AML_LATENCY_MODE_GAME_FENCE);
 }
 
 void __aml_vdec_dispatch_event(struct aml_vcodec_ctx *ctx, u32 changes, struct set_param_info *param)
@@ -960,7 +969,7 @@ void fbc_transcode_and_set_vf(struct aml_vcodec_ctx *ctx,
 			}
 		}
 	} else
-		vf->flag |= (ctx->config.parm.dec.cfg.low_latency_mode == 7) ?
+		vf->flag |= is_game_mode(ctx->config.parm.dec.cfg.low_latency_mode) ?
 			VFRAME_FLAG_GAME_MODE : 0;
 }
 
@@ -1066,7 +1075,7 @@ static void post_frame_to_upper(struct aml_vcodec_ctx *ctx,
 			planes = aml_buf->planes_tw;
 	}
 
-	vf->flag |= (ctx->config.parm.dec.cfg.low_latency_mode == 7) ?
+	vf->flag |= is_game_mode(ctx->config.parm.dec.cfg.low_latency_mode) ?
 		VFRAME_FLAG_GAME_MODE : 0;
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_OUTPUT,
