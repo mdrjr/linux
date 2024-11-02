@@ -69,6 +69,8 @@ int decoder_bmmu_box_alloc_idx_wait(
 
 bool decoder_bmmu_box_valid_check(void *box);
 void decoder_bmmu_try_to_release_box(void *handle);
+int decoder_bmmu_box_get_align_2n(void *box_handle);
+int decoder_bmmu_box_get_memflags(void *box_handle);
 
 int decoder_bmmu_box_init(void);
 void decoder_bmmu_box_exit(void);

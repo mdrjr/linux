@@ -1278,6 +1278,7 @@ struct VP9Decoder_s {
 	ulong rdma_mem_handle;
 	bool timeout;
 	int v4l_duration;
+	int mv_buf_size;
 #ifdef MULTI_INSTANCE_SUPPORT
 	u32 vp9_segment_data[8];
 #endif
@@ -1925,6 +1926,9 @@ static int init_mv_buf_list(struct VP9Decoder_s *pbi)
 		pr_info("%s w:%d, h:%d, count: %d\n",
 		__func__, pbi->init_pic_w, pbi->init_pic_h, count);
 	}
+
+	if (size != pbi->mv_buf_size)
+		pbi->mv_buf_size = size;
 
 	for (i = 0; i < count; i++) {
 		if (alloc_mv_buf(pbi, i, size) < 0) {
@@ -9206,6 +9210,21 @@ static bool v4l_resolution_double_check(struct VP9Decoder_s *pbi)
 	return ret;
 }
 
+static inline void vp9_prealloc_mv_buf(struct VP9Decoder_s *hw, int count, int size)
+{
+	int align_2n = decoder_bmmu_box_get_align_2n(hw->bmmu_box);
+	int memflags = decoder_bmmu_box_get_memflags(hw->bmmu_box);
+
+	if (!vdec_secure(hw_to_vdec(hw)))
+		return;
+
+	if (size && count)
+		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n, memflags);
+	else
+		vp9_print(hw, VP9_DEBUG_BUFMGR, "invalid para type for mv type size is %u count is %u\n",
+			size, count);
+}
+
 static int v4l_res_change(struct VP9Decoder_s *pbi)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -9217,6 +9236,7 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 		struct aml_vdec_ps_infos ps;
 		struct vdec_comp_buf_info comp;
 		struct VP9_Common_s *cm = &pbi->common;
+		int new_size;
 
 		if ((pbi->last_width != 0 &&
 			pbi->last_height != 0) &&
@@ -9233,6 +9253,13 @@ static int v4l_res_change(struct VP9Decoder_s *pbi)
 
 			vvp9_get_ps_info(pbi, &ps);
 			vdec_v4l_set_ps_infos(ctx, &ps);
+			new_size = cal_mv_buf_size(pbi, pbi->frame_width, pbi->frame_height);
+
+			if (new_size != pbi->mv_buf_size) {
+				dealloc_mv_bufs(pbi);
+				vp9_prealloc_mv_buf(pbi, 2, new_size);
+				pbi->mv_buf_size = new_size;
+			}
 			vdec_v4l_res_ch_event(ctx);
 
 			pbi->init_pic_w = pbi->frame_width;
@@ -9679,6 +9706,10 @@ static irqreturn_t vvp9_isr_thread_fn(int irq, void *data)
 				ctx->dec_intf.decinfo_event_report(ctx, AML_DECINFO_EVENT_STATISTIC, NULL);
 			}
 			pbi->v4l_params_parsed	= true;
+			if (pbi->mv_buf_size == 0) {
+				int new_size = cal_mv_buf_size(pbi, pbi->frame_width, pbi->frame_height);
+				vp9_prealloc_mv_buf(pbi, 2, new_size);
+			}
 			pbi->postproc_done = 0;
 			pbi->process_busy = 0;
 			ATRACE_COUNTER(pbi->trace.decode_time_name, DECODER_ISR_THREAD_HEAD_END);
@@ -10412,7 +10443,7 @@ static int vmvp9_stop(struct VP9Decoder_s *pbi)
 static int amvdec_vp9_mmu_init(struct VP9Decoder_s *pbi)
 {
 	int tvp_flag = vdec_secure(hw_to_vdec(pbi)) ?
-		CODEC_MM_FLAGS_TVP : 0;
+		(CODEC_MM_FLAGS_TVP | CODEC_MM_FLAGS_FOR_TRY_PREALLOC) : 0;
 	int buf_size = vp9_max_mmu_buf_size(pbi->max_pic_w, pbi->max_pic_h);
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(pbi->v4l2_ctx);
 

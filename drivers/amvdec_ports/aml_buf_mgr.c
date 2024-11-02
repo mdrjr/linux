@@ -213,6 +213,9 @@ static int aml_buf_box_alloc(struct aml_buf_mgr_s *bm, void **mmu, void **mmu_1,
 
 	/* init bmmu box */
 	bmmu_flag |= (CODEC_MM_FLAGS_CMA_CLEAR | CODEC_MM_FLAGS_FOR_VDECODER);
+	if (bm->config.enable_secure)
+		bmmu_flag |= CODEC_MM_FLAGS_FOR_TRY_PREALLOC;
+
 	*bmmu = decoder_bmmu_box_alloc_box(bm->bc.name,
 		bm->bc.id,
 		BUF_FBC_NUM_MAX,

@@ -32,6 +32,7 @@
 #include "aml_buf_core.h"
 #include "aml_task_chain.h"
 #include "../common/media_utils/media_utils.h"
+#include <linux/amlogic/media/codec_mm/codec_mm_prealloc.h>
 
 /*
 typedef unsigned long long	u64;

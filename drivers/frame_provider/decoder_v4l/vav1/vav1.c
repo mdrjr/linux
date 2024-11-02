@@ -8939,6 +8939,21 @@ static int vav1_get_ps_info(struct AV1HW_s *hw, struct aml_vdec_ps_infos *ps)
 	return 0;
 }
 
+static inline void av1_prealloc_mv_buf(struct AV1HW_s *hw, int count, int size)
+{
+	int align_2n = decoder_bmmu_box_get_align_2n(hw->bmmu_box);
+	int memflags = decoder_bmmu_box_get_memflags(hw->bmmu_box);
+
+	if (!vdec_secure(hw_to_vdec(hw)))
+		return;
+
+	if (size && count)
+		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n, memflags);
+	else
+		av1_print(hw, AV1_DEBUG_BUFMGR, "invalid para type for mv type size is %u count is %u\n",
+			size, count);
+}
+
 static int v4l_res_change(struct AV1HW_s *hw)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -8950,6 +8965,7 @@ static int v4l_res_change(struct AV1HW_s *hw)
 		hw->res_ch_flag == 0) {
 		struct aml_vdec_ps_infos ps;
 		struct vdec_comp_buf_info comp;
+		int new_size;
 
 		if ((hw->frame_width != 0 &&
 			hw->frame_height != 0) &&
@@ -8999,10 +9015,14 @@ static int v4l_res_change(struct AV1HW_s *hw)
 			}
 			vav1_get_ps_info(hw, &ps);
 			vdec_v4l_set_ps_infos(ctx, &ps);
-			/*
-			if (init_mv_buf_list(hw) < 0)
-				pr_err("%s: !!!!Error, reinit_mv_buf_list fail\n", __func__);
-			*/
+			new_size = cal_mv_buf_size(hw, hw->frame_width, hw->frame_height);
+
+			if (new_size != hw->mv_buf_size) {
+				dealloc_mv_bufs(hw);
+				av1_prealloc_mv_buf(hw, ps.dpb_frames - 1, new_size);
+				hw->mv_buf_size = new_size;
+			}
+
 			vdec_v4l_res_ch_event(ctx);
 			hw->v4l_params_parsed = false;
 			hw->res_ch_flag = 1;
@@ -9642,8 +9662,11 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 				vav1_get_comp_buf_info(hw, &comp);
 				vdec_v4l_set_comp_buf_info(ctx, &comp);
 			}
-
 			vav1_get_ps_info(hw, &ps);
+			if (hw->mv_buf_size == 0) {
+				int new_size = cal_mv_buf_size(hw, hw->frame_width, hw->frame_height);
+				av1_prealloc_mv_buf(hw, ps.dpb_frames - 1, new_size);
+			}
 			/*notice the v4l2 codec.*/
 			vdec_v4l_set_ps_infos(ctx, &ps);
 			ctx->decoder_status_info.frame_height = ps.visible_height;
@@ -10495,7 +10518,7 @@ static int vmav1_stop(struct AV1HW_s *hw)
 static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 {
 	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
-		CODEC_MM_FLAGS_TVP : 0;
+		(CODEC_MM_FLAGS_TVP | CODEC_MM_FLAGS_FOR_TRY_PREALLOC) : 0;
 	int buf_size = 48;
 	struct aml_vcodec_ctx *ctx = hw->v4l2_ctx;
 

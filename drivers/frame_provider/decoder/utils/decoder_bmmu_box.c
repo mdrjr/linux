@@ -376,6 +376,28 @@ void decoder_bmmu_try_to_release_box(void *handle)
 }
 EXPORT_SYMBOL(decoder_bmmu_try_to_release_box);
 
+int decoder_bmmu_box_get_align_2n(void *box_handle)
+{
+	struct decoder_bmmu_box *box = box_handle;
+
+	if (!box)
+		return 0;
+
+	return box->align2n;
+}
+EXPORT_SYMBOL(decoder_bmmu_box_get_align_2n);
+
+int decoder_bmmu_box_get_memflags(void *box_handle)
+{
+	struct decoder_bmmu_box *box = box_handle;
+
+	if (!box)
+		return 0;
+
+	return box->mem_flags;
+}
+EXPORT_SYMBOL(decoder_bmmu_box_get_memflags);
+
 void *decoder_bmmu_box_get_mem_handle(void *box_handle, int idx)
 {
 	struct decoder_bmmu_box *box = box_handle;

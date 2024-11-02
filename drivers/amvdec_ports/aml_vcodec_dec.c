@@ -118,6 +118,7 @@ MODULE_IMPORT_NS(DMA_BUF);
 
 #define PAGE_NUM_ONE_MB	(256)
 //#define USEC_PER_SEC 1000000
+#define PREALLOC_YUV_BUF_NUM 10
 
 #define INVALID_IDX -1
 #define DEMUX_ES_MAGIC_NUM 0x5a5a5a5a
@@ -837,6 +838,17 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	aml_buf_configure(&ctx->bm, &config);
 
 	aml_buf_put_dma(&ctx->bm);
+
+	if (config.enable_fbc && config.enable_secure) {
+		int align_2n = decoder_bmmu_box_get_align_2n(ctx->bm.bmmu);
+		int memflags = decoder_bmmu_box_get_memflags(ctx->bm.bmmu);
+
+		/* get header and page size */
+		if (!vdec_if_get_param(ctx, GET_PARAM_COMP_BUF_INFO, &ctx->comp_info)) {
+			submit_prealloc_job(PREALLOC_AVBC_HEADER_TYPE, CTX_BUF_TOTAL(ctx),
+				ctx->comp_info.header_size, align_2n, memflags);
+		}
+	}
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_PRINFO,
 		"Update picture buffer count: dec:%u, vpp:%u, ge2d:%u, margin:%u, total:%u\n",
@@ -3415,6 +3427,48 @@ static void copy_v4l2_format_dimension(struct aml_vcodec_ctx *ctx,
 	}
 }
 
+int cal_yuv_size(struct aml_vcodec_ctx *ctx, u32 dw)
+{
+	int yuv_size = 0;
+	int max_width = 1920;
+	int max_height = 1088;
+	int y_size, uv_size;
+
+	/* currently only support 2k */
+	if (hevc_is_support_4k())
+		return 0;
+
+	/* currently only for android */
+	if (multiplanar)
+		return 0;
+
+	if ((ctx->output_pix_fmt != V4L2_PIX_FMT_HEVC) &&
+		(ctx->output_pix_fmt != V4L2_PIX_FMT_VP9) &&
+		(ctx->output_pix_fmt != V4L2_PIX_FMT_AV1))
+		return 0;
+
+	if (dw == 2 || dw == 3) {
+		y_size = ALIGN(max_width >> 2, 64) * ALIGN(max_height >> 2, 64);
+		uv_size = y_size >> 1;
+	} else if (dw == 0x200) {
+		y_size = ALIGN(max_width, 64) * ALIGN(max_height, 64);
+		uv_size = y_size >> 1;
+	} else if (dw == 0x400) {
+		max_width = 1024;
+		max_height = 576;
+		y_size = ALIGN(max_width, 64) * ALIGN(max_height, 64);
+		uv_size = y_size >> 1;
+	} else {
+		y_size = 0;
+		uv_size = 0;
+	}
+
+	yuv_size = y_size + uv_size;
+	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR, "dw is %d yuv_size %d\n", dw, yuv_size);
+
+	return yuv_size;
+}
+
 static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	struct v4l2_format *f)
 {
@@ -3513,6 +3567,13 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 		mutex_lock(&ctx->state_lock);
 		if (ctx->state == AML_STATE_IDLE) {
+			if (ctx->is_drm_mode) {
+				struct aml_dec_params *dec = &ctx->config.parm.dec;
+				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
+					cal_yuv_size(ctx, dec->cfg.double_write_mode),
+						PAGE_SHIFT, CODEC_MM_FLAGS_TVP);
+			}
+
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
 			if (ret) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
@@ -3553,6 +3614,12 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 		mutex_lock(&ctx->state_lock);
 		if (ctx->state == AML_STATE_IDLE) {
+			if (ctx->is_drm_mode) {
+				struct aml_dec_params *dec = &ctx->config.parm.dec;
+				submit_prealloc_job(PREALLOC_YUV_TYPE, PREALLOC_YUV_BUF_NUM,
+					cal_yuv_size(ctx, dec->cfg.double_write_mode),
+						PAGE_SHIFT, CODEC_MM_FLAGS_TVP);
+			}
 			ret = vdec_if_init(ctx, q_data->fmt->fourcc);
 			if (ret) {
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
@@ -4660,6 +4727,17 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ret < 0) {
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 				"early box init fail!, ret:%d\n", ret);
+		}
+
+		if (config.enable_secure) {
+			int align_2n = decoder_bmmu_box_get_align_2n(ctx->bm.bmmu);
+			int memflags = decoder_bmmu_box_get_memflags(ctx->bm.bmmu);
+
+			/* get header and page size */
+			if (!vdec_if_get_param(ctx, GET_PARAM_COMP_BUF_INFO, &ctx->comp_info)) {
+				submit_prealloc_job(PREALLOC_AVBC_HEADER_TYPE, CTX_BUF_TOTAL(ctx),
+					ctx->comp_info.header_size, align_2n, memflags);
+			}
 		}
 	}
 

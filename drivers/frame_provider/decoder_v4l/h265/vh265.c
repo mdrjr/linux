@@ -3330,7 +3330,7 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 static int init_mmu_buffers(struct hevc_state_s *hevc, bool bmmu_flag)
 {
 	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
-		CODEC_MM_FLAGS_TVP : 0;
+		(CODEC_MM_FLAGS_TVP | CODEC_MM_FLAGS_FOR_TRY_PREALLOC) : 0;
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
 
@@ -11635,6 +11635,22 @@ static void hevc_interlace_check(struct hevc_state_s *hevc,
 	}
 }
 
+void h265_prealloc_mv_buf(struct hevc_state_s *hw, int count, int size)
+{
+	int align_2n = decoder_bmmu_box_get_align_2n(hw->bmmu_box);
+	int memflags = decoder_bmmu_box_get_memflags(hw->bmmu_box);
+
+	if (!vdec_secure(hw_to_vdec(hw)))
+		return;
+
+	if (size && count) {
+		submit_prealloc_job(PREALLOC_MV_TYPE, count, size, align_2n, memflags);
+	} else {
+		hevc_print(hw, H265_DEBUG_BUFMGR_MORE, "invalid para type for mv type size is %u count is %u\n",
+			size, count);
+	}
+}
+
 static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 {
 	struct aml_vcodec_ctx *ctx =
@@ -11658,18 +11674,6 @@ static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 				height,
 				hevc->interlace_flag);
 
-			if (IS_8K_SIZE(hevc->pic_w, hevc->pic_h))
-				new_size = MPRED_8K_MV_BUF_SIZE;
-			else if (IS_4K_SIZE(hevc->pic_w, hevc->pic_h))
-				new_size = MPRED_4K_MV_BUF_SIZE; /*0x120000*/
-			else
-				new_size = MPRED_MV_BUF_SIZE;
-
-			if (new_size != hevc->mv_buf_size) {
-				dealloc_mv_bufs(hevc);
-				hevc->mv_buf_size = new_size;
-			}
-
 			if (get_valid_double_write_mode(hevc) != 16) {
 				struct vdec_comp_buf_info info;
 
@@ -11682,6 +11686,19 @@ static int v4l_res_change(struct hevc_state_s *hevc, union param_u *rpm_param)
 			hevc->v4l_params_parsed = false;
 			ctx->v4l_resolution_change = 1;
 			hevc->resolution_change = true;
+
+			if (IS_8K_SIZE(hevc->pic_w, hevc->pic_h))
+				new_size = MPRED_8K_MV_BUF_SIZE;
+			else if (IS_4K_SIZE(hevc->pic_w, hevc->pic_h))
+				new_size = MPRED_4K_MV_BUF_SIZE; /*0x120000*/
+			else
+				new_size = MPRED_MV_BUF_SIZE;
+
+			if (new_size != hevc->mv_buf_size) {
+				dealloc_mv_bufs(hevc);
+				h265_prealloc_mv_buf(hevc, ps.dpb_frames - 1, new_size);
+				hevc->mv_buf_size = new_size;
+			}
 
 			/*
 			 * marks frame valid on the dpb is the output state,
@@ -12967,6 +12984,16 @@ force_output:
 						vdec_v4l_set_comp_buf_info(ctx, &info);
 					}
 					vh265_get_ps_info(hevc, &hevc->param, &ps);
+					if (hevc->mv_buf_size == 0) {
+						int new_size;
+						if (IS_8K_SIZE(hevc->pic_w, hevc->pic_h))
+							new_size = MPRED_8K_MV_BUF_SIZE;
+						else if (IS_4K_SIZE(hevc->pic_w, hevc->pic_h))
+							new_size = MPRED_4K_MV_BUF_SIZE; /*0x120000*/
+						else
+							new_size = MPRED_MV_BUF_SIZE;
+						h265_prealloc_mv_buf(hevc, ps.dpb_frames - 1, new_size);
+					}
 					/*notice the v4l2 codec.*/
 					vdec_v4l_set_ps_infos(ctx, &ps);
 					ctx->decoder_status_info.frame_height = ps.visible_height;
