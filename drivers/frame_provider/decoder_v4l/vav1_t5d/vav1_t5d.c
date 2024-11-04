@@ -2794,7 +2794,7 @@ static int av1_max_mmu_buf_size(int max_w, int max_h)
 
 	if ((max_w * max_h > 1280*736) &&
 		(max_w * max_h <= 1920*1088)) {
-		buf_size = 12;
+		buf_size = 24;
 	} else if ((max_w * max_h > 0) &&
 		(max_w * max_h <= 1280*736)) {
 		buf_size = 4;

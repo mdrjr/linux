@@ -16471,6 +16471,12 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 			ctx->aux_infos.alloc_buffer(ctx, HDR10P_TYPE);
 	}
 
+	if (hevc_is_support_4k() &&
+		(hevc->max_pic_w * hevc->max_pic_h < MAX_SIZE_4K)) {
+		hevc->max_pic_w = 4096;
+		hevc->max_pic_h = 2304;
+	}
+
 	if (init_mmu_buffers(hevc, 1) < 0) {
 		hevc_print(hevc, 0, "\n 265 mmu init failed!\n");
 		vdec_v4l_post_error_event(ctx, DECODER_EMERGENCY_NO_MEM);

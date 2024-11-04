@@ -180,8 +180,8 @@ static void vdec_parser_parms(struct vdec_hevc_inst *inst)
 			ctx->config.parm.dec.cfg.double_write_mode);
 		pbuf += sprintf(pbuf, "hevc_triple_write_mode:%d;",
 			ctx->config.parm.dec.cfg.triple_write_mode);
-		pbuf += sprintf(pbuf, "hevc_buf_width:4096;");
-		pbuf += sprintf(pbuf, "hevc_buf_height:2304;");
+		pbuf += sprintf(pbuf, "hevc_buf_width:1920;");
+		pbuf += sprintf(pbuf, "hevc_buf_height:1088;");
 		pbuf += sprintf(pbuf, "save_buffer_mode:0;");
 		pbuf += sprintf(pbuf, "parm_v4l_canvas_mem_mode:%d;",
 			ctx->config.parm.dec.cfg.canvas_mem_mode);
