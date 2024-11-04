@@ -54,6 +54,9 @@ static u32 media_sync_calculate_cache_enable = 0;
 
 static u32 media_sync_start_slow_sync_enable = 1;
 
+static u32 media_sync_start_play_threshold = 300;
+
+static u32 media_sync_show_firstframe_nosync = 1;
 
 #define mediasync_pr_info(dbg_level,sync_index,fmt,args...) if (dbg_level <= media_sync_debug_level) {pr_info("[MS_Core:%d] " fmt,sync_index,##args);}
 #define mediasync_pr_error(fmt,args...) {pr_info("[%s:%d] err " fmt,__func__,__LINE__,##args);}
@@ -813,6 +816,9 @@ static void mediasync_ins_reset_l(mediasync_ins* pInstance) {
 		pInstance->mVideoTrickMode = 0;
 		pInstance->mStartStrategy = 0xFF;
 		pInstance->mSlowSyncEnable = media_sync_start_slow_sync_enable;
+		pInstance->mStartPlayThreshold = media_sync_start_play_threshold;
+		pInstance->mIsAbnormalAudio = false;
+		pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 		if (media_sync_calculate_cache_enable) {
 			pTable = &pInstance->frame_table[PTS_TYPE_AUDIO];
 			clear_frame_list(pInstance, pTable);
@@ -879,6 +885,9 @@ long mediasync_ins_alloc(s32 sDemuxId,
 			pInstance->mVideoTrickMode = 0;
 			pInstance->mFreeRunType = 0;
 			pInstance->mStartStrategy = 0xFF;
+			pInstance->mStartPlayThreshold = media_sync_start_play_threshold;
+			pInstance->mIsAbnormalAudio = false;
+			pInstance->mShowFirstFrameNoSync = media_sync_show_firstframe_nosync;
 			snprintf(pInstance->atrace_video,
 				sizeof(pInstance->atrace_video), "msync_v_%d", *sSyncInsId);
 			snprintf(pInstance->atrace_audio,
@@ -3989,6 +3998,9 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case GET_TRICK_MODE:
 		case GET_AUDIO_WORK_MODE:
 		case GET_START_STRATEGY:
+		case GET_START_PLAY_THRESHOLD:
+		case GET_IS_ABNORMAL_AUDIO:
+		case GET_SHOW_FIRSTFRAME_NOSYNC:
 		{
 			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			if (copy_to_user((void *)arg,&mediasyncUserControl,sizeof(mediasyncControl))) {
@@ -4003,6 +4015,9 @@ long mediasync_ins_ext_ctrls_ioctrl(MediaSyncManager* pSyncManage, ulong arg, un
 		case SET_TRICK_MODE:
 		case SET_FREE_RUN_TYPE:
 		case SET_START_STRATEGY:
+		case SET_START_PLAY_THRESHOLD:
+		case SET_IS_ABNORMAL_AUDIO:
+		case SET_SHOW_FIRSTFRAME_NOSYNC:
 		{
 			mediasync_ins_ext_ctrls(pSyncManage,&mediasyncUserControl);
 			break;
@@ -4194,6 +4209,43 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		case GET_START_STRATEGY:
 		{
 			mediasyncControl->value = pInstance->mStartStrategy;
+			ret = 0;
+			break;
+		}
+		case SET_START_PLAY_THRESHOLD:
+		{
+			pInstance->mStcParmUpdateCount++;
+			pInstance->mStartPlayThreshold = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case GET_START_PLAY_THRESHOLD:
+		{
+			mediasyncControl->value = pInstance->mStartPlayThreshold;
+			ret = 0;
+			break;
+		}
+		case SET_IS_ABNORMAL_AUDIO:
+		{
+			pInstance->mIsAbnormalAudio = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case GET_IS_ABNORMAL_AUDIO:
+		{
+			mediasyncControl->value = pInstance->mIsAbnormalAudio;
+			ret = 0;
+			break;
+		}
+		case SET_SHOW_FIRSTFRAME_NOSYNC:
+		{
+			pInstance->mShowFirstFrameNoSync = mediasyncControl->value;
+			ret = 0;
+			break;
+		}
+		case GET_SHOW_FIRSTFRAME_NOSYNC:
+		{
+			mediasyncControl->value = pInstance->mShowFirstFrameNoSync;
 			ret = 0;
 			break;
 		}
@@ -4422,4 +4474,10 @@ MODULE_PARM_DESC(media_sync_calculate_cache_enable, "\n mediasync calculate cach
 
 module_param(media_sync_start_slow_sync_enable, uint, 0664);
 MODULE_PARM_DESC(media_sync_start_slow_sync_enable, "\n media sync policy  slow sync enable\n");
+
+module_param(media_sync_start_play_threshold, uint, 0664);
+MODULE_PARM_DESC(media_sync_start_play_threshold, "\n mediasync start play threshold\n");
+
+module_param(media_sync_show_firstframe_nosync, uint, 0664);
+MODULE_PARM_DESC(media_sync_show_firstframe_nosync, "\n media sync show first frame no sync\n");
 

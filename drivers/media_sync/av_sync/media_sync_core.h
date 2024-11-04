@@ -123,6 +123,9 @@ typedef enum {
 	GET_AUDIO_WORK_MODE,
 	GET_START_STRATEGY,
 	GET_INNER_EXT_CONTROL,
+	GET_START_PLAY_THRESHOLD,
+	GET_IS_ABNORMAL_AUDIO,
+	GET_SHOW_FIRSTFRAME_NOSYNC,
 	SET_VIDEO_FRAME_ADVANCE = 500,
 	SET_SLOW_SYNC_ENABLE,
 	SET_TRICK_MODE,
@@ -130,6 +133,9 @@ typedef enum {
 	SET_VIDEO_HOLD,
 	SET_START_STRATEGY,
 	SET_INNER_EXT_CONTROL,
+	SET_START_PLAY_THRESHOLD,
+	SET_IS_ABNORMAL_AUDIO,
+	SET_SHOW_FIRSTFRAME_NOSYNC,
 } mediasync_control_cmd;
 
 typedef struct m_control {
@@ -363,6 +369,9 @@ typedef struct instance{
 	mediasync_holdvideoinfo mHoldVideoInfo;
 	u32 mStartStrategy;
 	mediasync_audio_switch mAudioSwitch;
+	u32 mStartPlayThreshold;
+	bool mIsAbnormalAudio;
+	bool mShowFirstFrameNoSync;
 	mediasync_frameinfo mRcordPcr[RECORD_PCR_NUM];
 	u32 mRcordPcrCount;
 	mediasync_inner_ctl_ext mMediasyncCtlExt;
