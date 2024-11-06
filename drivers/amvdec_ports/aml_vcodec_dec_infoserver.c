@@ -18,7 +18,6 @@
  * Description:
  */
 
-#include <linux/minmax.h>
 #include "aml_vcodec_dec_infoserver.h"
 #include "aml_vcodec_dec.h"
 #include "aml_vcodec_adapt.h"

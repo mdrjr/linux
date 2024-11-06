@@ -20,8 +20,15 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 #include <linux/types.h>
-#include <linux/minmax.h>
 #include "../../common/media_utils/media_utils.h"
+
+#ifndef MAX
+#define MAX(a, b)	(((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef MIN
+#define MIN(a, b)	(((a) < (b)) ? (a) : (b))
+#endif
 
 #define CLAMP(x, low, high) \
 	(((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))

@@ -5707,7 +5707,7 @@ int aml_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->mem_ops		= &vb2_dma_contig_memops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock		= &ctx->v4l_intf_lock;
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 3, 13)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 10, 0)
 	dst_vq->min_buffers_needed = 1;
 #else
 	dst_vq ->min_reqbufs_allocation = 1;
