@@ -1984,19 +1984,23 @@ static int vpu_dma_buffer_map(struct vpu_dma_cfg *cfg)
 	dir = cfg->dir;
 
 	dbuf = dma_buf_get(fd);
-	if (dbuf == NULL) {
+	if (IS_ERR(dbuf)) {
 		enc_pr(LOG_ERROR, "failed to get dma buffer,fd %d\n",fd);
 		return -EINVAL;
 	}
 
 	d_att = dma_buf_attach(dbuf, dev);
-	if (d_att == NULL) {
+	if (IS_ERR(d_att)) {
 		enc_pr(LOG_ERROR, "failed to set dma attach\n");
 		goto attach_err;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	sg = dma_buf_map_attachment(d_att, dir);
-	if (sg == NULL) {
+#else
+	sg = dma_buf_map_attachment_unlocked(d_att, dir);
+#endif
+	if (IS_ERR(sg)) {
 		enc_pr(LOG_ERROR, "failed to get dma sg\n");
 		goto map_attach_err;
 	}
@@ -2041,7 +2045,11 @@ static void vpu_dma_buffer_unmap(struct vpu_dma_cfg *cfg)
 	d_att = cfg->attach;
 	sg = cfg->sg;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	dma_buf_unmap_attachment(d_att, sg, dir);
+#else
+	dma_buf_unmap_attachment_unlocked(d_att, sg, dir);
+#endif
 	dma_buf_detach(dbuf, d_att);
 	dma_buf_put(dbuf);
 
