@@ -9646,13 +9646,14 @@ void vmh265_report_pts(struct hevc_state_s *hevc)
 	u32 offset = READ_VREG(HEVC_SHIFT_BYTE_COUNT);
 	u64 dur_offset = hevc->frame_dur;
 
-	dur_offset = (dur_offset << 32 ) | offset;
+	dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;
+
 	if (!ctx || !ctx->pts_serves_ops ||
-		!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
+		!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 		ctx->current_timestamp = pts_st.pts_64;
 		hevc_print(hevc, PRINT_FLAG_VDEC_STATUS,
-		"%s pts cal_offset current pts:0x%x pts_64:%llx  dur_offset:0x%llx \n",
-		__func__, pts_st.pts, pts_st.pts_64, dur_offset);
+		"%s pts cal_offset current pts:0x%x pts_64:%llx timestamp %llu\n",
+		__func__, pts_st.pts, pts_st.pts_64, ctx->current_timestamp);
 	} else {
 		hevc_print(hevc, H265_DEBUG_PIC_STRUCT, 0, "pts cal_offset fail  dur_offset:0x%llx\n",dur_offset);
 		ctx->current_timestamp = 0;
@@ -10035,11 +10036,6 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 				(DUR2PTS(hevc->frame_dur) * 100 / 9);
 		}
 		hevc->last_pts_us64 = vf->pts_us64;
-		if ((get_dbg_flag(hevc) & H265_DEBUG_OUT_PTS) != 0) {
-			hevc_print(hevc, 0,
-				"H265 dec out pts: vf->pts=%d, vf->pts_us64 = %lld, ts: %llu\n",
-				vf->pts, vf->pts_us64, vf->timestamp);
-		}
 
 		/*
 		 *vf->index:
@@ -10219,6 +10215,10 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 				vf->timestamp = 0;
 			}
 		}
+
+		hevc_print(hevc, H265_DEBUG_OUT_PTS, "%s: vf->pts %d, vf->pts_us64 %lld, ts: %llu\n",
+				__func__, vf->pts, vf->pts_us64, vf->timestamp);
+
 		vf->src_fmt.play_id = vdec->inst_cnt;
 
 		vf->width = vf->width /
@@ -10526,11 +10526,11 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		vdec_fill_vdec_frame(vdec, &hevc->vframe_qos, &tmp4x, vf, pic->hw_decode_time);
 		vdec->vdec_fps_detec(vdec->id);
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
-			"%s(type %d index 0x%x poc %d/%d) pts(%d,%d) dur %d\n",
+			"%s(type %d index 0x%x poc %d/%d) pts(%d,%d,%llu) dur %d\n",
 			__func__, vf->type, vf->index,
 			get_pic_poc(hevc, vf->index & 0xff),
 			get_pic_poc(hevc, (vf->index >> 8) & 0xff),
-			vf->pts, vf->pts_us64,
+			vf->pts, vf->pts_us64, vf->timestamp,
 			vf->duration);
 		if ((pic->pic_struct == 10 || pic->pic_struct == 12) && hevc->interlace_flag) {
 			index = (vf->index >> 8) & 0xff;

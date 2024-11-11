@@ -7438,17 +7438,19 @@ void vh264_report_pts(struct vdec_h264_hw_s *hw)
 	u32 offset_lo, offset_hi;
 	u32 offset;
 	struct checkoutptsoffset pts_st = {0};
+	u64 dur_offset = hw->frame_dur;
 
 	offset_lo  = p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_LO];
 	offset_hi  = p_H264_Dpb->dpb_param.l.data[OFFSET_DELIMITER_HI];
 
 	offset = offset_lo | offset_hi << 16;
+	dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;;
 
-	if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, offset, &pts_st)) {
+	if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 		ctx->current_timestamp = pts_st.pts_64;
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_UCODE_EVT,
-		"pts cal_offset current pts:0x%x pts_64:%llx\n",
-		pts_st.pts, pts_st.pts_64);
+		"%s: pts cal_offset current pts:0x%x pts_64:%llx timestamp %llu\n",
+		__func__, pts_st.pts, pts_st.pts_64, ctx->current_timestamp);
 	} else {
 		dpb_print(DECODE_ID(hw), 0, "pts cal_offset fail\n");
 		ctx->current_timestamp = 0;
@@ -8217,7 +8219,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 
 					offset = offset_lo | offset_hi << 16;
 
-					if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, offset, &pts_st)) {
+					if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, offset, &pts_st)) {
 						ctx->current_timestamp = pts_st.pts_64;
 						dpb_print(DECODE_ID(hw), PRINT_FLAG_UCODE_EVT, "pts cal_offset current pts:0x%x pts_64:%llx\n", pts_st.pts, pts_st.pts_64);
 					} else {

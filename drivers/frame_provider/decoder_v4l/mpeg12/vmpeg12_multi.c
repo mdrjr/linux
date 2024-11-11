@@ -1734,12 +1734,12 @@ void vmpeg12_report_pts(struct vdec_mpeg12_hw_s *hw)
 	struct checkoutptsoffset pts_st = { 0 };
 	u64 dur_offset = hw->frame_dur;
 
-	dur_offset = (dur_offset << 32 ) | offset;
-	if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
+	dur_offset = ((dur_offset << 32) & 0xffffffff00000000) | offset;
+	if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 		ctx->current_timestamp = pts_st.pts_64;
 		debug_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
-		"%s pts cal_offset current pts:0x%x pts_64:%llx  dur_offset:0x%llx \n",
-		__func__, pts_st.pts, pts_st.pts_64, dur_offset);
+		"%s pts cal_offset current pts:0x%x pts_64:%llx timestamp %llu\n",
+		__func__, pts_st.pts, pts_st.pts_64, ctx->current_timestamp);
 	} else {
 		debug_print(DECODE_ID(hw), 0, "pts cal_offset fail  dur_offset:0x%llx\n",dur_offset);
 		ctx->current_timestamp = 0;
@@ -2102,7 +2102,7 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 			ATRACE_COUNTER(hw->new_q_name, kfifo_len(&hw->newframe_q));
 		} else {
 			debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
-				"%s, vf: %lx, num[%d]: %d(%c), dur: %d, type: %x, pts: %d(%lld), ts(%lld)\n",
+				"%s, vf: %lx, num[%d]: %d(%c), dur: %d, type: %x, pts: %d(%lld), ts(%llu)\n",
 				__func__, (ulong)vf, i, hw->disp_num, GET_SLICE_TYPE(info),
 				vf->duration, vf->type, vf->pts, vf->pts_us64, vf->timestamp);
 			atomic_add(1, &hw->disp_num);
@@ -3157,12 +3157,12 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 			struct checkoutptsoffset pts_st = { 0 };
 			u64 dur_offset = hw->frame_dur;
 			dur_offset = (dur_offset << 32 ) | offset;
-			if (!ctx->pts_serves_ops->checkout(ctx->ptsserver_id, dur_offset, &pts_st)) {
+			if (!ctx->pts_serves_ops->cal_offset(ctx->ptsserver_id, dur_offset, &pts_st)) {
 				hw->first_field_timestamp = pts_st.pts_64;
 				hw->first_field_timestamp_valid = true;
 
 				debug_print(DECODE_ID(hw), PRINT_FLAG_TIMEINFO,
-					"stream first filed checkout pts is%lx\n", pts_st.pts);
+					"stream first filed cal_offset pts is%lx\n", pts_st.pts);
 			}
 		}
 

@@ -40,6 +40,8 @@ int aml_vcodec_pts_checkout(s32 ptsserver_id, u64 offset, struct checkoutptsoffs
 	}
 
 	*pts = mCheckOutPtsOffset;
+	pts->pts = pts->pts * 1000;
+	pts->pts_64 = pts->pts_64 * 1000;
 
 	pr_debug("%s duration: %lld offset: 0x%llx pts: 0x%x pts64: %llu\n",
 		__func__, (offset >> 32) & 0xffffffff,
@@ -76,8 +78,8 @@ int aml_vcodec_pts_checkin(s32 ptsserver_id, u32 pkt_size, u64 pts_val)
 	checkin_pts_size mCheckinPtsSize;
 
 	mCheckinPtsSize.size =pkt_size;
-	mCheckinPtsSize.pts = (u32)div64_u64(pts_val * 9, 100);
-	mCheckinPtsSize.pts_64 = pts_val;
+	mCheckinPtsSize.pts = (u32)div64_u64(pts_val * 9, 100000);
+	mCheckinPtsSize.pts_64 = div64_u64(pts_val, 1000);
 	ptsserver_checkin_pts_size(ptsserver_id,&mCheckinPtsSize,false);
 
 	pr_debug("%s pkt_size:%d chekin pts: %d, pts64: %llu\n",
