@@ -507,9 +507,9 @@ static struct dos_of_dev_s dos_dev_data[AM_MESON_CPU_MAJOR_ID_MAX - MAJOR_ID_STA
 	[AM_MESON_CPU_MAJOR_ID_T6D - MAJOR_ID_START] = {
 		.chip_id = AM_MESON_CPU_MAJOR_ID_T6D,
 		.reg_compat = NULL,
-		.max_vdec_clock  = 667,
-		.max_hevcf_clock = 667,
-		.max_hevcb_clock = 667,
+		.max_vdec_clock  = 576,
+		.max_hevcf_clock = 576,
+		.max_hevcb_clock = 576,
 		.hevc_clk_combine_flag  = true,
 		.is_hw_parser_support   = false,
 		.is_vdec_canvas_support = true,
