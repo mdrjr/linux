@@ -6060,7 +6060,7 @@ static void copy_loopbufs_ptr(buff_ptr_t* trg, buff_ptr_t* src)
 	trg->sys_imem_ptr_v = src->sys_imem_ptr_v;
 }
 
-static void init_fb_bufstate(struct VP9Decoder_s *pbi)
+static int init_fb_bufstate(struct VP9Decoder_s *pbi)
 {
 	int size = 0;
 	int ret;
@@ -6074,7 +6074,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 
 	if (mmu_4k_number <= 0) {
 		pr_err("%s: invalid mmu_4k_number value: %d\n", __func__, mmu_4k_number);
-		return;
+		return -1;
 	}
 	pbi->fb_buf_sys_imem.buf_size = IFBUF_SYS_IMEM_SIZE * pbi->fb_ifbuf_num;
 	pbi->fb_buf_sys_imem_addr =
@@ -6084,7 +6084,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 	pbi->fb_buf_sys_imem.buf_start = tmp_phy_adr;
 	if (pbi->fb_buf_sys_imem_addr == NULL) {
 		pr_err("%s: failed to alloc fb_buf_sys_imem\n", __func__);
-		return;
+		return -ENOMEM;
 	}
 	memset(pbi->fb_buf_sys_imem_addr, 0, pbi->fb_buf_sys_imem.buf_size);
 	pbi->fb_buf_sys_imem.buf_end = pbi->fb_buf_sys_imem.buf_start + pbi->fb_buf_sys_imem.buf_size;
@@ -6102,7 +6102,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 	pbi->fb_buf_mmu0.buf_start = tmp_phy_adr;
 	if (pbi->fb_buf_mmu0_addr == NULL) {
 		pr_err("%s: failed to alloc fb_mmu0_map\n", __func__);
-		return;
+		return -ENOMEM;
 	}
 	memset(pbi->fb_buf_mmu0_addr, 0, mmu_map_size);
 	pbi->fb_buf_mmu0.buf_size = mmu_map_size;
@@ -6115,7 +6115,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 	pbi->fb_buf_mmu1.buf_start = tmp_phy_adr;
 	if (pbi->fb_buf_mmu1_addr == NULL) {
 		pr_err("%s: failed to alloc fb_mmu1_map\n", __func__);
-		return;
+		return -ENOMEM;
 	}
 	memset(pbi->fb_buf_mmu1_addr, 0, mmu_map_size);
 	pbi->fb_buf_mmu1.buf_size = mmu_map_size;
@@ -6128,7 +6128,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 			pbi->fb_buf_mmu0_addr);
 	if (ret != 0) {
 		pr_err("%s: failed to alloc fb_mmu0 pages", __func__);
-		return;
+		return -ENOMEM;
 	}
 
 	ret = decoder_mmu_box_alloc_idx(
@@ -6138,7 +6138,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 			pbi->fb_buf_mmu1_addr);
 	if (ret != 0) {
 		pr_err("%s: failed to alloc fb_mmu1 pages", __func__);
-		return;
+		return -ENOMEM;
 	}
 
 	pbi->fb_buf_lmem0.buf_size = IFBUF_LMEM0_SIZE * pbi->fb_ifbuf_num;
@@ -6187,6 +6187,7 @@ static void init_fb_bufstate(struct VP9Decoder_s *pbi)
 	pbi->bk.sys_imem_ptr = pbi->fb_buf_sys_imem.buf_start;
 	pbi->fr.sys_imem_ptr_v = pbi->fb_buf_sys_imem_addr;
 
+	return 0;
 }
 
 static void uninit_fb_bufstate(struct VP9Decoder_s* pbi)
@@ -10427,7 +10428,11 @@ static int vp9_local_init(struct VP9Decoder_s *pbi)
 		pbi->backend_decoded_count = 0;
 		pbi->fb_wr_pos = 0;
 		pbi->fb_rd_pos = 0;
-		init_fb_bufstate(pbi);
+		ret = init_fb_bufstate(pbi);
+		if (ret < 0) {
+			pr_info("init_fb_bufstate failed\n");
+			return ret;
+		}
 		copy_loopbufs_ptr(&pbi->next_bk[pbi->fb_wr_pos], &pbi->fr);
 	}
 #endif
