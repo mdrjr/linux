@@ -7822,7 +7822,9 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 				hw->last_dec_picture =
 					p_H264_Dpb->mVideo.dec_picture;
 
+			mutex_lock(&hw->pic_mutex);
 			p_H264_Dpb->mVideo.dec_picture = NULL;
+			mutex_unlock(&hw->pic_mutex);
 
 			/* dump_dpb(&p_H264_Dpb->mDPB); */
 			hw->has_i_frame = 1;
