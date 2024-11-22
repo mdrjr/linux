@@ -467,9 +467,9 @@ enum ucode_type_e {
 };
 
 const char *ucode_name[] = {
-	"gxl_h264_enc",
+	"gxl_h264_enc", /*cavlc*/
 	"txl_h264_enc_cavlc",
-	"ga_h264_enc_cabac",
+	"ga_h264_enc_cabac", /*cabac*/
 };
 
 static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
@@ -1325,6 +1325,11 @@ static int scale_frame(struct encode_wq_s *wq,
 	src_height = request->src_h - src_top - request->crop_bottom;
 	enc_pr(LOG_INFO, "request->fmt=%d, %d %d, canvas=%d\n", request->fmt, FMT_NV21, FMT_BGR888, canvas);
 
+	memset(&cs0, 0, sizeof(struct canvas_s));
+	memset(&cs1, 0, sizeof(struct canvas_s));
+	memset(&cs2, 0, sizeof(struct canvas_s));
+	memset(&cd, 0, sizeof(struct canvas_s));
+
 	if (canvas) {
 		if ((request->fmt == FMT_NV21)
 			|| (request->fmt == FMT_NV12)) {
@@ -1501,6 +1506,8 @@ static s32 dump_raw_input(struct encode_wq_s *wq, struct encode_request_s *reque
 	u32 input = request->src;
 	//u8 iformat = MAX_FRAME_FMT;
 	struct file *filp;
+	memset(&cs0, 0, sizeof(struct canvas_s));
+	memset(&cs1, 0, sizeof(struct canvas_s));
 	if (request->type == CANVAS_BUFF) {
 		if ((request->fmt == FMT_NV21) || (request->fmt == FMT_NV12)) {
 			input = input & 0xffff;
@@ -1885,6 +1892,9 @@ static s32 set_input_format(struct encode_wq_s *wq,
 				struct canvas_s cs0, cs1;//, cs2
 				u32 y_addr, uv_addr, canvas_w, picsize_y;
 				u8 iformat = MAX_FRAME_FMT;
+				memset(&cs0, 0, sizeof(struct canvas_s));
+				memset(&cs1, 0, sizeof(struct canvas_s));
+
 				canvas_read(input & 0xff, &cs0);
 				canvas_read((input >> 8) & 0xff, &cs1);
 				//enc_pr(LOG_INFO, "t3 canvas source input reconfig\n");
@@ -4165,6 +4175,10 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 		r = -1;
 		break;
 	}
+	/*
+	 * Variable vbp will free in enc_free_buffers finally.
+	 */
+	/* coverity[leaked_storage] */
 	return r;
 }
 

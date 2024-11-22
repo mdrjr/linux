@@ -1201,6 +1201,10 @@ static long vpu_ioctl(struct file *filp, u32 cmd, ulong arg)
 			}
 			enc_pr(LOG_ALL,
 				"[-]VDI_IOCTL_ALLOCATE_PHYSICAL_MEMORY32\n");
+			/*
+			 * Variable vbp will free in vpu_free_buffers finally.
+			 */
+			/* coverity[leaked_storage] */
 		}
 		break;
 #endif
@@ -1669,7 +1673,7 @@ INTERRUPT_REMAIN_IN_QUEUE:
 	case VDI_IOCTL_OPEN_INSTANCE:
 		{
 			struct vpudrv_inst_info_t inst_info;
-			struct vpudrv_instance_list_t *vil, *n;
+			struct vpudrv_instance_list_t *vil, *pool, *n;
 
 			enc_pr(LOG_DEBUG,
 				"[+]VDI_IOCTL_OPEN_INSTANCE\n");
@@ -1706,9 +1710,9 @@ INTERRUPT_REMAIN_IN_QUEUE:
 			inst_info.inst_open_count = 0;
 			spin_lock(&s_vpu_lock);
 			list_add(&vil->list, &s_inst_list_head);
-			list_for_each_entry_safe(vil, n,
+			list_for_each_entry_safe(pool, n,
 				&s_inst_list_head, list) {
-				if (vil->core_idx == inst_info.core_idx)
+				if (pool->core_idx == inst_info.core_idx)
 					inst_info.inst_open_count++;
 			}
 			kfifo_reset(
@@ -1737,6 +1741,10 @@ INTERRUPT_REMAIN_IN_QUEUE:
 			enc_pr(LOG_DEBUG,
 				"inst_open_count = %d\n",
 				inst_info.inst_open_count);
+			/*
+			 * Variable vbp will free in vpu_free_buffers finally.
+			 */
+			/* coverity[leaked_storage] */
 		}
 		break;
 	case VDI_IOCTL_CLOSE_INSTANCE:
@@ -2115,7 +2123,8 @@ INTERRUPT_REMAIN_IN_QUEUE:
 			struct vpudrv_dma_buf_canvas_info_t dma_info;
 
 			struct canvas_s dst ;
-		    u32 canvas = 0;
+			u32 canvas = 0;
+			memset(&dst, 0, sizeof(dst));
 
 			if (copy_from_user(&dma_info,
 					(struct vpudrv_dma_buf_canvas_info_t *)arg,
@@ -2239,6 +2248,7 @@ INTERRUPT_REMAIN_IN_QUEUE:
 		struct compat_vpudrv_dma_buf_canvas_info_t dma_info32;
 		struct canvas_s dst;
 		u32 canvas = 0;
+		memset(&dst, 0, sizeof(dst));
 
 		if (copy_from_user(&dma_info32,
 				(struct compat_vpudrv_dma_buf_canvas_info_t *)arg,
@@ -2818,6 +2828,10 @@ static s32 vpu_src_addr_config(struct vpudrv_dma_buf_info_t *pinfo,
 	phys_addrV = pinfo->phys_addr[2];
 
 	//end
+	/*
+	 * Variable vbp will free in vpu_dma_buf_release finally.
+	 */
+	/* coverity[leaked_storage] */
 	return ret;
 }
 

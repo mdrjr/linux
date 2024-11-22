@@ -852,6 +852,10 @@ static s32 vers_src_addr_config(struct versdrv_dma_buf_info_t *pinfo,
 		spin_unlock(&s_dma_buf_lock);
 	}
 
+	/*
+	 * Variable vbp will free in vpu_dma_buf_release finally.
+	 */
+	/* coverity[leaked_storage] */
 	return ret;
 }
 
@@ -2178,6 +2182,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 	    u32 canvas = 0;
 		struct versdrv_dma_buf_info_t dma_info;
 		struct canvas_s dst;
+		memset(&dst, 0, sizeof(dst));
 
 		if (copy_from_user(&dma_info,
 			(struct versdrv_dma_buf_info_t *)arg,
@@ -2235,6 +2240,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 		struct versdrv_dma_buf_info_t dma_info;
 		struct compat_versdrv_dma_buf_info_t dma_info32;
 		struct canvas_s dst;
+		memset(&dst, 0, sizeof(dst));
 
 		if (copy_from_user(&dma_info32,
 			(struct compat_versdrv_dma_buf_info_t *)arg,
@@ -2303,7 +2309,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 
 	case HANTRO_IOCH_GET_CMDBUF_PARAMETER: {
 		struct cmdbuf_mem_parameter local_cmdbuf_mem_data;
-
+		memset(&local_cmdbuf_mem_data, 0, sizeof(local_cmdbuf_mem_data));
 		PDEBUG(" VCMD GET_CMDBUF_PARAMETER\n");
 		local_cmdbuf_mem_data.cmd_unit_size = CMDBUF_MAX_SIZE;
 		local_cmdbuf_mem_data.status_unit_size = CMDBUF_MAX_SIZE;
@@ -2327,7 +2333,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 #ifdef CONFIG_COMPAT
 	case HANTRO_IOCH_GET_CMDBUF_PARAMETER32: {
 		struct compat_cmdbuf_mem_parameter local_cmdbuf_mem_data32;
-
+		memset(&local_cmdbuf_mem_data32, 0, sizeof(local_cmdbuf_mem_data32));
 		PDEBUG(" VCMD GET_CMDBUF_PARAMETER32\n");
 		local_cmdbuf_mem_data32.cmd_unit_size = CMDBUF_MAX_SIZE;
 		local_cmdbuf_mem_data32.status_unit_size = CMDBUF_MAX_SIZE;
@@ -2350,6 +2356,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 #endif
 	case HANTRO_IOCH_GET_VCMD_PARAMETER: {
 		struct config_parameter input_para;
+		memset(&input_para, 0, sizeof(input_para));
 
 		PDEBUG(" VCMD get vcmd config parameter\n");
 		ret = copy_from_user(&input_para, (struct config_parameter __user *)arg,
@@ -2393,6 +2400,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 	case HANTRO_IOCH_RESERVE_CMDBUF: {
 		int ret;
 		struct exchange_parameter input_para;
+		memset(&input_para, 0, sizeof(input_para));
 
 		ret = copy_from_user(&input_para, (struct exchange_parameter __user *)arg,
 			       sizeof(struct exchange_parameter));
@@ -2408,6 +2416,7 @@ static long hantrovcmd_ioctl(struct file *filp, u32 cmd,
 	case HANTRO_IOCH_LINK_RUN_CMDBUF: {
 		struct exchange_parameter input_para;
 		long retVal;
+		memset(&input_para, 0, sizeof(input_para));
 
 		ret = copy_from_user(&input_para, (struct exchange_parameter __user *)arg,
 			       sizeof(struct exchange_parameter));
@@ -2841,7 +2850,8 @@ err:
 	MMU_Kernel_unmap();
 	vcmd_pool_release();
 #endif
-
+	if (process_manager_node)
+		free_process_manager_node(process_manager_node);
 	enc_pr(LOG_DEBUG, "[-] %s, ret: %d\n", __func__, result);
 	return result;
 }
@@ -2853,6 +2863,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 	u32 core_id = 0;
 	u32 release_cmdbuf_num = 0;
 	bi_list_node *new_cmdbuf_node = NULL;
+	bi_list_node *next_cmdbuf_node = NULL;
 	struct cmdbuf_obj *cmdbuf_obj_temp = NULL;
 	bi_list_node *process_manager_node;
 	struct process_manager_obj *process_manager_obj = NULL;
@@ -2874,13 +2885,12 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 
 	if (dev->hw_version_id >= HW_ID_1_2_1) {
 		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
-			if (!(&dev[core_id]))
-				continue;
 			spin_lock_irqsave(dev[core_id].spinlock, flags);
 			new_cmdbuf_node = dev[core_id].list_manager.head;
 			while (1) {
 				if (!new_cmdbuf_node)
 					break;
+				next_cmdbuf_node = new_cmdbuf_node->next;
 				cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 				//PDEBUG("Process %p is releasing: checking cmdbuf %d of process %p.\n",
 				       //filp, cmdbuf_obj_temp->cmdbuf_id, cmdbuf_obj_temp->filp);
@@ -2905,7 +2915,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						vcmd_delink_rm_cmdbuf(&dev[core_id], new_cmdbuf_node);
 						if (restart_cmdbuf == cmdbuf_obj_temp)
 							restart_cmdbuf =
-								new_cmdbuf_node->next ? new_cmdbuf_node->next->data : NULL;
+								next_cmdbuf_node ? next_cmdbuf_node->data : NULL;
 					} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 1 &&
 						   dev[core_id].working_state == WORKING_STATE_WORKING) {
 						bi_list_node *last_cmdbuf_node = NULL;
@@ -3038,7 +3048,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 					dev[core_id].sw_cmdbuf_rdy_num++;
 				}
 
-				new_cmdbuf_node = new_cmdbuf_node->next;
+				new_cmdbuf_node = next_cmdbuf_node;
 			}
 
 			if (restart_cmdbuf && restart_cmdbuf->core_id == core_id) {
@@ -3124,13 +3134,12 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 		}
 	} else {
 		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
-			if ((&dev[core_id]) == NULL)
-				continue;
 			spin_lock_irqsave(dev[core_id].spinlock, flags);
 			new_cmdbuf_node = dev[core_id].list_manager.head;
 			while (1) {
 				if (!new_cmdbuf_node)
 					break;
+				next_cmdbuf_node = new_cmdbuf_node->next;
 				cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 				if (dev[core_id].hwregs && cmdbuf_obj_temp->filp == filp) {
 					if (cmdbuf_obj_temp->cmdbuf_run_done) {
@@ -3187,7 +3196,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 					release_cmdbuf_num++;
 					PDEBUG("release reserved cmdbuf\n");
 				}
-				new_cmdbuf_node = new_cmdbuf_node->next;
+				new_cmdbuf_node = next_cmdbuf_node;
 			}
 			spin_unlock_irqrestore(dev[core_id].spinlock, flags);
 		}
@@ -4534,7 +4543,7 @@ int hantroenc_vcmd_init(struct platform_device *pf_dev)
 {
 	int i, k;
 	int result;
-	s32 err = 0, irq;
+	s32 irq;
 	struct resource res;
 
 	hantrovcmd_major = 0;
@@ -4542,12 +4551,13 @@ int hantroenc_vcmd_init(struct platform_device *pf_dev)
 	venc_file_open_cnt = 0;
 	versenc_pdev = NULL;
 
+	memset(&res, 0, sizeof(struct resource));
 	/* get interrupt resource */
 	irq = platform_get_irq_byname(pf_dev, "vc9000e_irq0");
 
 	if (irq < 0) {
 		enc_pr(LOG_ERROR, "get vers irq resource error\n");
-		err = -EFAULT;
+		result = -EFAULT;
 
 		goto err1;
 	}
@@ -4575,7 +4585,7 @@ int hantroenc_vcmd_init(struct platform_device *pf_dev)
 			vers_reg_size[i] = res.end - res.start;
 			if (!vers_reg_map[i]) {
 				enc_pr(LOG_ERROR, "cannot map vers registers\n");
-				err = -ENOMEM;
+				result = -ENOMEM;
 
 				goto err1;
 			}
