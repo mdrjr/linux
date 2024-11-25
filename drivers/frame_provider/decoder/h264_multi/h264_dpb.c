@@ -2360,15 +2360,15 @@ int output_frames(struct h264_dpb_stru *p_H264_Dpb, unsigned char flush_flag)
 					(p_Dpb->fs[i]->data_flag & IDR_FLAG))
 					fast_output_flag = 1;
 				if ((p_H264_Dpb->fast_output_enable & 0x2) &&
-					((p_Dpb->fs[i]->poc -
-						p_Dpb->last_output_poc)
+					(((long)p_Dpb->fs[i]->poc -
+						(long)p_Dpb->last_output_poc)
 					== 1))
 					fast_output_flag = 1;
 				if ((p_H264_Dpb->fast_output_enable & 0x4) &&
 					(p_H264_Dpb->poc_even_odd_flag == 2) &&
 					 (p_Dpb->fs[i]->is_used == 3) &&
-					((p_Dpb->fs[i]->poc -
-						p_Dpb->last_output_poc)
+					(((long)p_Dpb->fs[i]->poc -
+						(long)p_Dpb->last_output_poc)
 					== 2))
 					fast_output_flag = 1;
 			}
