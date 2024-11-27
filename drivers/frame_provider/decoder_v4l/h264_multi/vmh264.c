@@ -7869,6 +7869,9 @@ void buf_ref_process_for_exception(struct vdec_h264_hw_s *hw)
 		}
 		hw->buffer_spec[buf_spec_num].used = 0;
 		hw->dpb.cur_idx = INVALID_IDX;
+
+		ctx->aux_infos.unbind_sei_buffer(ctx, &hw->buffer_spec[buf_spec_num].aux_data_buf,
+			&hw->buffer_spec[buf_spec_num].aux_data_size, hw->buffer_spec[buf_spec_num].ctx_buf_idx);
 	}
 }
 
