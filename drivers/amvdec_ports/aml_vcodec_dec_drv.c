@@ -119,6 +119,7 @@ static int fops_vcodec_open(struct file *file)
 	atomic_set(&ctx->vpp_cache_num, 0);
 	atomic_set(&ctx->ge2d_cache_num, 0);
 	mutex_init(&ctx->v4l_intf_lock);
+	ctx->k_producer_session = NULL;
 
 	ctx->post_to_upper_done = true;
 	ctx->param_sets_from_ucode = param_sets_from_ucode ? 1 : 0;
@@ -133,13 +134,6 @@ static int fops_vcodec_open(struct file *file)
 	}
 
 	ctx->type = AML_INST_DECODER;
-
-#ifdef CONFIG_AMLOGIC_MEDIA_PROXY
-	if (!ctx->k_producer_session)
-		media_proxy_produce_init(&ctx->k_producer_session,
-			AML_VCODEC_DEC_NAME,
-			MEDIA_VIDEO_METRICS_FRAME_DECODED_INFO);
-#endif
 
 	ret = aml_vcodec_dec_ctrls_setup(ctx);
 	if (ret) {
@@ -211,10 +205,6 @@ err_buffer_manager:
 err_m2m_ctx_init:
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 err_ctrls_setup:
-#ifdef CONFIG_AMLOGIC_MEDIA_PROXY
-	if (ctx->k_producer_session)
-		media_proxy_produce_deinit(ctx->k_producer_session);
-#endif
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	aml_media_mem_free(ctx->meta_infos.meta_bufs);

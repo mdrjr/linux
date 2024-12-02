@@ -3443,6 +3443,13 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
+#ifdef CONFIG_AMLOGIC_MEDIA_PROXY
+	if (V4L2_TYPE_IS_OUTPUT(f->type) && !ctx->k_producer_session)
+		media_proxy_produce_init(&ctx->k_producer_session,
+			AML_VCODEC_DEC_NAME,
+			MEDIA_VIDEO_METRICS_FRAME_DECODED_INFO);
+#endif
+
 	fmt = aml_vdec_find_format(f);
 	if (fmt == NULL) {
 		if (V4L2_TYPE_IS_OUTPUT(f->type))
@@ -3487,7 +3494,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"vdec_if_init() fail ret=%d\n", ret);
 				mutex_unlock(&ctx->state_lock);
-				return -EINVAL;
+				goto S_FMT_ERROR;
 			}
 
 			vdec_trace_init(&ctx->vtr, ctx->id, vdec_get_vdec_id(ctx->ada_ctx));
@@ -3506,7 +3513,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		if (!vdec_check_is_available(pix->pixelformat)) {
 			v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 				"VC-1 only support single mode. \n");
-			return -EINVAL;
+			goto S_FMT_ERROR;
 		}
 
 		v4l_dbg(ctx, V4L_DEBUG_CODEC_EXINFO,
@@ -3527,7 +3534,7 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 				v4l_dbg(ctx, V4L_DEBUG_CODEC_ERROR,
 					"vdec_if_init() fail ret=%d\n", ret);
 				mutex_unlock(&ctx->state_lock);
-				return -EINVAL;
+				goto S_FMT_ERROR;
 			}
 
 			vdec_trace_init(&ctx->vtr, ctx->id, vdec_get_vdec_id(ctx->ada_ctx));
@@ -3550,6 +3557,13 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 	}
 
 	return 0;
+S_FMT_ERROR:
+#ifdef CONFIG_AMLOGIC_MEDIA_PROXY
+	if (ctx->k_producer_session)
+		media_proxy_produce_deinit(ctx->k_producer_session);
+#endif
+	return -EINVAL;
+
 }
 
 static int vidioc_enum_framesizes(struct file *file, void *priv,
