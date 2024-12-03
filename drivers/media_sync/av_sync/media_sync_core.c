@@ -1649,6 +1649,7 @@ long mediasync_ins_set_firstaudioframeinfo(MediaSyncManager* pSyncManage, medias
 	mediasync_ins* pInstance = NULL;
 	unsigned long flags = 0;
 	s32 syncIndex = 0;
+	bool firstSetAudioFrame = false;
 	if (pSyncManage == NULL) {
 		return -1;
 	}
@@ -1659,7 +1660,9 @@ long mediasync_ins_set_firstaudioframeinfo(MediaSyncManager* pSyncManage, medias
 		spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
 		return -1;
 	}
-
+	if (pInstance->mSyncInfo.firstAframeInfo.framePts == -1 && info.framePts != -1) {
+		firstSetAudioFrame = true;
+	}
 	pInstance->mSyncInfo.firstAframeInfo.framePts = info.framePts;
 	pInstance->mSyncInfo.firstAframeInfo.frameSystemTime = info.frameSystemTime;
 	syncIndex = pInstance->mSyncIndex;
@@ -1669,9 +1672,11 @@ long mediasync_ins_set_firstaudioframeinfo(MediaSyncManager* pSyncManage, medias
 		}
 	}
 	spin_unlock_irqrestore(&(pSyncManage->m_lock),flags);
-	mediasync_pr_info(0,syncIndex,"first audio framePts:0x%llx frameSystemTime:%lld us\n",
+	if (firstSetAudioFrame) {
+		mediasync_pr_info(0,syncIndex,"first audio framePts:0x%llx frameSystemTime:%lld us\n",
 							info.framePts,
 							info.frameSystemTime);
+	}
 	return 0;
 }
 
