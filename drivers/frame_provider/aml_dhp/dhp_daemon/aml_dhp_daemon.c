@@ -209,7 +209,7 @@ void dhp_mem_sgt_sync(void *priv, u64 *pfn_array, u32 num, u32 flags)
     struct aml_dhp_ioctl_data io = {0};
 
     io.mem.type = AML_MEM_TYPE_SG_TBL;
-    io.base.src.sgt = (unsigned long long)pfn_array;
+    io.mem.sgt = (unsigned long long)pfn_array;
     io.mem.size = num;
     io.mem.syncflag = flags;
 

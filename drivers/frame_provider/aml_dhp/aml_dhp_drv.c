@@ -487,7 +487,7 @@ static int __aml_dhp_dbuf_mmap(void *buf_priv, struct vm_area_struct *vma)
 	du->mapped = true;
 
 	LOG_DEBUG("[%u]: DBUF Mapped addr:%lx at VMA start %lx, size %lu\n",
-		drv->uid, sg_phys(sgt->sgl),
+		drv->uid, (ulong)sg_phys(sgt->sgl),
 		vma->vm_start,
 		addr - vma->vm_start);
 
@@ -671,7 +671,7 @@ static struct dma_buf *aml_get_dmabuf(struct data_unit *du, ulong addr, u32 size
 	if (!du->uncached) {
 		ents = dma_map_sg(drv->dev, sgt->sgl, sgt->orig_nents, DMA_BIDIRECTIONAL);
 		if (ents < 0) {
-			LOG_ERR("[%u]: dma map sg failed, ret=\n", drv->uid, ents);
+			LOG_ERR("[%u]: dma map sg failed, ret=%d\n", drv->uid, ents);
 			sg_free_table(sgt);
 			return NULL;
 		}
@@ -1135,7 +1135,7 @@ static int du_mmap(struct aml_dhp_drv *drv, ulong arg)
 		return -EFAULT;
 	}
 
-	LOG_DEBUG("[%u]: DU Mapped addr:%x at %lx, size %u\n",
+	LOG_DEBUG("[%u]: DU Mapped addr:%lx at %lx, size %u\n",
 		drv->uid, pfn, uptr, size);
 
 	return ret;
@@ -1361,7 +1361,7 @@ static int du_sgt_mmap(struct aml_dhp_drv *drv, ulong arg)
 	}
 
 	LOG_DEBUG("[%u]: DU Mapped SGT to uptr: %lx, size: %u\n",
-		drv->uid, uptr_table[0], uptr_len);
+		drv->uid, (ulong)uptr_table[0], uptr_len);
 err:
 	if (pfn_table)
 		vfree(pfn_table);
