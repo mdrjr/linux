@@ -4775,6 +4775,19 @@ static int sf_add_feed(struct aml_dmx *src_dmx, struct dvb_demux_feed *feed)
 
 fail:
 	feed->priv = (void *)-1;
+	if (!sf->user) {
+		sf->dmx->source = -1;
+		sf->afifo->source = AM_DMX_MAX;
+		sf->track_dmx = -1;
+
+		if (sf->rbuf.data) {
+			void *mem = sf->rbuf.data;
+
+			sf->rbuf.data = NULL;
+			vfree(mem);
+		}
+		pr_dbg_sf("exit sf mode.\n");
+	}
 	return ret;
 }
 
@@ -5856,7 +5869,7 @@ static ssize_t ciplus_output_ctrl_store(KV_CLASS_CONST struct class *class,
 					  const char *buf, size_t size)
 {
 	struct aml_dvb *dvb = aml_get_dvb_device();
-	int i, tmp;
+	int i, tmp = -1;
 	u32 top_cfg, ci_cfg;
 
 	i = kstrtoint(buf, -1, &tmp);

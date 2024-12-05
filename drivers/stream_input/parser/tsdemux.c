@@ -676,6 +676,9 @@ static irqreturn_t tsdemux_thread_isr(int irq, void *dev_id)
 							dmx_audio_frameinfo.packetsPts,
 							dmx_audio_frameinfo.packetsSize);
 				}
+			} else {
+				dmx_audio_frameinfo.packetsPts = dmx_audio_packetsinfo.packetsPts;
+				dmx_audio_frameinfo.packetsSize = dmx_audio_packetsinfo.packetsSize;
 			}
 			if (singleDmxNewPtsserv) {
 				pts_checkin_apts_size(dmx_audio_packetsinfo.ptr,dmx_audio_packetsinfo.packetsPts,dmx_audio_packetsinfo.packetsSize);

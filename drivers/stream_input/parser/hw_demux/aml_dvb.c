@@ -1957,6 +1957,8 @@ static ssize_t hw_setting_store(KV_CLASS_CONST struct class *class,
 	struct aml_ts_input *ts;
 	struct aml_dvb *dvb = &aml_dvb_device;
 
+	memset(mname, 0, sizeof(mname));
+	memset(pname, 0, sizeof(pname));
 	r = sscanf(buf, "%d %s %x %x", &id, mname, &ctrl, &invert);
 	if (r != 4)
 		return -EINVAL;
