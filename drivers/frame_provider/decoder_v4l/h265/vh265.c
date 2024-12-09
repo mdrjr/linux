@@ -326,6 +326,7 @@ static u32 rval;
 static u32 dbg_cmd;
 static u32 dump_nal;
 static u32 dbg_skip_decode_index;
+static u32 high_bandwidth_dynamic_enabled = 0;
 /*
  * bit 0~3, for HEVCD_IPP_AXIIF_CONFIG endian config
  * bit 8~23, for HEVC_SAO_CTRL1 endian config
@@ -2034,6 +2035,7 @@ struct hevc_state_s {
 	struct mmu_copy mmu_copy_array[BUF_FBC_NUM_MAX];
 	bool check_suffix_data;
 	enum FenceModeBufStatus fence_mode_buf_status;
+	bool time_bandwidth_flag;
 } /*hevc_stru_t */;
 
 struct hevc_RPS_s {
@@ -10851,6 +10853,17 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		tmp4x.double_write_mode = pic->double_write_mode;
 		vdec_fill_vdec_frame(vdec, &hevc->vframe_qos, &tmp4x, vf, pic->hw_decode_time);
 		vdec->vdec_fps_detec(vdec->id);
+
+		if (high_bandwidth_dynamic_enabled) {
+			hevc_print(hevc, H265_DEBUG_OUT_PTS, "vf->duration %d\n",  vf->duration);
+			if (hevc->time_bandwidth_flag ||
+				vdec_profile_set_high_bandwidth_mode(vdec,
+				pic->width, pic->height, vf->duration)) {
+				hevc->time_bandwidth_flag = 1;
+				vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
+			}
+		}
+
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
 			"%s(type %d index 0x%x poc %d/%d) pts(%d,%d,%llu) dur %d\n",
 			__func__, vf->type, vf->index,
@@ -15420,7 +15433,6 @@ static void vh265_work_implement(struct hevc_state_s *hevc,
 				hevc->shift_byte_count_lo;
 		}
 #endif
-
 done_end:
 		mutex_lock(&hevc->chunks_mutex);
 		vdec_vframe_dirty(hw_to_vdec(hevc), hevc->chunk);
@@ -17509,8 +17521,12 @@ MODULE_PARM_DESC(mv_buf_dynamic_alloc, "\n mv_buf_dynamic_alloc\n");
 module_param(detect_stuck_buffer_margin, uint, 0664);
 MODULE_PARM_DESC(detect_stuck_buffer_margin, "\n detect_stuck_buffer_margin\n");
 
+module_param(high_bandwidth_dynamic_enabled, uint, 0664);
+MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_h265 high_bandwidth_dynamic_enabled\n");
+
 module_param(frmbase_multi_slice, uint, 0664);
 MODULE_PARM_DESC(frmbase_multi_slice,	"\n amvdec_h265 frmbase_multi_slice\n");
+
 module_param(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
 

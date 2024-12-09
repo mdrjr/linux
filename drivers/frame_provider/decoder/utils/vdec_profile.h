@@ -43,6 +43,8 @@ extern uint dec_time_stat_reset;
 extern void vdec_profile(struct vdec_s *vdec, int event, int mask);
 extern void vdec_profile_more(struct vdec_s *vdec, int event, int para1, int para2, int mask);
 extern void vdec_profile_flush(struct vdec_s *vdec);
+extern int vdec_profile_set_high_bandwidth_mode(struct vdec_s *vdec, u32 w, u32 h,
+	u32 duration);
 
 int vdec_profile_init_debugfs(void);
 void vdec_profile_exit_debugfs(void);

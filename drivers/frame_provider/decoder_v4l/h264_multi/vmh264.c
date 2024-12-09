@@ -195,6 +195,7 @@ static unsigned int max_alloc_buf_count;
 static unsigned int decode_timeout_val = 100;
 static unsigned int errordata_timeout_val = 50;
 static unsigned int get_data_timeout_val = 2000;
+static u32 high_bandwidth_dynamic_enabled = 0;
 
 /* H264_DATA_REQUEST does not work, disable it,
 decode has error for data in none continuous address
@@ -1022,6 +1023,7 @@ struct vdec_h264_hw_s {
 	u32 status_report_count;  //for multi frames in once run isr status count
 	u32 multi_frame_in_run;   //multi frames in once run flag
 	enum FenceModeBufStatus fence_mode_buf_status;
+	bool time_bandwidth_flag;
 };
 
 #define TIMEOUT_INIT 0
@@ -4017,6 +4019,17 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 		}
 
 		atomic_add(1, &hw->vf_pre_count);
+
+		if (high_bandwidth_dynamic_enabled) {
+			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,"vf duration = %d\n", vf->duration);
+			if (hw->high_bandwidth_flag ||
+				vdec_profile_set_high_bandwidth_mode(hw_to_vdec(hw),
+				hw->frame_width, hw->frame_height, vf->duration)) {
+				hw->high_bandwidth_flag = 1;
+				vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
+			}
+		}
+
 		vdec_vframe_ready(hw_to_vdec(hw), vf);
 
 		if (!frame->show_frame) {
@@ -12808,6 +12821,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 	ATRACE_COUNTER(hw->trace.decode_run_time_name, TRACE_RUN_LOADING_RESTORE_START);
 
 	vmh264_reset_udr_mgr(hw);
+
 	if (vh264_hw_ctx_restore(hw) < 0) {
 		vdec_schedule_work(&hw->work);
 		return;
@@ -13969,6 +13983,9 @@ MODULE_PARM_DESC(adjust_dpb_size, "\n adjust dpb size\n");
 
 module_param(one_packet_multi_frames_multi_run, uint, 0664);
 MODULE_PARM_DESC(one_packet_multi_frames_multi_run, "\n one_packet_multi_frames_multi_run\n");
+
+module_param(high_bandwidth_dynamic_enabled, uint, 0664);
+MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_h264 high_bandwidth_dynamic_enabled\n");
 
 module_param(save_buffer, uint, 0664);
 MODULE_PARM_DESC(save_buffer, "\n save_buffer\n");

@@ -880,6 +880,8 @@ struct AV1HW_s {
 	u32 av1_dec_info[3];
 	bool enable_ucode_swap;
 	u32 max_spatial_id;
+
+	bool time_bandwidth_flag;
 };
 static void av1_dump_state(struct vdec_s *vdec);
 
@@ -2064,6 +2066,8 @@ static u32 buffer_mode = 1;
 static u32 buffer_mode_dbg = 0xffff0000;
 
 static u32 scalable_enable = 1;
+
+static u32 high_bandwidth_dynamic_enabled = 0;
 
 /*
  *bit 0, 1: only display I picture;
@@ -7069,6 +7073,17 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		tmp4x.bit_depth_chroma = bit_depth_chroma;
 		tmp4x.double_write_mode = pic_config->double_write_mode;
 		vdec_fill_vdec_frame(hw_to_vdec(hw), &hw->vframe_qos, &tmp4x, vf, pic_config->hw_decode_time);
+
+		if (high_bandwidth_dynamic_enabled) {
+			av1_print(hw, PRINT_FLAG_VDEC_STATUS, "vf->duration: %d\n", vf->duration);
+			if (hw->time_bandwidth_flag ||
+				vdec_profile_set_high_bandwidth_mode(hw_to_vdec(hw),
+				pic_config->y_crop_width, pic_config->y_crop_height, vf->duration)) {
+				vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
+				hw->time_bandwidth_flag = 1;
+			}
+		}
+
 		v4l_av1_update_frame_info(hw, vf, pic_config);
 
 		if (without_display_mode == 0) {
@@ -9845,6 +9860,7 @@ static irqreturn_t vav1_isr_thread_fn(int irq, void *data)
 	}
 	if (!hw->frame_decoded)
 		vdec_profile(hw_to_vdec(hw), VDEC_PROFILE_DECODER_START, CORE_MASK_HEVC);
+
 	ATRACE_COUNTER(hw->trace.decode_time_name, DECODER_ISR_THREAD_HEAD_END);
 	return IRQ_HANDLED;
 }
@@ -10861,6 +10877,7 @@ static void av1_work_implement(struct AV1HW_s *hw)
 			hw->start_shift_bytes
 			);
 		vdec_vframe_dirty(hw_to_vdec(hw), hw->chunk);
+
 		if (hw->dec_status == AOM_AV1_DEC_PIC_END)
 			vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - hw->start_shift_bytes);
 	} else if (hw->dec_result == DEC_RESULT_AGAIN) {
@@ -12751,6 +12768,9 @@ MODULE_PARM_DESC(enable_swap, "\n enable_swap\n");
 
 module_param(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
+
+module_param(high_bandwidth_dynamic_enabled, uint, 0664);
+MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_av1 high_bandwidth_dynamic_enabled\n");
 
 module_init(amvdec_av1_driver_init_module);
 module_exit(amvdec_av1_driver_remove_module);

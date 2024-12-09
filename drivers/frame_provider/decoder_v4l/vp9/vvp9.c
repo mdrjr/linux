@@ -1290,6 +1290,7 @@ struct VP9Decoder_s {
 	u32 data_size_bak;
 	u32 data_offset_bak;
 	u32 consume_byte_bak;
+	bool time_bandwidth_flag;
 };
 
 static int vp9_debug(struct VP9Decoder_s *pbi,
@@ -3159,6 +3160,7 @@ static u32 buffer_mode = 1;
 /* buffer_mode_dbg: debug only*/
 static u32 buffer_mode_dbg = 0xffff0000;
 /**/
+static u32 high_bandwidth_dynamic_enabled = 0;
 
 /*
  *bit 0, 1: only display I picture;
@@ -8148,6 +8150,16 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 				v4l2_ctx->fbc_transcode_and_set_vf(v4l2_ctx,
 					aml_buf, vf);
 
+			if (high_bandwidth_dynamic_enabled) {
+				vp9_print(pbi, PRINT_FLAG_VDEC_STATUS, "vf->duration %d\n", vf->duration);
+				if (pbi->time_bandwidth_flag ||
+					vdec_profile_set_high_bandwidth_mode(pvdec,
+					pic_config->y_crop_width, pic_config->y_crop_height, vf->duration)) {
+					pbi->time_bandwidth_flag = 1;
+					vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
+				}
+			}
+
 			if (without_display_mode == 0) {
 				if (v4l2_ctx->is_stream_off  && ((!v4l2_ctx->avbcd_work_mode) ||
 					(v4l2_ctx->avbcd_work_mode && atomic_read(&pbi->vf_pre_count) > 1))) {
@@ -10823,6 +10835,7 @@ static void vp9_work_implement(struct VP9Decoder_s *pbi)
 		vdec_vframe_dirty(hw_to_vdec(pbi), pbi->chunk);
 		if (pbi->dec_status == HEVC_DECPIC_DATA_DONE)
 			vdec_code_rate(vdec, READ_VREG(HEVC_SHIFT_BYTE_COUNT) - pbi->start_shift_bytes);
+
 	} else if (pbi->dec_result == DEC_RESULT_AGAIN) {
 		/*
 			stream base: stream buf empty or timeout
@@ -12724,6 +12737,9 @@ MODULE_PARM_DESC(v4l_bitstream_id_enable, "\n v4l_bitstream_id_enable\n");
 
 module_param(efficiency_mode, uint, 0664);
 MODULE_PARM_DESC(efficiency_mode, "\n  efficiency_mode\n");
+
+module_param(high_bandwidth_dynamic_enabled, uint, 0664);
+MODULE_PARM_DESC(high_bandwidth_dynamic_enabled, "\n amvdec_vp9 high_bandwidth_dynamic_enabled\n");
 
 module_init(amvdec_vp9_driver_init_module);
 module_exit(amvdec_vp9_driver_remove_module);

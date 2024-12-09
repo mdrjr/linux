@@ -40,7 +40,8 @@ static int rec_wp;
 static bool rec_wrapped;
 static uint dec_time_stat_flag;
 uint dec_time_stat_reset;
-
+static u32 fps60_high_bandwidth_ms = 13;
+static u32 fps30_high_bandwidth_ms = 33;
 
 struct dentry *root, *event;
 
@@ -216,35 +217,39 @@ static void vdec_profile_time_summary(struct vdec_s *vdec, int event, struct vde
 				else
 					vdec->back_run2cb_time = time_avg;
 			}
-			if (time_avg >= rate_time_avg_threshold_hi && *print_flag == 0) {
-				*print_flag = 0x1;
-			}
-			if (*print_flag == 0x2) {
-				*freeze_time_sum += time;
-				(*freeze_time_cnt)++;
-				freeze_avg = div_u64(*freeze_time_sum, *freeze_time_cnt);
-			}
-			if (freeze_avg < rate_time_avg_threshold_lo && (*print_flag == 0x2))
-				*print_flag = 0x4;
 
-			if (*print_flag == 0x1) {
-				pr_info("------------------------%s_start------------------------\n",
-					(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb");
-				pr_info("%s frame cnt %d %s overtime start \n", back_core_flag ? "back_core" : "front_core", frame_cnt - (rate_time_avg_cnt-1),
-					(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb");
-				*print_flag = 0x2;
-			} else if (*print_flag == 0x2) {
-				pr_info("%s %s_time_avg_16 is %llu us \n", back_core_flag ? "back_core" : "front_core",
-					(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb", time_avg);
-			} else if (*print_flag == 0x4) {
-				pr_info("%s frame cnt %d overtime end, freeze avg %s time is %llu us freeze cnt %d\n",
+			if ((vdec_get_debug() & VDEC_DBG_ENABLE_HW_TIME_DEBUG) ||
+				(vdec_get_debug() & VDEC_DBG_ENABLE_TIME_DEBUG)) {
+				if (time_avg >= rate_time_avg_threshold_hi && *print_flag == 0) {
+					*print_flag = 0x1;
+				}
+				if (*print_flag == 0x2) {
+					*freeze_time_sum += time;
+					(*freeze_time_cnt)++;
+					freeze_avg = div_u64(*freeze_time_sum, *freeze_time_cnt);
+				}
+				if (freeze_avg < rate_time_avg_threshold_lo && (*print_flag == 0x2))
+					*print_flag = 0x4;
+
+				if (*print_flag == 0x1) {
+					pr_info("------------------------%s_start------------------------\n",
+						(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb");
+					pr_info("%s frame cnt %d %s overtime start \n", back_core_flag ? "back_core" : "front_core", frame_cnt - (rate_time_avg_cnt-1),
+						(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb");
+					*print_flag = 0x2;
+				} else if (*print_flag == 0x2) {
+					pr_info("%s %s_time_avg_16 is %llu us \n", back_core_flag ? "back_core" : "front_core",
+						(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb", time_avg);
+				} else if (*print_flag == 0x4) {
+					pr_info("%s frame cnt %d overtime end, freeze avg %s time is %llu us freeze cnt %d\n",
 						back_core_flag ? "back_core" : "front_core", frame_cnt, (event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb", freeze_avg,
 						*freeze_time_cnt + (rate_time_avg_cnt - 1));
-				pr_info("----------------------------%s_end---------------------------\n",
+					pr_info("----------------------------%s_end---------------------------\n",
 						(event == VDEC_PROFILE_DECODER_PIC_END) ? "hw" : "run2cb");
-				*print_flag = 0;
-				*freeze_time_sum = 0;
-				*freeze_time_cnt = 0;
+					*print_flag = 0;
+					*freeze_time_sum = 0;
+					*freeze_time_cnt = 0;
+				}
 			}
 		}
 	}
@@ -283,8 +288,7 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 				pr_info("vdec_profile front hw time : %llu\n", time_stat->multi_us_sum);
 			ATRACE_COUNTER(vdec->decode_hw_front_time_name, time_stat->multi_us_sum);
 			ATRACE_COUNTER(vdec->decode_hw_front_spend_time_avg, div_u64(time_stat->hw_time_stat.time_total_us, time_stat->hw_cnt));
-			if (vdec_get_debug() & VDEC_DBG_ENABLE_HW_TIME_DEBUG)
-				vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, time_stat->multi_us_sum);
+			vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, time_stat->multi_us_sum);
 			time_stat->multi_us_sum = 0;
 			time_stat->multi_slice_cnt = 0;
 		} else {
@@ -293,8 +297,7 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 				pr_info("vdec_profile back hw time : %llu\n", timestamp - time_stat->hw_lasttimestamp);
 			ATRACE_COUNTER(vdec->decode_hw_back_time_name, timestamp - time_stat->hw_lasttimestamp);
 			ATRACE_COUNTER(vdec->decode_hw_back_spend_time_avg, div_u64(time_stat->hw_time_stat.time_total_us, time_stat->hw_cnt));
-			if (vdec_get_debug() & VDEC_DBG_ENABLE_HW_TIME_DEBUG)
-				vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, timestamp - time_stat->hw_lasttimestamp);
+			vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, timestamp - time_stat->hw_lasttimestamp);
 		}
 	}
 
@@ -332,8 +335,7 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 					pr_info("vdec_profile front run2cb time : %llu\n", run2cb_time);
 				ATRACE_COUNTER(vdec->dec_spend_time, run2cb_time);
 				ATRACE_COUNTER(vdec->dec_spend_time_ave, div_u64(time_stat->run2cb_time_stat.time_total_us, time_stat->cb_cnt));
-				if (vdec_get_debug() & VDEC_DBG_ENABLE_TIME_DEBUG)
-					vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, run2cb_time);
+				vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, run2cb_time);
 				time_stat->hidden_frame_us_sum = 0;
 			}
 			time_stat->unhidden_frame = 0;
@@ -342,8 +344,7 @@ static void vdec_profile_cal(struct vdec_s *vdec, int event, struct vdec_profile
 				pr_info("vdec_profile back run2cb time : %llu\n", timestamp - time_stat->run_lasttimestamp);
 			ATRACE_COUNTER(vdec->dec_back_spend_time, timestamp - time_stat->run_lasttimestamp);
 			ATRACE_COUNTER(vdec->dec_back_spend_time_ave, div_u64(time_stat->run2cb_time_stat.time_total_us, time_stat->cb_cnt));
-			if (vdec_get_debug() & VDEC_DBG_ENABLE_TIME_DEBUG)
-				vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, timestamp - time_stat->run_lasttimestamp);
+			vdec_profile_time_summary(vdec, event, time_stat, back_core_flag, timestamp - time_stat->run_lasttimestamp);
 		}
 	} else if (event == VDEC_PROFILE_DECODED_FRAME) {
 		time_stat->decoded_frame_cnt++;
@@ -483,6 +484,27 @@ void vdec_profile_flush(struct vdec_s *vdec)
 
 	mutex_unlock(&vdec_profile_mutex);
 }
+
+int vdec_profile_set_high_bandwidth_mode(struct vdec_s *vdec, u32 w, u32 h,
+	u32 duration)
+{
+	int ret = 0;
+
+	if ((vdec->front_run2cb_time > fps60_high_bandwidth_ms * 1000UL)
+		&& duration > 1500 && duration < 2000
+		&& w > 1920 && h > 1080) {
+		if (vdec_get_debug() & VDEC_DBG_ENABLE_PRINT_TIME_DEBUG)
+			pr_info("set VFRAME_FLAG_HIGH_BANDWIDTH \n");
+		ret = true;
+	} else if ((vdec->front_run2cb_time > fps30_high_bandwidth_ms * 1000UL)
+		&& w > 1920 && h > 1080) {
+		if (vdec_get_debug() & VDEC_DBG_ENABLE_PRINT_TIME_DEBUG)
+			pr_info("set VFRAME_FLAG_HIGH_BANDWIDTH \n");
+		ret = true;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(vdec_profile_set_high_bandwidth_mode);
 
 static const char *event_str(int event)
 {
@@ -764,6 +786,9 @@ module_param(dec_time_stat_flag, uint, 0664);
 
 module_param(dec_time_stat_reset, uint, 0664);
 
+module_param(fps30_high_bandwidth_ms, uint, 0664);
+
+module_param(fps60_high_bandwidth_ms, uint, 0664);
 
 /*module_init(vdec_profile_init_debugfs);*/
 
