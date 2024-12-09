@@ -4231,6 +4231,7 @@ long mediasync_ins_ext_ctrls(MediaSyncManager* pSyncManage,mediasync_control* me
 		}
 		case SET_IS_ABNORMAL_AUDIO:
 		{
+			pInstance->mStcParmUpdateCount++;
 			pInstance->mIsAbnormalAudio = mediasyncControl->value;
 			ret = 0;
 			break;
