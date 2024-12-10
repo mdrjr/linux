@@ -3767,10 +3767,10 @@ static int alloc_buf(struct hevc_state_s *hevc)
 
 				if (vdec->vdata != NULL) {
 					int index = 0;
-					struct vdec_data_buf_s data_buf;
+					struct vdec_data_buf_s data_buf = {0};
+
 					data_buf.alloc_policy = ALLOC_AUX_BUF;
 					data_buf.aux_buf_size = AUX_DATA_SIZE1;
-
 					data_buf.alloc_policy |= ALLOC_HDR10P_BUF;
 					data_buf.hdr10p_buf_size = HDR10P_BUF_SIZE;
 

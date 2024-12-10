@@ -3047,7 +3047,8 @@ static int config_pic(struct AVS3Decoder_s *dec,
 
 			if (vdec->vdata != NULL) {
 				int index = 0;
-				struct vdec_data_buf_s data_buf;
+				struct vdec_data_buf_s data_buf = {0};
+
 				data_buf.alloc_policy = ALLOC_AUX_BUF;
 				data_buf.aux_buf_size = dec->cuva_size;
 

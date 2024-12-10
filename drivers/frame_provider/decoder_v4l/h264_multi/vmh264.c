@@ -8253,6 +8253,8 @@ static int h264_reset_reinit_mmu(struct vdec_h264_hw_s *hw)
 
 		for (j = 0; j < num_buff; j++) {
 			i = get_buf_spec_by_canvas_pos(hw, j);
+			if (i < 0)
+				break;
 			maddr = hw->buffer_spec[i].alloc_header_addr;
 			WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_DATA,	maddr >> 5);
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_MMU_DETAIL,

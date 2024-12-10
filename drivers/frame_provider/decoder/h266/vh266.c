@@ -2817,7 +2817,8 @@ static int alloc_buf(struct hevc_state_s *hevc)
 
 				if (vdec->vdata != NULL) {
 					int index = 0;
-					struct vdec_data_buf_s data_buf;
+					struct vdec_data_buf_s data_buf = {0};
+
 					data_buf.alloc_policy = ALLOC_AUX_BUF;
 					data_buf.aux_buf_size = AUX_DATA_SIZE1;
 
@@ -9092,7 +9093,7 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 		hevc->enable_ucode_swap);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	if (hevc->enable_ucode_swap) {
@@ -9126,6 +9127,7 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 				&hevc->mc_dma_handle, "H.266_MC_CPU_BUF");
 		if (!hevc->mc_cpu_addr) {
 			amhevc_disable();
+			vfree(fw);
 			pr_info("vh266 mmu swap ucode loaded fail.\n");
 			return -ENOMEM;
 		}
@@ -9143,6 +9145,7 @@ static s32 vh266_init(struct hevc_state_s *hevc)
 			if (hevc->sei_itu_data_buf == NULL) {
 				pr_err("%s: failed to alloc sei itu data buffer\n",
 					__func__);
+				vfree(fw);
 				return -1;
 			} else if (NULL == hevc->sei_user_data_buffer) {
 				hevc->sei_user_data_buffer = kmalloc(USER_DATA_SIZE, GFP_KERNEL);

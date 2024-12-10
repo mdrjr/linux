@@ -1024,7 +1024,7 @@ static int vc1_reloadmc_ex(void *args)
 			char *buf = vmalloc(0x1000 * 16);
 			int fw_type = VIDEO_DEC_VC1;
 
-			if (IS_ERR_OR_NULL(buf)) {
+			if (!buf) {
 				pr_err("alloc buf fail.");
 				usleep_range(1000, 1500);
 				continue;

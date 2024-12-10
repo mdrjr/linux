@@ -7283,7 +7283,7 @@ static s32 vavs2_init(struct vdec_s *vdec)
 	vdec_set_vframe_comm(vdec, DRIVER_NAME);
 
 	fw = fw_firmare_s_creat(fw_size);
-	if (IS_ERR_OR_NULL(fw))
+	if (!fw)
 		return -ENOMEM;
 
 	size = get_firmware_data(VIDEO_DEC_AVS2_MMU, fw->data);

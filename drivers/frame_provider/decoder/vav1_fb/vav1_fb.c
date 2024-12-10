@@ -3428,7 +3428,7 @@ static int config_pic(struct AV1HW_s *hw,
 			if (vdec->vdata != NULL) {
 				int index = 0;
 				int j = 0;
-				struct vdec_data_buf_s data_buf;
+				struct vdec_data_buf_s data_buf = {0};
 
 				data_buf.alloc_policy = ALLOC_AUX_BUF;
 				data_buf.aux_buf_size = SEI_BUF_SIZE;
@@ -3626,7 +3626,7 @@ static void init_pic_list(struct AV1HW_s *hw)
 
 			if (vdec->vdata != NULL) {
 				int index = 0;
-				struct vdec_data_buf_s data_buf;
+				struct vdec_data_buf_s data_buf = {0};
 
 				data_buf.alloc_policy = ALLOC_AUX_BUF;
 				data_buf.aux_buf_size = SEI_BUF_SIZE;

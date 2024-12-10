@@ -809,7 +809,7 @@ int aml_dhp_request(struct aml_du_mem *src, struct aml_du_mem *dst, void *meta, 
 {
 	struct aml_dhp_drv *drv = NULL;
 	struct aml_du_base base = { 0 };
-	struct data_unit *du;
+	struct data_unit *du = NULL;
 	struct list_head *pos;
 	ulong timeout = 0;
 	int ret = 0;
@@ -859,13 +859,15 @@ int aml_dhp_request(struct aml_du_mem *src, struct aml_du_mem *dst, void *meta, 
 
 	mutex_unlock(&g_dev->mutex);
 
-	timeout = wait_for_completion_timeout(&du->comp,
-		msecs_to_jiffies(TIMEOUT_MAX));
-	if (timeout) {
-		LOG_DEBUG("[%u]: DU:%px task done, elapse:%d ms\n",
-			drv->uid, du, TIMEOUT_MAX - jiffies_to_msecs(timeout));
-	} else {
-		LOG_WARN("[%u]: DU:%px task timeout.\n", drv->uid, du);
+	if (du) {
+		timeout = wait_for_completion_timeout(&du->comp,
+			msecs_to_jiffies(TIMEOUT_MAX));
+		if (timeout) {
+			LOG_DEBUG("[%u]: DU:%px task done, elapse:%d ms\n",
+				drv->uid, du, TIMEOUT_MAX - jiffies_to_msecs(timeout));
+		} else {
+			LOG_WARN("[%u]: DU:%px task timeout.\n", drv->uid, du);
+		}
 	}
 
 	kref_put(&drv->ref, __aml_dhp_release);

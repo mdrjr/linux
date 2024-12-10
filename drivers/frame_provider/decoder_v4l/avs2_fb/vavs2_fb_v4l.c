@@ -8396,8 +8396,10 @@ static s32 vavs2_init(struct vdec_s *vdec)
 #ifdef NEW_FB_CODE
 	if (dec->front_back_mode == 1 || dec->front_back_mode == 3) {
 		fw_back = fw_firmare_s_creat(fw_size);
-		if (!fw_back)
+		if (!fw_back) {
+			vfree(fw);
 			return -ENOMEM;
+		}
 
 		size = get_firmware_data(VIDEO_DEC_AVS2_FRONT, fw->data);
 
