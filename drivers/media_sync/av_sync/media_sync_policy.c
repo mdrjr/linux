@@ -157,7 +157,7 @@ bool checkStreamPtsValid(s64 apts, s64 vpts, s64 demuxpcr, sync_stream_type* inv
 
 bool checkDmxPcrValid(mediasync_policy_instance *policyInst,sync_stream_type* invalid_stream)
 {
-	mediasync_frameinfo curQueueAudioInfo;
+	mediasync_frameinfo curQueueAudioInfo = {-1, -1};
 	mediasync_frameinfo curQueueVideoInfo;
 	if (policyInst->firstDmxPcrInfo.framePts == -1) {
 		mediasync_pr_info(0,policyInst,"exception: cannot get dmx_pcr, dmx_pcr is invalid.");
@@ -523,10 +523,10 @@ const char* videoPolicy2Str(video_policy policy) {
 
 int videoDiscontinueProcess(mediasync_policy_instance *policyInst,bool mDiscontinueTimeOut) {
 	//mediasync_frameinfo videoframeInfo;
-	mediasync_frameinfo audioframeInfo;
-	mediasync_frameinfo curQueueAudioInfo;
-	mediasync_frameinfo curQueueVideoInfo;
-	mediasync_frameinfo dmxPcrInfo;
+	mediasync_frameinfo audioframeInfo = {-1, -1};
+	mediasync_frameinfo curQueueAudioInfo = {-1, -1};
+	mediasync_frameinfo curQueueVideoInfo = {-1, -1};
+	mediasync_frameinfo dmxPcrInfo = {-1, -1};
 	//mediasync_frameinfo info;
 	sync_stream_type invalidstream = MEDIA_TYPE_MAX;
 	s32 offset  = 0;
@@ -784,9 +784,9 @@ int videoCheckDiscontinue(mediasync_policy_instance *policyInst,s64 vpts) {
 	s64 diffpv = 0;
 	bool videoCheckDiscontinue = false;
 	bool mDiscontinueTimeOut = false;
-	mediasync_frameinfo mDmxPcrInfo;
-	mediasync_frameinfo audioframeInfo;
-	mediasync_frameinfo audiofirstframeInfo;
+	mediasync_frameinfo mDmxPcrInfo = {-1, -1};
+	mediasync_frameinfo audioframeInfo = {-1, -1};
+	mediasync_frameinfo audiofirstframeInfo = {-1, -1};
 	if (policyInst->clockType == UNKNOWN_CLOCK) {
 		mediasync_ins_get_clocktype(policyInst->mMediasyncIns,&(policyInst->clockType));
 	}
@@ -1032,8 +1032,8 @@ int checkVideoFreeRun(mediasync_policy_instance *policyInst,s64 vpts,bool* isVid
 
 int videoUpdateRefClock(mediasync_policy_instance *policyInst,s64 pts,int* pauseResumeStatus,int* holdTime) {
 
-	mediasync_frameinfo frameInfo;
-	mediasync_frameinfo pauseFrameInfo;
+	mediasync_frameinfo frameInfo = {-1, -1};
+	mediasync_frameinfo pauseFrameInfo = {-1, -1};
 	int adjust  = 0;
 	int hasaudio = -1;
 	bool resetRefClockInfo = false;

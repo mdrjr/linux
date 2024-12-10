@@ -278,10 +278,10 @@ static s64 get_system_time_us(void) {
 }
 
 static mediasync_frameinfo_inner check_apts_valid(mediasync_ins* pInstance,int64_t pts) {
-	mediasync_frameinfo_inner ret;
+	mediasync_frameinfo_inner ret = {-1, -1, 0, 0, 0};
 	struct frame_table_s* pTable = &pInstance->frame_table[PTS_TYPE_AUDIO];
 	s32 syncIndex = pInstance->mSyncIndex;
-	ret.frameid = 0;
+
 	if (!list_empty(&pTable->valid_list) && valid_pts(pts)) {
 		if (pts == pTable->mLastCheckedPts && pTable->mLastCheckedFrame.frameid != 0) {
 			ret = pTable->mLastCheckedFrame;
@@ -422,13 +422,12 @@ static void update_audio_cache(mediasync_ins* pInstance,int64_t pts, int64_t dur
 }
 
 static void update_video_cache(mediasync_ins* pInstance,int64_t pts, int64_t duration_add) {
-	mediasync_frameinfo_inner minelement;
-	mediasync_frameinfo_inner maxelement;
+	mediasync_frameinfo_inner minelement = {-1, -1, 0, 0, 0};
+	mediasync_frameinfo_inner maxelement = {-1, -1, 0, 0, 0};
 	int segment_size = 0;
 	struct frame_table_s* pTable = &pInstance->frame_table[PTS_TYPE_VIDEO];
 	s32 syncIndex = pInstance->mSyncIndex;
-	minelement.framePts = -1;
-	maxelement.framePts = -1;
+
 	if (!valid_pts(pts)) {
 		pTable->mCacheInfo.cacheDuration = 0;
 	} else {
