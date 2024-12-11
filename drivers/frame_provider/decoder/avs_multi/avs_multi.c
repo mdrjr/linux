@@ -1655,6 +1655,12 @@ static int vavs_prot_init(struct vdec_avs_hw_s *hw)
 		WRITE_VREG(HEVCD_MPP_VDEC_MCR_CTL, (1 << 4) | 1);
 		WRITE_VREG(HEVCD_MPP_DECOMP_CTL1, 1 << 31);
 
+		if (buf_size <= 0x00400000) {
+			// config fix stride
+			WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | 768));
+		} else {
+			WRITE_VREG(HEVCD_MCR_FIXSIZE_CFG, ((1 << 15) | 1920));
+		}
 		SET_VREG_MASK(MDEC_PIC_DC_CTRL, 1 << 18);
 	}
 
@@ -3030,8 +3036,10 @@ void (*callback)(struct vdec_s *, void *, int),
 	hw->run_count++;
 	run_count[DECODE_ID(hw)] = hw->run_count;
 	vdec_reset_core(vdec);
-	if (is_vdec_hevc_combine())
+	if (is_vdec_hevc_combine()) {
+		hevc_reset_core(vdec);
 		WRITE_VREG(HEVC_CORE_ENABLE, 0);
+	}
 #if DEBUG_MULTI_FLAG > 0
 	}
 #endif
