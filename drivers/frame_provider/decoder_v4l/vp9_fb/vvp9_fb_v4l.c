@@ -13874,9 +13874,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		int size = decoder_mmu_box_sc_check(ctx->bm.mmu, tvp);
 
 		pbi->first_sc_checked = 1;
-		vp9_print(pbi, 0, "vp9 cached=%d  need_size=%d speed= %d ms\n",
+		vp9_print(pbi, 0, "vp9 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (pbi->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - pbi->sc_start_time) * 1000/HZ);
+			(get_jiffies_64() - pbi->sc_start_time) * (1000/HZ));
 	}
 
 #ifdef SUPPORT_FB_DECODING

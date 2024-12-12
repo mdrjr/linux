@@ -17423,9 +17423,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 #endif
 		hevc->first_sc_checked =1;
 		hevc_print(hevc, 0,
-			"vh265 cached=%d  need_size=%d speed= %d ms\n",
+			"vh265 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hevc->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - hevc->sc_start_time) * 1000 / HZ);
+			(get_jiffies_64() - hevc->sc_start_time) * (1000/HZ));
 	}
 	if (vdec_stream_based(vdec) && (hevc->init_flag == 0)
 			&& pre_decode_buf_level != 0) {

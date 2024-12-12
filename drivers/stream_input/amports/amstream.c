@@ -3962,9 +3962,9 @@ static ssize_t bufs_show(KV_CLASS_CONST struct class *class, KV_CLASS_ATTR_CONST
 				 PTS_TYPE_VIDEO));
 
 				pbuf += sprintf(pbuf,
-				"\tbuf time after last write data :%d ms\n",
-				(int)(jiffies_64 -
-				p->last_write_jiffies64) * 1000 / HZ);
+				"\tbuf time after last write data :%lld ms\n",
+				(jiffies_64 -
+				p->last_write_jiffies64) * (1000/HZ));
 			}
 		}
 		if (p->write_thread) {

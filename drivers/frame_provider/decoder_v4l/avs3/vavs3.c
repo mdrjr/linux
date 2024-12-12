@@ -10248,9 +10248,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 			size_1 = decoder_mmu_box_sc_check(ctx->bm.mmu_1, tvp);
 #endif
 		dec->first_sc_checked = 1;
-		avs3_print(dec, 0, "vavs3 cached=%d  need_size=%d speed= %d ms\n",
+		avs3_print(dec, 0, "vavs3 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (dec->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - dec->sc_start_time) * 1000/HZ);
+			(get_jiffies_64() - dec->sc_start_time) * (1000/HZ));
 	}
 
 	if (dec->next_again_flag &&

@@ -10551,9 +10551,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		hevc->first_sc_checked =1;
 		hevc_print(hevc, 0,
-			"vh266 cached=%d  need_size=%d speed= %d ms\n",
+			"vh266 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hevc->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - hevc->sc_start_time) * 1000/HZ);
+			(get_jiffies_64() - hevc->sc_start_time) * (1000/HZ));
 	}
 	if (vdec_stream_based(vdec) && (hevc->init_flag == 0)
 			&& pre_decode_buf_level != 0) {

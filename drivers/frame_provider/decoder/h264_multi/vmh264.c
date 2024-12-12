@@ -11916,9 +11916,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 		int size = decoder_mmu_box_sc_check(hw->mmu_box, tvp);
 		hw->first_sc_checked =1;
 		dpb_print(DECODE_ID(hw), 0,
-			"vmh264 cached=%d  need_size=%d speed= %d ms\n",
+			"vmh264 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hw->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - hw->sc_start_time) * 1000/HZ);
+			(get_jiffies_64() - hw->sc_start_time) * (1000/HZ));
 	}
 
 	if (vdec_stream_based(vdec) && (hw->init_flag == 0)

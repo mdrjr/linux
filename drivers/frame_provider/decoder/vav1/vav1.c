@@ -11200,9 +11200,9 @@ static unsigned long run_ready(struct vdec_s *vdec, unsigned long mask)
 
 		size = decoder_mmu_box_sc_check(mmu_box, tvp);
 		hw->first_sc_checked = 1;
-		av1_print(hw, 0, "av1 cached=%d  need_size=%d speed= %d ms\n",
+		av1_print(hw, 0, "av1 cached=%d  need_size=%d speed= %lld ms\n",
 			size, (hw->need_cache_size >> PAGE_SHIFT),
-			(int)(get_jiffies_64() - hw->sc_start_time) * 1000/HZ);
+			(get_jiffies_64() - hw->sc_start_time) * (1000/HZ));
 #ifdef AOM_AV1_MMU_DW
 		/*!!!!!! To do ... */
 		if (hw->dw_mmu_enable) {
