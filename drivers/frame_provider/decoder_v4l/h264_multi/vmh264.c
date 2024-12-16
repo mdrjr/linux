@@ -2514,7 +2514,7 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 {
 	struct vdec_h264_hw_s *hw = (struct vdec_h264_hw_s *)vdec->private;
 	struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
-	int pic_struct = 0;
+	int pic_struct = 0, structure = 0;
 	struct aml_vcodec_ctx * v4l = hw->v4l2_ctx;
 	struct buffer_spec_s *pic = NULL;
 	int i, idx = INVALID_IDX;
@@ -2590,13 +2590,14 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 				v4l->vpp_is_need) &&
 				p_H264_Dpb->mVideo.dec_picture) {
 				pic_struct = p_H264_Dpb->mVideo.dec_picture->pic_struct;
+				structure = p_H264_Dpb->mVideo.dec_picture->structure;
 				if (v4l->picinfo.field == V4L2_FIELD_INTERLACED || //frame_mbs_only_flag
 					pic_struct == PIC_TOP_BOT ||
 					pic_struct == PIC_BOT_TOP)
 					aml_buf_get_ref(&v4l->bm, aml_buf);
 
-				if (pic_struct == PIC_TOP_BOT_TOP ||
-					pic_struct == PIC_BOT_TOP_BOT) {
+				if ((pic_struct == PIC_TOP_BOT_TOP ||
+					pic_struct == PIC_BOT_TOP_BOT) && (structure == FRAME)) {
 					aml_buf_get_ref(&v4l->bm, aml_buf);
 				} else if (check_force_interlace(hw, hw->frame_width, hw->frame_height)) {
 					aml_buf_get_ref(&v4l->bm, hw->aml_buf);
@@ -2608,8 +2609,8 @@ int v4l_get_free_buf_idx(struct vdec_s *vdec)
 		hw->aml_buf = NULL;
 
 		dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
-		"%s buf_spec_num %d cma_alloc_addr 0x%lx pic_struct %d\n",
-		__func__, idx, hw->buffer_spec[idx].cma_alloc_addr, pic_struct);
+		"%s buf_spec_num %d cma_alloc_addr 0x%lx pic_struct %d, structure %d\n",
+		__func__, idx, hw->buffer_spec[idx].cma_alloc_addr, pic_struct, structure);
 	}
 
 	return idx;
@@ -3652,10 +3653,11 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 	if (bForceInterlace)
 		vf_count = 2;
 
+//di_post not support PIC_DOUBLE_FRAME and PIC_TRIPLE_FRAME
 	if (frame->frame != NULL &&
 			(frame->frame->pic_struct == PIC_TOP_BOT_TOP ||
 			 frame->frame->pic_struct == PIC_BOT_TOP_BOT ||
-			 frame->frame->pic_struct == PIC_TRIPLE_FRAME)){
+			 ((frame->frame->pic_struct == PIC_TRIPLE_FRAME) && !v4l2_ctx->enable_di_post))) {
 		vf_count = 3;
 	}
 
