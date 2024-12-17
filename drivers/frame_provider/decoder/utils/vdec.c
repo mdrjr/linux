@@ -2386,8 +2386,7 @@ int vdec_prepare_input(struct vdec_s *vdec, struct vframe_chunk_s **p)
 					swap_page_phys);
 				WRITE_VREG(VLD_MEM_SWAP_CTL, 1);
 
-				while (READ_VREG(VLD_MEM_SWAP_CTL) & (1<<7))
-					;
+				dos_wait_status(VLD_MEM_SWAP_CTL, (1<<7), 0);
 				WRITE_VREG(VLD_MEM_SWAP_CTL, 0);
 
 				/* restore wrap count */
@@ -2419,8 +2418,7 @@ int vdec_prepare_input(struct vdec_s *vdec, struct vframe_chunk_s **p)
 				WRITE_VREG(HEVC_STREAM_SWAP_CTRL, 1);
 
 				/* swap busy ands wap wrrsp*/
-				while (READ_VREG(HEVC_STREAM_SWAP_CTRL) & ((1<<7) | (0xff << 24)))
-					;
+				dos_wait_status(HEVC_STREAM_SWAP_CTRL, ((1<<7) | (0xff << 24)), 0);
 				WRITE_VREG(HEVC_STREAM_SWAP_CTRL, 0);
 
 				/* restore stream offset */
@@ -5883,8 +5881,8 @@ void hevc_reset_core(struct vdec_s *vdec)
 		(1<<17)|(1<<18)|(1<<19)|(1<<24)|(1<<26));
 
 	WRITE_VREG(DOS_SW_RESET3, 0);
-	while (READ_VREG(HEVC_WRRSP_LMEM) & 0xfff)
-		;
+	dos_wait_status(HEVC_WRRSP_LMEM, 0xfff, 0);
+
 	WRITE_VREG(HEVC_SAO_MMU_RESET_CTRL,
 			READ_VREG(HEVC_SAO_MMU_RESET_CTRL) & (~1));
 
