@@ -7074,6 +7074,7 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 		tmp4x.double_write_mode = pic_config->double_write_mode;
 		vdec_fill_vdec_frame(hw_to_vdec(hw), &hw->vframe_qos, &tmp4x, vf, pic_config->hw_decode_time);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 		if (high_bandwidth_dynamic_enabled) {
 			av1_print(hw, PRINT_FLAG_VDEC_STATUS, "vf->duration: %d\n", vf->duration);
 			if (hw->time_bandwidth_flag ||
@@ -7083,7 +7084,7 @@ static int prepare_display_buf(struct AV1HW_s *hw,
 				hw->time_bandwidth_flag = 1;
 			}
 		}
-
+#endif
 		v4l_av1_update_frame_info(hw, vf, pic_config);
 
 		if (without_display_mode == 0) {

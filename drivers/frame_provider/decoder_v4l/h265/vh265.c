@@ -10854,6 +10854,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 		vdec_fill_vdec_frame(vdec, &hevc->vframe_qos, &tmp4x, vf, pic->hw_decode_time);
 		vdec->vdec_fps_detec(vdec->id);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 		if (high_bandwidth_dynamic_enabled) {
 			hevc_print(hevc, H265_DEBUG_OUT_PTS, "vf->duration %d\n",  vf->duration);
 			if (hevc->time_bandwidth_flag ||
@@ -10863,7 +10864,7 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 				vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
 			}
 		}
-
+#endif
 		hevc_print(hevc, H265_DEBUG_BUFMGR,
 			"%s(type %d index 0x%x poc %d/%d) pts(%d,%d,%llu) dur %d\n",
 			__func__, vf->type, vf->index,

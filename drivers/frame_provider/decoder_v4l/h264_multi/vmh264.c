@@ -4020,6 +4020,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 
 		atomic_add(1, &hw->vf_pre_count);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 		if (high_bandwidth_dynamic_enabled) {
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,"vf duration = %d\n", vf->duration);
 			if (hw->high_bandwidth_flag ||
@@ -4029,7 +4030,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 				vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
 			}
 		}
-
+#endif
 		vdec_vframe_ready(hw_to_vdec(hw), vf);
 
 		if (!frame->show_frame) {

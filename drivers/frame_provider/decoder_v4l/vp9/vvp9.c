@@ -8150,6 +8150,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 				v4l2_ctx->fbc_transcode_and_set_vf(v4l2_ctx,
 					aml_buf, vf);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 			if (high_bandwidth_dynamic_enabled) {
 				vp9_print(pbi, PRINT_FLAG_VDEC_STATUS, "vf->duration %d\n", vf->duration);
 				if (pbi->time_bandwidth_flag ||
@@ -8159,7 +8160,7 @@ static int prepare_display_buf(struct VP9Decoder_s *pbi,
 					vf->type_ext |= VIDTYPE_EXT_HIGH_BANDWIDTH;
 				}
 			}
-
+#endif
 			if (without_display_mode == 0) {
 				if (v4l2_ctx->is_stream_off  && ((!v4l2_ctx->avbcd_work_mode) ||
 					(v4l2_ctx->avbcd_work_mode && atomic_read(&pbi->vf_pre_count) > 1))) {
