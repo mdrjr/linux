@@ -4421,7 +4421,7 @@ void aml_v4l_ctx_release(struct kref *kref)
 
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 
-	vfree(ctx->meta_infos.meta_bufs);
+	aml_media_mem_free(ctx->meta_infos.meta_bufs);
 	ctx->aux_infos.free_buffer(ctx, SEI_TYPE | DV_TYPE | HDR10P_TYPE);
 
 	v4l_dbg(ctx, V4L_DEBUG_CODEC_BUFMGR,

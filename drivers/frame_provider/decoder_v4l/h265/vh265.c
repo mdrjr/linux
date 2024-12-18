@@ -11589,6 +11589,7 @@ static int vh265_get_ps_info(struct hevc_state_s *hevc,
 		hevc_print(hevc, H265_DEBUG_DETAIL, "h265 8bit interlace, mmu force disable\n");
 		vdec_v4l_get_cfg_infos(ctx, &cfg_info);
 		cfg_info.double_write_mode = DM_YUV_ONLY;
+		ctx->no_fbc_output = false;
 		vdec_v4l_set_cfg_infos(ctx, &cfg_info);
 	}
 
@@ -14402,7 +14403,7 @@ static int h265_recycle_frame_buffer(struct hevc_state_s *hevc)
 			if (pic->drop_mark)
 				pic->drop_mark = 0;
 
-			if (ctx->no_fbc_output && pic->vf_ref) {
+			if (hevc->mmu_enable && ctx->no_fbc_output && pic->vf_ref) {
 				if (aml_buf->fbc->used[aml_buf->fbc->index] & 1) {
 					decoder_mmu_box_free_idx(aml_buf->fbc->mmu,
 								aml_buf->fbc->index);
