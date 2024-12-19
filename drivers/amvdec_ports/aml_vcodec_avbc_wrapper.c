@@ -168,6 +168,7 @@ extern int crc_dump;
 
 static void do_vframe_avbc_soft_decode(struct soft_data_t *soft_data)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 	int i, j, ret, y_size, free_cnt;
 	unsigned int crc1, crc2, crc3, crc4;
 	short *planes[4];
@@ -317,6 +318,7 @@ static void do_vframe_avbc_soft_decode(struct soft_data_t *soft_data)
 free:
 	for (i = 0; i < free_cnt; i++)
 		vfree(planes[i]);
+#endif
 }
 
 int aml_avbcd_process_one_frame(struct avbc_input *input, struct avbc_output	*output)
