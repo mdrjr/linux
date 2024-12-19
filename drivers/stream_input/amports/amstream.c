@@ -701,7 +701,8 @@ static int audio_port_reset(struct stream_port_s *port,
 	pr_info("audio_port_reset begin\n");
 	pts_stop(PTS_TYPE_AUDIO);
 
-	stbuf_release(pbuf);
+	//stbuf_release(pbuf);
+	pbuf->first_tstamp = INVALID_PTS;
 
 	r = stbuf_init(pbuf, NULL);
 	if (r < 0) {
