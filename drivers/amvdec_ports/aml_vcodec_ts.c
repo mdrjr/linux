@@ -64,6 +64,8 @@ int aml_vcodec_pts_offset(s32 ptsserver_id, u64 offset, struct checkoutptsoffset
 	}
 
 	*pts = mCheckOutPtsOffset;
+	pts->pts = pts->pts * 1000;
+	pts->pts_64 = pts->pts_64 * 1000;
 
 	pr_debug("%s duration: %lld offset: 0x%llx pts: 0x%x pts64: %llu\n",
 		__func__, (offset >> 32) & 0xffffffff,

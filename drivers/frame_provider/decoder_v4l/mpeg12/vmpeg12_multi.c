@@ -1947,8 +1947,16 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 		first_field_type = (info & PICINFO_TOP_FIRST) ?
 			VIDTYPE_INTERLACE_TOP : VIDTYPE_INTERLACE_BOTTOM;
 		field_num = (info & PICINFO_RPT_FIRST) ? 3 : 2;
+	}
 
-		if (v4l2_ctx->enable_di_post || v4l2_ctx->vpp_is_need) {
+	if ((vdec->prog_only) || (hw->report_field & V4L2_FIELD_NONE) ||
+		(!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post)) {
+		field_num = 1;
+		type |= VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | nv_order;
+	}
+
+	if (v4l2_ctx->enable_di_post || v4l2_ctx->vpp_is_need) {
+		if ((field_num == 2) || (field_num == 3)) {
 			aml_buf = (struct aml_buf *)hw->pics[index].v4l_ref_buf_addr;
 			aml_buf_get_ref(&v4l2_ctx->bm, aml_buf);
 			sub0_buf = (struct aml_buf *)aml_buf->sub_buf[0];
@@ -1968,12 +1976,6 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 				 PICINFO_TYPE_I))))
 				aml_buf_set_unbind_dmabuf(&v4l2_ctx->bm, sub1_buf);
 		}
-	}
-
-	if ((vdec->prog_only) || (hw->report_field & V4L2_FIELD_NONE) ||
-		(!v4l2_ctx->vpp_is_need && !v4l2_ctx->enable_di_post)) {
-		field_num = 1;
-		type |= VIDTYPE_PROGRESSIVE | VIDTYPE_VIU_FIELD | nv_order;
 	}
 
 	for (i = 0; i < field_num; i++) {
@@ -2084,7 +2086,7 @@ static int prepare_display_buf(struct vdec_mpeg12_hw_s *hw,
 					vf->timestamp = 0;
 				}
 			} else if (i > 0) {
-				pts_st.offset = -1;
+				dur_offset = -1;
 				if (!v4l2_ctx->pts_serves_ops->checkout(v4l2_ctx->ptsserver_id, dur_offset, &pts_st)) {
 					vf->pts = pts_st.pts;
 					vf->pts_us64 = pts_st.pts_64;
