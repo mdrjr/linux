@@ -124,8 +124,7 @@ static int aml_buf_vpp_dque(struct buf_core_mgr_s *bc, struct buf_core_entry *en
 	vf->index_disp	= bm->frm_cnt;
 	vf->frame_index	= bm->frm_cnt;
 
-	if (!(vf->type & VIDTYPE_V4L_EOS))
-		bm->frm_cnt++;
+	bm->frm_cnt++;
 
 	dmabuf_set_vframe(buf->planes[0].dbuf, &buf->vframe, VF_SRC_DECODER);
 
