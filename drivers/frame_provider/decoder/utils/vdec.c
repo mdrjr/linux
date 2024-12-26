@@ -4534,14 +4534,14 @@ void dos_gclk_en_set(enum vdec_type_e core, bool enable, bool mmu_enable)
 	if (enable) {
 		switch (core) {
 			case VDEC_1:
-				WRITE_VREG(DOS_GCLK_EN0, 0xffffffff);
+				WRITE_VREG_BITS(DOS_GCLK_EN0, 0x3ff, 0, 10);
 				if (mmu_enable)
 					WRITE_VREG(DOS_GCLK_EN3, 0x1ffa7);
 				else
 					WRITE_VREG(DOS_GCLK_EN3, 0x1f7a7);
 				break;
 			case VDEC_HEVC:
-				WRITE_VREG(DOS_GCLK_EN0, 0);
+				CLEAR_VREG_MASK(DOS_GCLK_EN0, 0x3ff);
 				WRITE_VREG(DOS_GCLK_EN3, 0xffffffff);
 				break;
 			default:

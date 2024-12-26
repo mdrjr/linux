@@ -11828,6 +11828,9 @@ result_done:
 		WRITE_VREG(DOS_SW_RESET0, (1 << 2));
 		WRITE_VREG(DOS_SW_RESET0, 0);
 		arb_ctrl_wait_idle(1);
+
+		WRITE_VREG_BITS(DOS_GCLK_EN0, 0x3ff, 0, 10);
+		WRITE_VREG(GCLK_EN, 0x3ff);
 	}
 
 	hw->timeout_flag = TIMEOUT_INIT;
