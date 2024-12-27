@@ -774,7 +774,7 @@ static void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 
 void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 {
-	struct aml_buf_config config;
+	struct aml_buf_config config = { 0 };
 	struct vb2_queue * que = v4l2_m2m_get_dst_vq(ctx->m2m_ctx);
 	u32 dw = DM_YUV_ONLY;
 	u32 tw = DM_INVALID;
@@ -836,6 +836,8 @@ void aml_vdec_pic_info_update(struct aml_vcodec_ctx *ctx)
 	config.dw_mode			= dw;
 	config.tw_mode			= tw;
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
+	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
+		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
 
 	aml_buf_configure(&ctx->bm, &config);
 
