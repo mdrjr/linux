@@ -24,6 +24,7 @@
 #include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include "../../../stream_input/amports/amports_priv.h"
 #include "../../../common/media_utils/media_utils.h"
+#include "../../../common/chips/decoder_cpu_ver_info.h"
 #include "vdec.h"
 #include "vdec_input.h"
 #include <asm/cacheflush.h>
@@ -332,7 +333,7 @@ int vdec_input_prepare_bufs(struct vdec_input_s *input,
 		return 0;
 	if (input->size > 0)
 		return 0;
-	if (frame_width * frame_height >= 1920 * 1088) {
+	if (vdec_is_support_4k() || hevc_is_support_4k()) {
 		/*have add data before. ignore prepare buffers.*/
 		input->default_block_size = VFRAME_BLOCK_SIZE_4K;
 	}
