@@ -555,6 +555,7 @@ static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
 static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
 
 static s32 enc_dma_buf_release(struct file *filp);
+static void enc_dma_buf_unmap(struct enc_dma_cfg *cfg);
 static s32 enc_src_addr_config(struct encdrv_dma_buf_info_t *pinfo,
         struct file *filp);
 static s32 enc_free_buffers(struct file *filp);
@@ -3512,6 +3513,12 @@ static s32 set_jpeg_input_format(struct jpegenc_wq_s *wq,
 
 static void jpegenc_isr_tasklet(ulong data)
 {
+    int i = 0;
+    struct enc_dma_cfg *cfg = NULL;
+    struct encdrv_dma_buf_pool_t *pool, *n;
+    struct enc_dma_cfg vb;
+    ulong phys_addr;
+    s32 found;
     struct jpegenc_manager_s *manager = (struct jpegenc_manager_s *)data;
 
     jenc_pr(LOG_INFO, "encoder is done %d\n", manager->encode_hw_status);
@@ -3521,6 +3528,35 @@ static void jpegenc_isr_tasklet(ulong data)
         manager->wq.hw_status = manager->encode_hw_status;
         manager->wq.output_size = READ_HREG(HCODEC_VLC_TOTAL_BYTES);
         jenc_pr(LOG_INFO, "encoder size %d\n", manager->wq.output_size);
+        for (i = 0; i < manager->wq.cmd.plane_num; i++) {
+            cfg = &manager->wq.cmd.dma_cfg[i];
+            jenc_pr(LOG_INFO, "request vaddr %p, paddr %lx\n",
+                cfg->vaddr, (unsigned long)cfg->paddr);
+            if (cfg->fd >= 0 && cfg->paddr != NULL) {
+                list_for_each_entry_safe(pool, n, &s_dma_bufp_head, list) {
+                    found = 0;
+                    vb = pool->dma_cfg;
+                    phys_addr = (unsigned long)vb.paddr;
+                    if (vb.fd == cfg->fd)
+                    {
+                        if (phys_addr != (unsigned long)cfg->paddr) {
+                            jenc_pr(LOG_ERROR, "dma_unmap plane %d", i);
+                            jenc_pr(LOG_ERROR, " no match ");
+                            jenc_pr(LOG_ERROR, "0x%lx %lx\n",
+                                phys_addr, (unsigned long)cfg->paddr);
+                        }
+                        found = 1;
+                    }
+                    if (found && vb.attach) {
+                        enc_dma_buf_unmap(&vb);
+                        spin_lock(&s_dma_buf_lock);
+                        list_del(&pool->list);
+                        spin_unlock(&s_dma_buf_lock);
+                        kfree(pool);
+                    }
+                }
+            }
+        }
         atomic_inc(&manager->wq.ready);
         wake_up_interruptible(&manager->wq.complete);
     }
@@ -3937,12 +3973,13 @@ static s32 jpegenc_init(void)
     return 0;
 }
 
-static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info)
+static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info, struct file *filp)
 {
     int i = 0;
     u32 data_offset;
     unsigned long paddr = 0;
     struct enc_dma_cfg *cfg = NULL;
+    struct encdrv_dma_buf_pool_t *vbp;
     s32 ret = 0;
     if (!wq) {
         jenc_pr(LOG_ERROR, "jpegenc convert_cmd error\n");
@@ -4011,6 +4048,12 @@ static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info)
                 return -1;
             }
             for (i = 0; i < wq->cmd.plane_num; i++) {
+                vbp = kzalloc(sizeof(*vbp), GFP_KERNEL);
+                if (!vbp) {
+                    ret = -ENOMEM;
+                    return ret;
+                }
+                memset(vbp, 0, sizeof(struct encdrv_dma_buf_pool_t));
                 cfg = &wq->cmd.dma_cfg[i];
                 cfg->dir = DMA_TO_DEVICE;
                 cfg->fd = cmd_info[data_offset++];
@@ -4022,16 +4065,26 @@ static s32 convert_cmd(struct jpegenc_wq_s *wq, u32 *cmd_info)
                         cfg->fd);
                     cfg->paddr = NULL;
                     cfg->vaddr = NULL;
+                    kfree(vbp);
                     return -1;
                 }
                 cfg->paddr = (void *)paddr;
                 jenc_pr(LOG_INFO, "paddr 0x%lx\n", (unsigned long)cfg->paddr);
+                memcpy(&vbp->dma_cfg, &wq->cmd.dma_cfg[i], sizeof(struct enc_dma_cfg));
+                vbp->filp = filp;
+                spin_lock(&s_dma_buf_lock);
+                list_add(&vbp->list, &s_dma_bufp_head);
+                spin_unlock(&s_dma_buf_lock);
             }
         } else {
             jenc_pr(LOG_ERROR, "error fmt = %d\n",
                 wq->cmd.input_fmt);
         }
     }
+    /*
+     * Variable vbp will free in enc_dma_buf_release finally.
+     */
+    /* coverity[leaked_storage] */
     return 0;
 }
 
@@ -4310,7 +4363,7 @@ static long jpegenc_ioctl(struct file *file, u32 cmd, ulong arg)
             jenc_pr(LOG_DEBUG, "jpegenc uninitialized.\n");
             return -1;
         }
-        if (!convert_cmd(wq, addr_info))
+        if (!convert_cmd(wq, addr_info, file))
             jpegenc_start_cmd(wq);
         break;
     case JPEGENC_IOC_NEW_CMD2:
