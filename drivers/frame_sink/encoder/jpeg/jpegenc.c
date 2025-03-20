@@ -3825,8 +3825,15 @@ static s32 jpegenc_poweron(u32 clock)
             udelay(10);
             /* Powerup HCODEC */
             /* [1:0] HCODEC */
+            /* SM1 bit[0] HCODEC
+                   bit[1] VDEC
+                   bit[2] HEVC
+                   bit[3] WAVE420L*/
             WRITE_AOREG(AO_RTI_GEN_PWR_SLEEP0,
-                (READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) & (~0x3)));
+                (READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) &
+                ((get_cpu_type() == MESON_CPU_MAJOR_ID_SM1 ||
+                 get_cpu_type() >= MESON_CPU_MAJOR_ID_TM2)
+                ? ~0x1 : ~0x3)));
             udelay(10);
         }
 
@@ -3886,7 +3893,10 @@ static s32 jpegenc_poweroff(void)
         if (get_cpu_major_id() >= AM_MESON_CPU_MAJOR_ID_M8) {
             /* HCODEC power off */
             WRITE_AOREG(AO_RTI_GEN_PWR_SLEEP0,
-                READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) | 0x3);
+                READ_AOREG(AO_RTI_GEN_PWR_SLEEP0) |
+                ((get_cpu_type() == MESON_CPU_MAJOR_ID_SM1 ||
+                  get_cpu_type() >= MESON_CPU_MAJOR_ID_TM2)
+                ? 0x1 : 0x3));
         }
 
         /* release DOS clk81 clock gating */
