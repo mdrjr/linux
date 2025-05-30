@@ -11575,18 +11575,23 @@ static int vh265_get_ps_info(struct hevc_state_s *hevc,
 	ps->dpb_margin		= get_dynamic_buf_num_margin(hevc);
 	ps->bitdepth		= (hevc->param.p.bit_depth & 0xf) + 8;
 
-	if (!ctx->is_multiplanar &&
-		hevc->interlace_flag && (ps->bitdepth == 8)) {
+	if (hevc->interlace_flag) {
+		int dw = DM_YUV_1_1_AVBC;
 		struct aml_vdec_cfg_infos cfg_info = { 0 };
-		if (vh265_clear_mmu_config(hevc)) {
-			hevc_print(hevc, 0,
-				"vh265 mmu clear ERROR! \n");
-			return -1;
+
+		if (ps->bitdepth == 8) {
+			dw = DM_YUV_ONLY;
+			if (vh265_clear_mmu_config(hevc)) {
+				hevc_print(hevc, 0,
+					"vh265 mmu clear ERROR! \n");
+				return -1;
+			}
 		}
-		hevc->double_write_mode = DM_YUV_ONLY;
-		hevc_print(hevc, H265_DEBUG_DETAIL, "h265 8bit interlace, mmu force disable\n");
+
+		hevc->double_write_mode = dw;
+		hevc_print(hevc, H265_DEBUG_DETAIL, "h265 interlace, force use dw %d\n", dw);
 		vdec_v4l_get_cfg_infos(ctx, &cfg_info);
-		cfg_info.double_write_mode = DM_YUV_ONLY;
+		cfg_info.double_write_mode = dw;
 		ctx->no_fbc_output = false;
 		vdec_v4l_set_cfg_infos(ctx, &cfg_info);
 	}
