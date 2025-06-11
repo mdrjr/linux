@@ -9885,6 +9885,8 @@ static int dec_status(struct vdec_s *vdec, struct vdec_info *vstatus)
 		vstatus->frame_width = hw->error_frame_width;
 		vstatus->frame_height = hw->error_frame_height;
 	}
+
+	hw->frame_dur = hw->v4l_duration ? hw->v4l_duration : hw->frame_dur;
 	if (hw->frame_dur != 0) {
 		vstatus->frame_dur = hw->frame_dur;
 		vstatus->frame_rate = ((96000 * 10 / hw->frame_dur) % 10) < 5 ?
