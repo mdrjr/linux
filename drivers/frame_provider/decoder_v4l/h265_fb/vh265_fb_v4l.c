@@ -12261,18 +12261,23 @@ static int vh265_get_ps_info(struct hevc_state_s *hevc,
 	ps->dpb_margin		= get_dynamic_buf_num_margin(hevc);
 	ps->bitdepth		= (hevc->param.p.bit_depth & 0xf) + 8;
 
-	if (!ctx->is_multiplanar &&
-		hevc->interlace_flag && (ps->bitdepth == 8)) {
+	if (hevc->interlace_flag) {
+		int dw = DM_YUV_1_1_AVBC;
 		struct aml_vdec_cfg_infos cfg_info = { 0 };
-		if (vh265_clear_mmu_config(hevc)) {
-			hevc_print(hevc, 0,
-				"vh265 mmu clear ERROR! \n");
-			return -1;
+
+		if (ps->bitdepth == 8) {
+			dw = DM_YUV_ONLY;
+			if (vh265_clear_mmu_config(hevc)) {
+				hevc_print(hevc, 0,
+					"vh265 mmu clear ERROR! \n");
+				return -1;
+			}
 		}
-		hevc->double_write_mode = DM_YUV_ONLY;
-		hevc_print(hevc, H265_DEBUG_DETAIL, "h265 8bit interlace, mmu force disable\n");
+
+		hevc->double_write_mode = dw;
+		hevc_print(hevc, H265_DEBUG_DETAIL, "h265 interlace, force use dw %d\n", dw);
 		vdec_v4l_get_cfg_infos(ctx, &cfg_info);
-		cfg_info.double_write_mode = DM_YUV_ONLY;
+		cfg_info.double_write_mode = dw;
 		vdec_v4l_set_cfg_infos(ctx, &cfg_info);
 	}
 
@@ -12324,6 +12329,27 @@ static void get_comp_buf_info(struct hevc_state_s *hevc,
 	pr_info("hevc get comp info: %d %d %d\n",
 			info->max_size, info->header_size,
 			info->frame_buffer_size);
+}
+
+static void update_comp_info(struct aml_vcodec_ctx *ctx, void *hw)
+{
+	struct vdec_comp_buf_info info;
+	struct hevc_state_s *hevc = (struct hevc_state_s *)hw;
+	int w = ctx->picinfo.visible_width;
+	int h = ctx->picinfo.visible_height;
+	u16 bit_depth = ctx->picinfo.bitdepth;
+
+	if (!w || !h) {
+		pr_err("comp_info w and h is 0\n");
+		return;
+	}
+	hevc_print(hevc, H265_DEBUG_DETAIL, "h265 update comp info\n");
+	info.max_size = hevc_max_mmu_buf_size(
+		hevc->max_pic_w, hevc->max_pic_h);
+	info.header_size = hevc_get_header_size(w,h);
+	info.frame_buffer_size = hevc_mmu_page_num(
+		hevc, w, h, bit_depth != 0x00);
+	vdec_v4l_set_comp_buf_info(ctx, &info);
 }
 
 static void hevc_interlace_check(struct hevc_state_s *hevc,
@@ -18293,6 +18319,7 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 	hevc->v4l2_ctx = pdata->private;
 	ctx = (struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
 	ctx->vdec_recycle_dec_resource = h265_recycle_dec_resource;
+	ctx->update_comp_info = update_comp_info;
 
 	pdata->private = hevc;
 	pdata->dec_status = vh265_dec_status;

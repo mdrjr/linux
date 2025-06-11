@@ -1116,6 +1116,7 @@ struct aml_vcodec_ctx {
 
 	struct aml_buf_mgr_s		bm;
 	void (*vdec_recycle_dec_resource)(void *, struct aml_buf *);
+	void (*update_comp_info)(struct aml_vcodec_ctx *, void *);
 
 	atomic_t		vpp_cache_num;
 	atomic_t		ge2d_cache_num;

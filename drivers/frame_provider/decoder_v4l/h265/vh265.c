@@ -11636,6 +11636,27 @@ static void get_comp_buf_info(struct hevc_state_s *hevc,
 			info->frame_buffer_size);
 }
 
+static void update_comp_info(struct aml_vcodec_ctx *ctx, void *hw)
+{
+	struct vdec_comp_buf_info info;
+	struct hevc_state_s *hevc = (struct hevc_state_s *)hw;
+	int w = ctx->picinfo.visible_width;
+	int h = ctx->picinfo.visible_height;
+	u16 bit_depth = ctx->picinfo.bitdepth;
+
+	if (!w || !h) {
+		pr_err("comp_info w and h is 0\n");
+		return;
+	}
+	hevc_print(hevc, H265_DEBUG_DETAIL, "h265 update comp info\n");
+	info.max_size = hevc_max_mmu_buf_size(
+		hevc->max_pic_w, hevc->max_pic_h);
+	info.header_size = hevc_get_header_size(w,h);
+	info.frame_buffer_size = hevc_mmu_page_num(
+		hevc, w, h, bit_depth != 0x00);
+	vdec_v4l_set_comp_buf_info(ctx, &info);
+}
+
 static void hevc_interlace_check(struct hevc_state_s *hevc,
 	union param_u *rpm_param)
 {
@@ -16579,6 +16600,7 @@ static int ammvdec_h265_probe(struct platform_device *pdev)
 	ctx = (struct aml_vcodec_ctx *)(hevc->v4l2_ctx);
 	if (!ctx->avbcd_work_mode)
 		ctx->vdec_recycle_dec_resource = h265_recycle_dec_resource;
+	ctx->update_comp_info = update_comp_info;
 
 	pdata->private = hevc;
 	pdata->dec_status = vh265_dec_status;

@@ -11723,6 +11723,23 @@ static void h264_set_comp_info(struct aml_vcodec_ctx *ctx, struct aml_vdec_ps_in
 	return;
 }
 
+static void update_comp_info(struct aml_vcodec_ctx *ctx, void *hw)
+{
+	struct vdec_comp_buf_info info = { 0 };
+	int w = ctx->picinfo.visible_width;
+	int h = ctx->picinfo.visible_height;
+
+	if (!w || !h) {
+		pr_err("current comp_info w and h is 0\n");
+		return;
+	}
+	pr_info("h264 update comp info\n");
+	info.max_size = h264_max_mmu_buf_size(w, h);
+	info.header_size = h264_get_header_size(w,h);
+	info.frame_buffer_size = h264_mmu_page_num(w, h, 0);
+	vdec_v4l_set_comp_buf_info(ctx, &info);
+}
+
 static int v4l_res_change(struct vdec_h264_hw_s *hw,
 	u32 param1, u32 param2, u32 param3, u32 param4)
 {
@@ -13339,7 +13356,7 @@ static int ammvdec_h264_probe(struct platform_device *pdev)
 	ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 	if (!ctx->avbcd_work_mode)
 		ctx->vdec_recycle_dec_resource = h264_recycle_dec_resource;
-
+	ctx->update_comp_info = update_comp_info;
 	platform_set_drvdata(pdev, pdata);
 
 	hw->mmu_enable = 0;

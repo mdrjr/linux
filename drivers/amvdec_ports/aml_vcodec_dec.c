@@ -52,7 +52,7 @@
 #include "aml_vcodec_dec_infoserver.h"
 #include "aml_vcodec_avbc_wrapper.h"
 
-
+#include "../frame_provider/decoder/utils/vdec.h"
 #include "../frame_provider/decoder/utils/decoder_bmmu_box.h"
 #include "../frame_provider/decoder/utils/decoder_mmu_box.h"
 #include "../common/chips/decoder_cpu_ver_info.h"
@@ -777,6 +777,9 @@ static void aml_buf_configure_update(struct aml_vcodec_ctx *ctx)
 	config.avbcd_work_mode	= ctx->avbcd_work_mode ? true : false;
 	config.dynamic_mode	= (ctx->enable_di_post && ctx->picinfo.field != V4L2_FIELD_NONE &&
 		is_vdec_core_fmt(ctx->output_pix_fmt)) ? true : false;
+
+	if (config.enable_fbc && ctx->update_comp_info)
+		ctx->update_comp_info(ctx, ctx->ada_ctx->vdec->private);
 
 	aml_buf_configure(&ctx->bm, &config);
 }
