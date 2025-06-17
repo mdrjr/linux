@@ -760,13 +760,6 @@ static long mediasync_ins_init_audioinfo(mediasync_ins* pInstance) {
 	pInstance->mAudioFormat.format = -1;
 	pInstance->mAudioFormat.samplerate = -1;
 
-	pInstance->mAudioSwitch.mOn = 0;
-	pInstance->mAudioSwitch.mSetByUser = 0;
-	pInstance->mAudioSwitch.mPts = -1;
-	pInstance->mAudioSwitch.mSystemTimeUs = -1;
-	pInstance->mAudioSwitch.mReserved[0] = 0;
-	pInstance->mAudioSwitch.mReserved[1] = 0;
-
 	return 0;
 }
 
@@ -791,6 +784,12 @@ static long mediasync_ins_init_syncinfo(mediasync_ins* pInstance) {
 	pInstance->mAVRef = 0;
 	pInstance->mPlayerInstanceId = -1;
 	pInstance->mCacheFrames = 0;
+	pInstance->mAudioSwitch.mOn = 0;
+	pInstance->mAudioSwitch.mSetByUser = 0;
+	pInstance->mAudioSwitch.mPts = -1;
+	pInstance->mAudioSwitch.mSystemTimeUs = -1;
+	pInstance->mAudioSwitch.mReserved[0] = 0;
+	pInstance->mAudioSwitch.mReserved[1] = 0;
 	return 0;
 }
 
