@@ -384,6 +384,8 @@ struct vdec_mpeg12_hw_s {
 	u32 chunk_size; // 1.chunk->size: one package data size.  2.chunk_size: the reserved(left) size of chunk->size, mainly for one-package-multi-frame.
 	u32 chunk_offset;
 	u32 consume_byte;
+	u32 last_frame_ud_num;
+	u32 cur_frame_ud_num;
 };
 
 static u32 get_ratio_control(struct vdec_mpeg12_hw_s *hw);
@@ -1519,6 +1521,17 @@ static void userdata_push_do_work(struct work_struct *work)
 			"UD Records over: %d, skip it\n", MAX_UD_RECORDS);
 		WRITE_VREG(AV_SCRATCH_J, 0);
 		hw->cur_ud_idx = 0;
+		return;
+	}
+
+	hw->cur_frame_ud_num++;
+
+	if (hw->cur_frame_ud_num <= hw->last_frame_ud_num) {
+		debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL,
+			"user data package duplicate retrieval, skip it, poc %d \n", meta_info.poc_number);
+		hw->ucode_cc_last_wp = cur_wp;
+		hw->vf_ucode_cc_last_wp = cur_wp;
+		WRITE_VREG(AV_SCRATCH_J, 0);
 		return;
 	}
 
@@ -2842,6 +2855,8 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 {
 	int r;
 
+	hw->last_frame_ud_num = 0;
+
 	if (hw->dec_result != DEC_RESULT_DONE)
 		debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
 			"%s, result=%d, status=%d\n", __func__,
@@ -2864,6 +2879,7 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 		}
 
 		if (input_stream_based(vdec)) {
+			hw->last_frame_ud_num = hw->cur_frame_ud_num;
 			vdec_set_input_underrun(vdec, true);
 			debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
 				"%s: set input underrun status to true\n", __func__);
@@ -4121,6 +4137,8 @@ void (*callback)(struct vdec_s *, void *, int),
 	}
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
+
+	hw->cur_frame_ud_num = 0;
 
 #ifdef AGAIN_HAS_THRESHOLD
 	if (vdec_stream_based(vdec)) {

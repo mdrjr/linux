@@ -380,6 +380,8 @@ struct vdec_mpeg12_hw_s {
 	u32 parse_user_data_size;
 	struct userdata_meta_info_t meta_info;
 	u32 vf_ucode_cc_last_wp;
+	u32 last_frame_ud_num;
+	u32 cur_frame_ud_num;
 };
 static void vmpeg12_local_init(struct vdec_mpeg12_hw_s *hw);
 static int vmpeg12_hw_ctx_restore(struct vdec_mpeg12_hw_s *hw);
@@ -1585,6 +1587,17 @@ static void userdata_push_do_work(struct work_struct *work)
 			"UD Records over: %d, skip it\n", MAX_UD_RECORDS);
 		WRITE_VREG(AV_SCRATCH_J, 0);
 		hw->cur_ud_idx = 0;
+		return;
+	}
+
+	hw->cur_frame_ud_num++;
+
+	if (hw->cur_frame_ud_num <= hw->last_frame_ud_num) {
+		debug_print(DECODE_ID(hw), PRINT_FLAG_USERDATA_DETAIL,
+			"user data package duplicate retrieval, skip it, poc %d \n", meta_info.poc_number);
+		hw->ucode_cc_last_wp = cur_wp;
+		hw->vf_ucode_cc_last_wp = cur_wp;
+		WRITE_VREG(AV_SCRATCH_J, 0);
 		return;
 	}
 
@@ -3137,6 +3150,8 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 	int r;
 	struct aml_vcodec_ctx *ctx = (struct aml_vcodec_ctx *)(hw->v4l2_ctx);
 
+	hw->last_frame_ud_num = 0;
+
 	if (hw->dec_result != DEC_RESULT_DONE)
 		debug_print(DECODE_ID(hw), PRINT_FLAG_RUN_FLOW,
 			"%s, result=%d, status=%d\n", __func__,
@@ -3177,6 +3192,10 @@ static void vmpeg12_work_implement(struct vdec_mpeg12_hw_s *hw,
 #ifdef AGAIN_HAS_THRESHOLD
 		hw->next_again_flag = 1;
 #endif
+
+		if (input_stream_based(vdec)) {
+			hw->last_frame_ud_num = hw->cur_frame_ud_num;
+		}
 	} else if (hw->dec_result == DEC_RESULT_GET_DATA &&
 		vdec->next_status != VDEC_STATUS_DISCONNECTED) {
 		if (!vdec_has_more_input(vdec)) {
@@ -4420,6 +4439,8 @@ void (*callback)(struct vdec_s *, void *, int),
 	}
 	hw->vdec_cb_arg = arg;
 	hw->vdec_cb = callback;
+
+	hw->cur_frame_ud_num = 0;
 
 	if ((vdec_stream_based(vdec)) &&
 			(error_proc_policy & 0x1) &&
