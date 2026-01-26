@@ -94,13 +94,14 @@ static const struct of_device_id exynos_pm_domain_of_match[] __initconst = {
 	{ },
 };
 
-static __init const char *exynos_get_domain_name(struct device_node *node)
+static __init const char *exynos_get_domain_name(struct device *dev,
+					  struct device_node *node)
 {
 	const char *name;
 
 	if (of_property_read_string(node, "label", &name) < 0)
 		name = kbasename(node->full_name);
-	return kstrdup_const(name, GFP_KERNEL);
+	return devm_kstrdup_const(dev, name, GFP_KERNEL);
 }
 
 static __init int exynos4_pm_init_power_domain(void)
@@ -113,37 +114,13 @@ static __init int exynos4_pm_init_power_domain(void)
 		struct exynos_pm_domain *pd;
 		int on;
 
-		pm_domain_cfg = match->data;
+	pd->pd.name = exynos_get_domain_name(dev, np);
+	if (!pd->pd.name)
+		return -ENOMEM;
 
-		pd = kzalloc(sizeof(*pd), GFP_KERNEL);
-		if (!pd) {
-			of_node_put(np);
-			return -ENOMEM;
-		}
-		pd->pd.name = exynos_get_domain_name(np);
-		if (!pd->pd.name) {
-			kfree(pd);
-			of_node_put(np);
-			return -ENOMEM;
-		}
-
-		pd->base = of_iomap(np, 0);
-		if (!pd->base) {
-			pr_warn("%s: failed to map memory\n", __func__);
-			kfree_const(pd->pd.name);
-			kfree(pd);
-			continue;
-		}
-
-		pd->pd.power_off = exynos_pd_power_off;
-		pd->pd.power_on = exynos_pd_power_on;
-		pd->local_pwr_cfg = pm_domain_cfg->local_pwr_cfg;
-
-		on = readl_relaxed(pd->base + 0x4) & pd->local_pwr_cfg;
-
-		pm_genpd_init(&pd->pd, NULL, !on);
-		of_genpd_add_provider_simple(np, &pd->pd);
-	}
+	pd->base = of_iomap(np, 0);
+	if (!pd->base)
+		return -ENODEV;
 
 	/* Assign the child power domains to their parents */
 	for_each_matching_node(np, exynos_pm_domain_of_match) {
