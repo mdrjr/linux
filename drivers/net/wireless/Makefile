@@ -24,3 +24,5 @@ obj-$(CONFIG_WLAN_VENDOR_ZYDAS) += zydas/
 
 obj-$(CONFIG_WLAN) += virtual/
 obj-$(CONFIG_WL_ROCKCHIP)	+= rockchip_wlan/
+obj-$(CONFIG_RTL8821CU) += rtl8821cu/
+obj-$(CONFIG_RTL8821AU) += rtl8821au/
