@@ -13,6 +13,7 @@
 #include <dt-bindings/display/drm_mipi_dsi.h>
 #include <dt-bindings/sensor-dev.h>
 #include "rk3566.dtsi"
+#include <dt-bindings/display/rockchip_vop.h>
 
 / {
 	model = "Hardkernel ODROID-M1S";
@@ -1278,4 +1279,8 @@
 			};
 		};
 	};
+};
+
+&vp0 {
+	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
 };
