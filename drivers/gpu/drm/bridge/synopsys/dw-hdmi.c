@@ -4377,6 +4377,11 @@ static void dw_hdmi_bridge_atomic_enable(struct drm_bridge *bridge,
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = false;
 	hdmi->curr_conn = connector;
+	if (hdmi->initialized && !hdmi->force_kernel_output) {
+		hdmi->initialized = false;
+		if (hdmi->bridge_is_on)
+			dw_hdmi_poweroff(hdmi);
+	}
 	if (hdmi->plat_data->dclk_set)
 		hdmi->plat_data->dclk_set(hdmi->plat_data->phy_data, true, 0);
 	dw_hdmi_update_power(hdmi);
