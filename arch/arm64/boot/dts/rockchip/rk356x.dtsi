@@ -3564,12 +3564,12 @@
 		reg = <0x0 0xfe8a0000 0x0 0x10000>;
 		clocks = <&pmucru CLK_USBPHY0_REF>;
 		clock-names = "phyclk";
-		clock-output-names = "usb480m_phy";
+		clock-output-names = "clk_usbphy0_480m";
 		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>;
 		rockchip,usbgrf = <&usb2phy0_grf>;
 		#clock-cells = <0>;
-		assigned-clocks = <&cru USB480M>;
-		assigned-clock-parents = <&usb2phy0>;
+		assigned-clocks = <&cru USB480M_PHY>, <&cru USB480M>;
+		assigned-clock-parents = <&usb2phy0>, <&cru USB480M_PHY>;
 		status = "disabled";
 
 		u2phy0_host: usb2phy0_host: host-port {
@@ -3588,6 +3588,7 @@
 		reg = <0x0 0xfe8b0000 0x0 0x10000>;
 		clocks = <&pmucru CLK_USBPHY1_REF>;
 		clock-names = "phyclk";
+		clock-output-names = "clk_usbphy1_480m";
 		interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 		rockchip,usbgrf = <&usb2phy1_grf>;
 		#clock-cells = <0>;
